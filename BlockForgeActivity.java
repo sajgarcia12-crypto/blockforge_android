@@ -316,7 +316,10 @@ public class BlockForgeActivity extends Activity {
             "# Proyecto: " + project + "\n"+
             "crear_mundo \"Mi mundo\"\n"+
             "crear_bloque piedra 1 1 1\n"+
-            "mostrar_mensaje \"Hola BlockForge\"\n"+
+            "crear_personaje Jugador\n"+
+            "jugador.mover(2, 1)\n"+
+            "jugador.saltar(5)\n"+
+            "mostrar_mensaje \"¡Jugador listo!\"\n"+
             "ver_bloques\n"
         ));
 
@@ -344,6 +347,11 @@ public class BlockForgeActivity extends Activity {
         card("Comandos disponibles",
                 "crear_mundo \"Nombre\"\n"+
                 "crear_bloque tipo x y z\n"+
+                "crear_personaje Nombre\n"+
+                "jugador.mover(x, z)\n"+
+                "jugador.saltar(altura)\n"+
+                "jugador.girar(grados)\n"+
+                "jugador.vida(valor)\n"+
                 "mostrar_mensaje \"texto\"\n"+
                 "limpiar_mundo\n"+
                 "ver_bloques\n"+
@@ -369,6 +377,11 @@ public class BlockForgeActivity extends Activity {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
+
+            if (executeCharacterCommand(line, output, i)) {
+                executed++;
+                continue;
+            }
 
             int space = line.indexOf(' ');
             String command = space < 0 ? line : line.substring(0, space);
@@ -439,6 +452,73 @@ public class BlockForgeActivity extends Activity {
 
         output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
         runtimeOutput.setText(output.toString());
+    }
+
+    String activeProjectName() {
+        return getPreferences(MODE_PRIVATE)
+                .getString("active_project", "Mi primer proyecto");
+    }
+
+    boolean executeCharacterCommand(String line, StringBuilder output, int lineIndex) {
+        String project = activeProjectName();
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        try {
+            if (line.startsWith("crear_personaje ")) {
+                String name = line.substring("crear_personaje ".length()).trim();
+                if (name.isEmpty()) throw new IllegalArgumentException("Falta el nombre del personaje");
+                prefs.edit().putString("character_name_" + project, name)
+                        .putFloat("character_x_" + project, 0f)
+                        .putFloat("character_z_" + project, 0f)
+                        .putInt("character_health_" + project, 100).apply();
+                output.append("Personaje creado: ").append(name).append(" · vida 100\\n");
+                refreshScenePreview();
+                return true;
+            }
+            if (line.startsWith("jugador.mover(") && line.endsWith(")")) {
+                String[] values = line.substring(14, line.length() - 1).split(",");
+                if (values.length != 2) throw new IllegalArgumentException("Uso: jugador.mover(x, z)");
+                float dx = Float.parseFloat(values[0].trim());
+                float dz = Float.parseFloat(values[1].trim());
+                float x = prefs.getFloat("character_x_" + project, 0f) + dx;
+                float z = prefs.getFloat("character_z_" + project, 0f) + dz;
+                prefs.edit().putFloat("character_x_" + project, x)
+                        .putFloat("character_z_" + project, z).apply();
+                output.append("Jugador movido a (").append(x).append(", ").append(z).append(")\\n");
+                refreshScenePreview();
+                return true;
+            }
+            if (line.startsWith("jugador.saltar(") && line.endsWith(")")) {
+                float height = Float.parseFloat(line.substring(14, line.length() - 1).trim());
+                if (height <= 0 || height > 100) throw new IllegalArgumentException("La altura debe ser mayor que 0 y hasta 100");
+                prefs.edit().putFloat("character_last_jump_" + project, height).apply();
+                output.append("Salto programado: altura ").append(height).append("\\n");
+                return true;
+            }
+            if (line.startsWith("jugador.girar(") && line.endsWith(")")) {
+                float degrees = Float.parseFloat(line.substring(13, line.length() - 1).trim());
+                prefs.edit().putFloat("character_rotation_" + project, degrees).apply();
+                output.append("Jugador girado: ").append(degrees).append(" grados\\n");
+                refreshScenePreview();
+                return true;
+            }
+            if (line.startsWith("jugador.vida(") && line.endsWith(")")) {
+                int health = Integer.parseInt(line.substring(13, line.length() - 1).trim());
+                if (health < 0 || health > 1000) throw new IllegalArgumentException("Vida permitida: 0 a 1000");
+                prefs.edit().putInt("character_health_" + project, health).apply();
+                output.append("Vida del jugador: ").append(health).append("\\n");
+                return true;
+            }
+        } catch (Exception ex) {
+            output.append("Línea ").append(lineIndex + 1).append(": ")
+                    .append(ex.getMessage() == null ? "parámetro inválido" : ex.getMessage())
+                    .append("\\n");
+            return true;
+        }
+        return false;
+    }
+
+    void refreshScenePreview() {
+        if (scenePreview != null) scenePreview.invalidate();
     }
 
     void addSceneBlock(int x, int z) {
@@ -556,6 +636,23 @@ public class BlockForgeActivity extends Activity {
 
             paint.setColor(white);
             paint.setTextSize(12);
+            String active = activeProjectName();
+            String character = getPreferences(MODE_PRIVATE)
+                    .getString("character_name_" + active, "");
+            if (!character.isEmpty()) {
+                float px = getPreferences(MODE_PRIVATE).getFloat("character_x_" + active, 0f);
+                float pz = getPreferences(MODE_PRIVATE).getFloat("character_z_" + active, 0f);
+                int cx = Math.max(0, Math.min(9, Math.round(px)));
+                int cz = Math.max(0, Math.min(9, Math.round(pz)));
+                float centerX = (cx + 0.5f) * cellW;
+                float centerY = (cz + 0.5f) * cellH;
+                paint.setColor(Color.rgb(65, 145, 255));
+                canvas.drawCircle(centerX, centerY, Math.min(cellW, cellH) * 0.32f, paint);
+                paint.setColor(Color.WHITE);
+                paint.setTextSize(10);
+                canvas.drawText(character, centerX - 18, centerY - 12, paint);
+            }
+
             canvas.drawText("ESCENA · " + blocks.size() + " BLOQUES", 12, 20, paint);
         }
     }
