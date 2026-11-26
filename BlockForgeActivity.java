@@ -384,6 +384,24 @@ public class BlockForgeActivity extends Activity {
         } catch(Exception ignored) { }
     }
 
+    void copyProjectAsset(String sourceFolder,String fileName,String targetFolder) {
+        try {
+            if(fileName==null||fileName.isEmpty())return;
+            String folderPath=getPreferences(MODE_PRIVATE).getString("project_folder_"+activeProjectName(),"");
+            if(folderPath.isEmpty())return;
+            java.io.File root=new java.io.File(folderPath).getCanonicalFile();
+            java.io.File targetDir=new java.io.File(root,targetFolder).getCanonicalFile();
+            if(!targetDir.getPath().startsWith(root.getPath()+java.io.File.separator))return;
+            if(!targetDir.exists()&&!targetDir.mkdirs())return;
+            java.io.File source=new java.io.File(new java.io.File(getFilesDir(),sourceFolder),fileName);
+            if(!source.isFile())return;
+            java.io.InputStream in=new java.io.FileInputStream(source);
+            java.io.OutputStream out=new java.io.FileOutputStream(new java.io.File(targetDir,fileName));
+            byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);
+            in.close();out.close();
+        } catch(Exception ignored) { }
+    }
+
     void openProject(String name) {
         getPreferences(MODE_PRIVATE).edit().putString("active_project", name).apply();
         openPage(2);
@@ -1239,6 +1257,7 @@ public class BlockForgeActivity extends Activity {
             sceneAudioPlayer=new android.media.MediaPlayer();sceneAudioPrepared=false;
             java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"resources"),name);
             if(!file.isFile())throw new java.io.IOException("El audio no existe en Recursos");
+            copyProjectAsset("resources",name,"audio");
             sceneAudioPlayer.setDataSource(file.getAbsolutePath());sceneAudioPlayer.setLooping(true);
             sceneAudioPlayer.setOnPreparedListener(mp->{sceneAudioPrepared=true;if(activityResumed)mp.start();});
             sceneAudioPlayer.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"No se pudo reproducir el audio",Toast.LENGTH_SHORT).show();stopSceneAudio();return true;});
@@ -2221,6 +2240,10 @@ public class BlockForgeActivity extends Activity {
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
             saveProjectFile("scenes/sprites.json",data.toString());
+            for(SceneSprite sprite:sprites){
+                copyProjectAsset("sprites",sprite.fileName,"assets");
+                for(String frameName:sprite.animationFrameNames)copyProjectAsset("sprites",frameName,"assets");
+            }
         }
 
         void addSprite(String name) {
@@ -2959,7 +2982,7 @@ public class BlockForgeActivity extends Activity {
             return;
         }
         if(requestCode==PICK_BACKGROUND_REQUEST){
-            try{String name=copyUriToFolder(data.getData(),"backgrounds","background");getPreferences(MODE_PRIVATE).edit().putString("scene_bg_image_"+activeProjectName(),name).apply();if(scenePreview!=null)scenePreview.invalidate();Toast.makeText(this,"Fondo importado",Toast.LENGTH_SHORT).show();openPage(2);}
+            try{String name=copyUriToFolder(data.getData(),"backgrounds","background");getPreferences(MODE_PRIVATE).edit().putString("scene_bg_image_"+activeProjectName(),name).apply();copyProjectAsset("backgrounds",name,"backgrounds");if(scenePreview!=null)scenePreview.invalidate();Toast.makeText(this,"Fondo importado",Toast.LENGTH_SHORT).show();openPage(2);}
             catch(Exception ex){Toast.makeText(this,"No se pudo importar fondo: "+ex.getMessage(),Toast.LENGTH_LONG).show();}return;
         }
         if (requestCode == PICK_ANIMATION_FRAME_REQUEST) {
