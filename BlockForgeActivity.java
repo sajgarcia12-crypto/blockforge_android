@@ -781,14 +781,23 @@ public class BlockForgeActivity extends Activity {
         input.setHint("Nombre del proyecto");
         form.addView(input);
 
+        EditText folderInput = new EditText(this);
+        folderInput.setSingleLine(true);
+        folderInput.setHint("Nombre de la carpeta (por defecto: proyecto)");
+        form.addView(folderInput);
         TextView typeLabel = label("Tipo de proyecto", 13, gray);
         typeLabel.setPadding(0, 12, 0, 6);
         form.addView(typeLabel);
         Spinner type = new Spinner(this);
         String[] types = {"2D", "3D"};
-        type.setAdapter(new ArrayAdapter<String>(this,
-                android.R.layout.simple_spinner_dropdown_item, types));
+        type.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,types));
         form.addView(type);
+        TextView resolutionLabel=label("Resolución del mundo 2D (píxeles)",13,gray);
+        resolutionLabel.setPadding(0,12,0,6);form.addView(resolutionLabel);
+        Spinner resolution=new Spinner(this);
+        String[] resolutions={"320 × 180","640 × 360","1280 × 720","320 × 320","512 × 512","1920 × 1080"};
+        resolution.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,resolutions));
+        form.addView(resolution);
 
         new android.app.AlertDialog.Builder(this)
             .setTitle("Nuevo proyecto")
@@ -806,6 +815,11 @@ public class BlockForgeActivity extends Activity {
                     return;
                 }
                 String projectType = type.getSelectedItem().toString();
+                String folderName=folderInput.getText().toString().trim();if(folderName.isEmpty())folderName=name;
+                String safeFolder=folderName.replaceAll("[^a-zA-Z0-9._ -]","_").trim();
+                if(safeFolder.isEmpty()||".".equals(safeFolder)||"..".equals(safeFolder)){Toast.makeText(this,"Nombre de carpeta no válido",Toast.LENGTH_SHORT).show();return;}
+                String[] dims=resolution.getSelectedItem().toString().split("×");int projectWidth=320,projectHeight=180;
+                try{projectWidth=Integer.parseInt(dims[0].trim());projectHeight=Integer.parseInt(dims[1].trim());}catch(Exception ignored){}
                 android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
                 java.util.Set<String> names = new java.util.HashSet<>(
                         prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
@@ -816,7 +830,7 @@ public class BlockForgeActivity extends Activity {
                 }
 
                 java.io.File projectsRoot = new java.io.File(getFilesDir(), "BlockForgeProjects");
-                java.io.File projectFolder = new java.io.File(projectsRoot, safeName);
+                java.io.File projectFolder = new java.io.File(projectsRoot, safeFolder);
                 if ((!projectsRoot.exists() && !projectsRoot.mkdirs())
                         || (!projectFolder.exists() && !projectFolder.mkdirs())) {
                     Toast.makeText(this, "No se pudo crear la carpeta del proyecto",
@@ -836,6 +850,7 @@ public class BlockForgeActivity extends Activity {
                     org.json.JSONObject manifest = new org.json.JSONObject();
                     manifest.put("name", name); manifest.put("type", projectType);
                     manifest.put("format", "blockforge-project"); manifest.put("version", 1);
+                    manifest.put("folder",safeFolder);manifest.put("width",projectWidth);manifest.put("height",projectHeight);manifest.put("unit","pixels");
                     manifest.put("createdAt", System.currentTimeMillis());
                     java.io.FileOutputStream manifestOut = new java.io.FileOutputStream(new java.io.File(projectFolder, "project.json"));
                     manifestOut.write(manifest.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -847,8 +862,10 @@ public class BlockForgeActivity extends Activity {
                 prefs.edit().putStringSet("blockforge_projects", names)
                     .putString("project_type_" + name, projectType)
                     .putString("project_folder_" + name, projectFolder.getAbsolutePath())
+                    .putInt("scene_map_w_"+name,Math.max(5,Math.min(64,projectWidth/32)))
+                    .putInt("scene_map_h_"+name,Math.max(5,Math.min(64,projectHeight/32)))
                     .putInt("scene_bg_color_" + name, Color.rgb(24,32,43)).apply();
-                Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
+                Toast.makeText(this, "Proyecto " + projectType + " creado: " + name + " · carpeta " + safeFolder + (projectType.equals("2D")?" · "+projectWidth+"×"+projectHeight+" px":""),
                         Toast.LENGTH_LONG).show();
                 // Abrir directamente el editor correspondiente al tipo elegido.
                 openProject(name);
@@ -2120,6 +2137,8 @@ public class BlockForgeActivity extends Activity {
 
     class ScenePreview extends View {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Bitmap sceneBackgroundBitmap=null;
+        String sceneBackgroundLoadedName="";
         java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> blockColors = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> blockLayers = new java.util.ArrayList<>();
@@ -2238,8 +2257,9 @@ public class BlockForgeActivity extends Activity {
                 }
                 return;
             }
-            if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite para controlar",Toast.LENGTH_SHORT).show();return;}
-            SceneSprite sp=sprites.get(selectedSprite);
+            int playerIndex=-1;for(int i=0;i<sprites.size();i++)if(sprites.get(i).isPlayer){playerIndex=i;break;}
+            if(playerIndex<0){Toast.makeText(BlockForgeActivity.this,"Designa un personaje en el inspector",Toast.LENGTH_SHORT).show();return;}
+            selectedSprite=playerIndex;SceneSprite sp=sprites.get(playerIndex);
             switch(b.action){
                 case "left":heldMobileAction="left";sp.vx=-6.5f;break;
                 case "right":heldMobileAction="right";sp.vx=6.5f;break;
@@ -2260,7 +2280,7 @@ public class BlockForgeActivity extends Activity {
             return new float[]{cx,cy};
         }
         void drawMobileButtons(Canvas canvas){
-            if(!scenePlayMode)return;float size=Math.max(96f,Math.min(124f,getWidth()*0.075f));
+            if(!scenePlayMode)return;float size=Math.max(148f,Math.min(184f,getWidth()*0.115f));
             for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float[] pt=mobileButtonCenter(i,size);float cx=pt[0],cy=pt[1];
                 paint.setColor(Color.argb(190,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
                 paint.setColor(Color.argb(220,210,225,245));paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2f);canvas.drawCircle(cx,cy,size/2f,paint);paint.setStyle(Paint.Style.FILL);
@@ -2268,7 +2288,7 @@ public class BlockForgeActivity extends Activity {
             }
         }
         int hitMobileButton(float x,float y){
-            float size=Math.max(96f,Math.min(124f,getWidth()*0.075f));
+            float size=Math.max(148f,Math.min(184f,getWidth()*0.115f));
             for(int i=0;i<mobileButtons.size();i++){float[] pt=mobileButtonCenter(i,size);if(Math.hypot(x-pt[0],y-pt[1])<=size*0.68f)return i;}return -1;
         }
 
@@ -2653,8 +2673,9 @@ public class BlockForgeActivity extends Activity {
         }
 
         void releaseHeldMobileButton(){
-            if(selectedSprite>=0&&selectedSprite<sprites.size()){
-                SceneSprite controlled=sprites.get(selectedSprite);
+            int playerIndex=-1;for(int i=0;i<sprites.size();i++)if(sprites.get(i).isPlayer){playerIndex=i;break;}
+            if(playerIndex>=0&&playerIndex<sprites.size()){
+                SceneSprite controlled=sprites.get(playerIndex);selectedSprite=playerIndex;
                 if("left".equals(heldMobileAction)||"right".equals(heldMobileAction))controlled.vx=0f;
                 if("up".equals(heldMobileAction)||"down".equals(heldMobileAction))controlled.vy=0f;
             }
@@ -2764,7 +2785,19 @@ public class BlockForgeActivity extends Activity {
             super.onDraw(canvas);
             canvas.drawColor(getPreferences(MODE_PRIVATE).getInt("scene_bg_color_"+activeProjectName(),Color.rgb(24,32,43)));
             String bgName=getPreferences(MODE_PRIVATE).getString("scene_bg_image_"+activeProjectName(),"");
-            if(!bgName.isEmpty()){java.io.File bgFile=new java.io.File(new java.io.File(getFilesDir(),"backgrounds"),bgName);Bitmap bg=BitmapFactory.decodeFile(bgFile.getAbsolutePath());if(bg!=null){paint.setFilterBitmap(true);canvas.drawBitmap(bg,null,new RectF(0,0,getWidth(),getHeight()),paint);bg.recycle();}}
+            if(!bgName.equals(sceneBackgroundLoadedName)){
+                if(sceneBackgroundBitmap!=null&&!sceneBackgroundBitmap.isRecycled())sceneBackgroundBitmap.recycle();
+                sceneBackgroundBitmap=null;sceneBackgroundLoadedName=bgName;
+                if(!bgName.isEmpty()){
+                    java.io.File bgFile=new java.io.File(new java.io.File(getFilesDir(),"backgrounds"),bgName);
+                    BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeFile(bgFile.getAbsolutePath(),bounds);
+                    int sample=1,targetW=Math.max(1,getWidth()*2),targetH=Math.max(1,getHeight()*2);
+                    while(bounds.outWidth>0&&bounds.outHeight>0&&(bounds.outWidth/sample>targetW*2||bounds.outHeight/sample>targetH*2))sample*=2;
+                    BitmapFactory.Options opts=new BitmapFactory.Options();opts.inSampleSize=sample;opts.inPreferredConfig=Bitmap.Config.RGB_565;
+                    try{sceneBackgroundBitmap=BitmapFactory.decodeFile(bgFile.getAbsolutePath(),opts);}catch(OutOfMemoryError oom){opts.inSampleSize=Math.max(2,sample*2);try{sceneBackgroundBitmap=BitmapFactory.decodeFile(bgFile.getAbsolutePath(),opts);}catch(OutOfMemoryError ignored){}}
+                }
+            }
+            if(sceneBackgroundBitmap!=null&&!sceneBackgroundBitmap.isRecycled()){paint.setFilterBitmap(false);canvas.drawBitmap(sceneBackgroundBitmap,null,new RectF(0,0,getWidth(),getHeight()),paint);}
             canvas.save();canvas.translate(cameraOffsetX,cameraOffsetY);canvas.scale(cameraZoom,cameraZoom);
             final float worldUnit=64f;
             float visibleLeft=-cameraOffsetX/(cameraZoom*worldUnit);
@@ -3041,7 +3074,7 @@ public class BlockForgeActivity extends Activity {
             return;
         }
         if(requestCode==PICK_BACKGROUND_REQUEST){
-            try{String name=copyUriToFolder(data.getData(),"backgrounds","background");getPreferences(MODE_PRIVATE).edit().putString("scene_bg_image_"+activeProjectName(),name).apply();copyProjectAsset("backgrounds",name,"backgrounds");if(scenePreview!=null)scenePreview.invalidate();Toast.makeText(this,"Fondo importado",Toast.LENGTH_SHORT).show();openPage(2);}
+            try{String name=copyUriToFolder(data.getData(),"backgrounds","background");getPreferences(MODE_PRIVATE).edit().putString("scene_bg_image_"+activeProjectName(),name).apply();copyProjectAsset("backgrounds",name,"backgrounds");if(scenePreview!=null){if(scenePreview.sceneBackgroundBitmap!=null&&!scenePreview.sceneBackgroundBitmap.isRecycled())scenePreview.sceneBackgroundBitmap.recycle();scenePreview.sceneBackgroundBitmap=null;scenePreview.sceneBackgroundLoadedName="";scenePreview.invalidate();}Toast.makeText(this,"Fondo importado",Toast.LENGTH_SHORT).show();openPage(2);}
             catch(Exception ex){Toast.makeText(this,"No se pudo importar fondo: "+ex.getMessage(),Toast.LENGTH_LONG).show();}return;
         }
         if (requestCode == PICK_ANIMATION_FRAME_REQUEST) {
