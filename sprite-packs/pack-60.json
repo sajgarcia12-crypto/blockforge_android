@@ -1,0 +1,17 @@
+{
+  "name": "BlockForge Sprite Pack 60 FPS",
+  "version": 1,
+  "fps": 60,
+  "description": "Pixel art starter pack optimized for 60 FPS",
+  "sprites": [
+    "hero",
+    "coin",
+    "platform"
+  ],
+  "palette": [
+    "#4D9BFF",
+    "#FFD34D",
+    "#54C878",
+    "#26364F"
+  ]
+}
