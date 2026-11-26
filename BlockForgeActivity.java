@@ -1145,7 +1145,7 @@ public class BlockForgeActivity extends Activity {
             }
 
             if (executeCharacterCommand(line, output, lineNumber - 1)) { executed++; continue; }
-            if (execute2DCommand(line, output, lineNumber - 1)) { executed++; continue; }
+            if (execute2DCommand(line, variables, output, lineNumber - 1)) { executed++; continue; }
 
             int space = line.indexOf(' ');
             String command = space < 0 ? line : line.substring(0, space);
@@ -1195,7 +1195,7 @@ public class BlockForgeActivity extends Activity {
                     break;
                 case "ayuda":
                     output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
-                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
+                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, girar_sprite, escalar_sprite, velocidad_sprite, sprite.solido, sprite.atravesable, eliminar_sprite, duplicar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, fisica.gravedad, colisiones.activar, colisiones.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
                     executed++;
                     break;
                 default:
@@ -1320,54 +1320,179 @@ public class BlockForgeActivity extends Activity {
         return getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
     }
 
-    boolean execute2DCommand(String line, StringBuilder output, int lineIndex) {
+    int evaluateGrafisriptInteger(String expression, java.util.Map<String, Double> variables) {
+        double value = evaluateGrafisriptExpression(expression, variables);
+        if (Double.isNaN(value) || Double.isInfinite(value) ||
+                value < Integer.MIN_VALUE || value > Integer.MAX_VALUE ||
+                value != Math.rint(value)) {
+            throw new IllegalArgumentException("se esperaba un número entero");
+        }
+        return (int) value;
+    }
+
+    boolean execute2DCommand(String line, java.util.Map<String, Double> variables,
+                              StringBuilder output, int lineIndex) {
         try {
             ScenePreview target = scenePreview != null ? scenePreview : new ScenePreview();
             if (line.startsWith("crear_bloque2d ")) {
                 String[] v = line.substring(15).trim().split("\\s+");
-                if (v.length < 2 || v.length > 3) throw new IllegalArgumentException("Uso: crear_bloque2d x y [capa]");
-                int x = Integer.parseInt(v[0]), y = Integer.parseInt(v[1]);
-                int layer = v.length == 3 ? Integer.parseInt(v[2]) : sceneLayer;
+                if (v.length < 2 || v.length > 3)
+                    throw new IllegalArgumentException("Uso: crear_bloque2d x y [capa]");
+                int x = evaluateGrafisriptInteger(v[0], variables);
+                int y = evaluateGrafisriptInteger(v[1], variables);
+                int layer = v.length == 3 ? evaluateGrafisriptInteger(v[2], variables) : sceneLayer;
                 if (x < 0 || x >= target.mapColumns || y < 0 || y >= target.mapRows || layer < 0 || layer > 2)
                     throw new IllegalArgumentException("x/y fuera del mapa; capa: 0 fondo, 1 mundo, 2 frente");
-                target.rememberState(); target.blocks.add(new Point(x,y));
-                target.blockColors.add(sceneBrushColor); target.blockLayers.add(layer);
-                target.persist(); target.invalidate();
-                output.append("Bloque 2D creado en (").append(x).append(", ").append(y).append("), capa ").append(layer).append('\n');
+                target.rememberState();
+                target.blocks.add(new Point(x, y));
+                target.blockColors.add(sceneBrushColor);
+                target.blockLayers.add(layer);
+                target.persist();
+                target.invalidate();
+                output.append("Bloque 2D creado en (").append(x).append(", ").append(y)
+                        .append("), capa ").append(layer).append('\n');
                 return true;
             }
             if (line.startsWith("capa ")) {
-                int layer = Integer.parseInt(line.substring(5).trim());
+                int layer = evaluateGrafisriptInteger(line.substring(5).trim(), variables);
                 if (layer < 0 || layer > 2) throw new IllegalArgumentException("Usa 0, 1 o 2");
-                sceneLayer=layer; output.append("Capa activa: ").append(layer).append('\n');
-                if(scenePreview!=null)scenePreview.invalidate(); return true;
+                sceneLayer = layer;
+                output.append("Capa activa: ").append(layer).append('\n');
+                target.invalidate();
+                return true;
             }
             if (line.startsWith("mover_sprite(") && line.endsWith(")")) {
-                String[] v=line.substring(13,line.length()-1).split(",");
-                if(v.length!=2)throw new IllegalArgumentException("Uso: mover_sprite(dx, dy)");
-                if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
-                int index=target.selectedSprite>=0?target.selectedSprite:0; SceneSprite sp=target.sprites.get(index);
-                sp.x=Math.max(0f,Math.min(target.mapColumns-1f,sp.x+Float.parseFloat(v[0].trim())));
-                sp.y=Math.max(0f,Math.min(target.mapRows-1f,sp.y+Float.parseFloat(v[1].trim())));
-                target.persistSprites();target.invalidate();output.append("Sprite movido a (").append(sp.x).append(", ").append(sp.y).append(")\n");return true;
+                String[] v = line.substring(13, line.length() - 1).split(",");
+                if (v.length != 2) throw new IllegalArgumentException("Uso: mover_sprite(dx, dy)");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                double dx = evaluateGrafisriptExpression(v[0].trim(), variables);
+                double dy = evaluateGrafisriptExpression(v[1].trim(), variables);
+                if (Double.isNaN(dx) || Double.isInfinite(dx) || Double.isNaN(dy) || Double.isInfinite(dy))
+                    throw new IllegalArgumentException("desplazamiento no válido");
+                sp.x = Math.max(0f, Math.min(target.mapColumns - sp.width, sp.x + (float) dx));
+                sp.y = Math.max(0f, Math.min(target.mapRows - sp.height, sp.y + (float) dy));
+                target.persistSprites();
+                target.invalidate();
+                output.append("Sprite movido a (").append(sp.x).append(", ").append(sp.y).append(")\n");
+                return true;
             }
             if (line.startsWith("saltar_sprite(") && line.endsWith(")")) {
-                float force=Float.parseFloat(line.substring(14,line.length()-1).trim());
-                if(force<=0||force>20)throw new IllegalArgumentException("Fuerza permitida: mayor que 0 y hasta 20");
-                if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
-                int index=target.selectedSprite>=0?target.selectedSprite:0;target.sprites.get(index).vy=-force;
-                target.persistSprites();physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Salto 2D iniciado\n");return true;
+                double forceValue = evaluateGrafisriptExpression(
+                        line.substring(14, line.length() - 1).trim(), variables);
+                if (Double.isNaN(forceValue) || Double.isInfinite(forceValue) || forceValue <= 0 || forceValue > 20)
+                    throw new IllegalArgumentException("Fuerza permitida: mayor que 0 y hasta 20");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.vy = -(float) forceValue;
+                physicsRunning = true;
+                target.persistSprites();
+                target.startPhysics();
+                output.append("Salto 2D iniciado\n");
+                return true;
+            }
+            if (line.startsWith("girar_sprite(") && line.endsWith(")")) {
+                double angle = evaluateGrafisriptExpression(line.substring(13, line.length() - 1).trim(), variables);
+                if (Double.isNaN(angle) || Double.isInfinite(angle) || angle < -360 || angle > 360)
+                    throw new IllegalArgumentException("Giro permitido: −360 a 360 grados");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.rotation = (float) angle;
+                target.persistSprites(); target.invalidate();
+                output.append("Rotación aplicada: ").append(sp.rotation).append(" grados\n");
+                return true;
+            }
+            if (line.startsWith("escalar_sprite(") && line.endsWith(")")) {
+                String[] v = line.substring(15, line.length() - 1).split(",");
+                if (v.length != 2) throw new IllegalArgumentException("Uso: escalar_sprite(ancho, alto)");
+                double w = evaluateGrafisriptExpression(v[0].trim(), variables);
+                double h = evaluateGrafisriptExpression(v[1].trim(), variables);
+                if (Double.isNaN(w) || Double.isInfinite(w) || Double.isNaN(h) || Double.isInfinite(h) ||
+                        w < .25 || h < .25 || w > Math.min(8, target.mapColumns) || h > Math.min(8, target.mapRows))
+                    throw new IllegalArgumentException("Tamaño permitido: 0.25 hasta 8 unidades");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.width = (float) w; sp.height = (float) h;
+                sp.x = Math.max(0f, Math.min(target.mapColumns - sp.width, sp.x));
+                sp.y = Math.max(0f, Math.min(target.mapRows - sp.height, sp.y));
+                target.persistSprites(); target.invalidate();
+                output.append("Tamaño aplicado: ").append(sp.width).append(" × ").append(sp.height).append('\n');
+                return true;
+            }
+            if (line.equals("sprite.solido()") || line.equals("sprite.atravesable()")) {
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.solid = line.equals("sprite.solido()");
+                target.persistSprites(); target.invalidate();
+                output.append(sp.solid ? "Colisión del sprite activada\n" : "Sprite atravesable\n");
+                return true;
+            }
+            if (line.equals("eliminar_sprite()")) {
+                if (target.selectedSpriteObject() == null)
+                    throw new IllegalArgumentException("Selecciona un sprite primero");
+                target.deleteSelectedSprite();
+                output.append("Sprite eliminado\n");
+                return true;
+            }
+            if (line.equals("duplicar_sprite()")) {
+                if (target.selectedSpriteObject() == null)
+                    throw new IllegalArgumentException("Selecciona un sprite primero");
+                target.duplicateSelectedSprite();
+                output.append("Sprite duplicado\n");
+                return true;
+            }
+            if (line.startsWith("velocidad_sprite(") && line.endsWith(")")) {
+                String[] v = line.substring(17, line.length() - 1).split(",");
+                if (v.length != 2) throw new IllegalArgumentException("Uso: velocidad_sprite(vx, vy)");
+                double vx = evaluateGrafisriptExpression(v[0].trim(), variables);
+                double vy = evaluateGrafisriptExpression(v[1].trim(), variables);
+                if (Double.isNaN(vx) || Double.isInfinite(vx) || Double.isNaN(vy) || Double.isInfinite(vy) ||
+                        Math.abs(vx) > 8 || Math.abs(vy) > 18)
+                    throw new IllegalArgumentException("Velocidad fuera de rango (vx: −8..8, vy: −18..18)");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.vx = (float) vx; sp.vy = (float) vy;
+                target.persistSprites();
+                physicsRunning = true; target.startPhysics();
+                output.append("Velocidad aplicada\n");
+                return true;
             }
             if (line.startsWith("camara.zoom(") && line.endsWith(")")) {
-                float factor=Float.parseFloat(line.substring(12,line.length()-1).trim());
-                if(factor<0.5f||factor>2f)throw new IllegalArgumentException("Zoom permitido: 0.5 a 2");
-                target.changeZoom(factor);output.append("Zoom de cámara actualizado\n");return true;
+                double factor = evaluateGrafisriptExpression(line.substring(12, line.length() - 1).trim(), variables);
+                if (Double.isNaN(factor) || Double.isInfinite(factor) || factor < 0.5 || factor > 2)
+                    throw new IllegalArgumentException("Zoom permitido: 0.5 a 2");
+                target.changeZoom((float) factor);
+                output.append("Zoom de cámara actualizado\n");
+                return true;
             }
-            if (line.equals("camara.centrar()")) {target.resetCamera();output.append("Cámara centrada\n");return true;}
-            if (line.equals("fisica.activar()")) {physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Física 2D activada\n");return true;}
-            if (line.equals("fisica.pausar()")) {physicsRunning=false;if(scenePreview!=null)scenePreview.stopPhysics();output.append("Física 2D pausada\n");return true;}
-        } catch(Exception ex) {
-            output.append("Línea ").append(lineIndex+1).append(": ").append(ex.getMessage()==null?"parámetro 2D inválido":ex.getMessage()).append('\n');
+            if (line.equals("camara.centrar()")) {
+                target.resetCamera(); output.append("Cámara centrada\n"); return true;
+            }
+            if (line.equals("fisica.activar()")) {
+                physicsRunning = true; target.startPhysics(); output.append("Física 2D activada\n"); return true;
+            }
+            if (line.equals("fisica.pausar()")) {
+                physicsRunning = false; target.stopPhysics(); output.append("Física 2D pausada\n"); return true;
+            }
+            if (line.startsWith("fisica.gravedad(") && line.endsWith(")")) {
+                double gravity = evaluateGrafisriptExpression(line.substring(16, line.length() - 1).trim(), variables);
+                if (Double.isNaN(gravity) || Double.isInfinite(gravity) || gravity < 0 || gravity > 80)
+                    throw new IllegalArgumentException("Gravedad permitida: 0 a 80");
+                physicsGravity = (float) gravity;
+                getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity", physicsGravity).apply();
+                output.append("Gravedad 2D: ").append(physicsGravity).append('\n');
+                return true;
+            }
+            if (line.equals("colisiones.activar()") || line.equals("colisiones.pausar()")) {
+                sceneCollisionsEnabled = line.equals("colisiones.activar()");
+                getPreferences(MODE_PRIVATE).edit().putBoolean("scene_collisions", sceneCollisionsEnabled).apply();
+                target.invalidate();
+                output.append(sceneCollisionsEnabled ? "Colisiones activadas\n" : "Colisiones pausadas\n");
+                return true;
+            }
+        } catch (Exception ex) {
+            output.append("Línea ").append(lineIndex + 1).append(": ")
+                    .append(ex.getMessage() == null ? "parámetro 2D inválido" : ex.getMessage()).append('\n');
             return true;
         }
         return false;
