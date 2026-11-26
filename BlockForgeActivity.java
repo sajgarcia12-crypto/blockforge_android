@@ -2241,11 +2241,14 @@ public class BlockForgeActivity extends Activity {
             if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite para controlar",Toast.LENGTH_SHORT).show();return;}
             SceneSprite sp=sprites.get(selectedSprite);
             switch(b.action){
-                case "left":sp.vx=-5f;break;case "right":sp.vx=5f;break;
-                case "up":sp.vy=-5f;break;case "down":sp.vy=5f;break;
-                case "jump":sp.vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}break;
+                case "left":heldMobileAction="left";sp.vx=-6.5f;break;
+                case "right":heldMobileAction="right";sp.vx=6.5f;break;
+                case "up":heldMobileAction="up";sp.vy=-6.5f;break;
+                case "down":heldMobileAction="down";sp.vy=6.5f;break;
+                case "jump":heldMobileAction="";sp.vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}break;
             }
-            persistSprites();invalidate();
+            if(!physicsRunning){physicsRunning=true;startPhysics();}
+            invalidate();
         }
         float[] mobileButtonCenter(int index,float size){
             MobileButton b=mobileButtons.get(index);float gap=12f,bottom=getHeight()-Math.max(24f,size*.55f);
@@ -2257,7 +2260,7 @@ public class BlockForgeActivity extends Activity {
             return new float[]{cx,cy};
         }
         void drawMobileButtons(Canvas canvas){
-            if(!scenePlayMode)return;float size=Math.max(54f,Math.min(76f,getWidth()*0.12f));
+            if(!scenePlayMode)return;float size=Math.max(96f,Math.min(124f,getWidth()*0.075f));
             for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float[] pt=mobileButtonCenter(i,size);float cx=pt[0],cy=pt[1];
                 paint.setColor(Color.argb(190,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
                 paint.setColor(Color.argb(220,210,225,245));paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2f);canvas.drawCircle(cx,cy,size/2f,paint);paint.setStyle(Paint.Style.FILL);
@@ -2265,8 +2268,8 @@ public class BlockForgeActivity extends Activity {
             }
         }
         int hitMobileButton(float x,float y){
-            float size=Math.max(54f,Math.min(76f,getWidth()*0.12f));
-            for(int i=0;i<mobileButtons.size();i++){float[] pt=mobileButtonCenter(i,size);if(Math.hypot(x-pt[0],y-pt[1])<=size/2f)return i;}return -1;
+            float size=Math.max(96f,Math.min(124f,getWidth()*0.075f));
+            for(int i=0;i<mobileButtons.size();i++){float[] pt=mobileButtonCenter(i,size);if(Math.hypot(x-pt[0],y-pt[1])<=size*0.68f)return i;}return -1;
         }
 
         void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.width=Math.min(sp.width,mapColumns);sp.height=Math.min(sp.height,mapRows);sp.x=Math.max(0,Math.min(mapColumns-sp.width,sp.x));sp.y=Math.max(0,Math.min(mapRows-sp.height,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
@@ -2390,6 +2393,12 @@ public class BlockForgeActivity extends Activity {
             for (SceneSprite sprite : sprites) {
                 if (!sprite.isPlayer) continue; // Plataformas, monedas y decoraciones permanecen fijas.
                 float oldX = sprite.x, oldY = sprite.y;
+                if(scenePlayMode && sprite==selectedSpriteObject()){
+                    if("left".equals(heldMobileAction))sprite.vx=-6.5f;
+                    else if("right".equals(heldMobileAction))sprite.vx=6.5f;
+                    else if("up".equals(heldMobileAction))sprite.vy=-6.5f;
+                    else if("down".equals(heldMobileAction))sprite.vy=6.5f;
+                }
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
 
@@ -2460,7 +2469,8 @@ public class BlockForgeActivity extends Activity {
                 }
                 sprite.y = Math.max(0f, Math.min(mapRows - 1f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
-                sprite.vx *= 0.88f;
+                if(!(scenePlayMode && sprite==selectedSpriteObject() &&
+                        ("left".equals(heldMobileAction)||"right".equals(heldMobileAction)))) sprite.vx *= 0.88f;
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
                 if (Math.abs(sprite.vy) < 0.025f) sprite.vy = 0f;
             }
@@ -2643,14 +2653,12 @@ public class BlockForgeActivity extends Activity {
         }
 
         void releaseHeldMobileButton(){
-            if(activeMobileButtonPointer>=0&&activeMobileButtonPointer<mobileButtons.size()
-                    &&selectedSprite>=0&&selectedSprite<sprites.size()){
-                String action=mobileButtons.get(activeMobileButtonPointer).action;
+            if(selectedSprite>=0&&selectedSprite<sprites.size()){
                 SceneSprite controlled=sprites.get(selectedSprite);
-                if("left".equals(action)||"right".equals(action))controlled.vx=0f;
-                if("up".equals(action)||"down".equals(action))controlled.vy=0f;
-                persistSprites();
+                if("left".equals(heldMobileAction)||"right".equals(heldMobileAction))controlled.vx=0f;
+                if("up".equals(heldMobileAction)||"down".equals(heldMobileAction))controlled.vy=0f;
             }
+            heldMobileAction="";
             activeMobileButtonPointer=-1;
             activeMobileTouchId=-1;
             invalidate();
