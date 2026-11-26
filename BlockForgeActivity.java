@@ -1978,7 +1978,7 @@ public class BlockForgeActivity extends Activity {
                 SceneSprite created=target.selectedSpriteObject();
                 if(created!=null){
                     created.x=x;created.y=y;created.width=1f;created.height=1f;
-                    if("enemy".equals(type))created.isPlayer=false;
+                    created.isPlayer=false;
                     target.persistSprites();target.invalidate();
                 }
                 output.append("Objeto ").append(type).append(" creado en (").append(x).append(", ").append(y).append(")\\n");
