@@ -2177,10 +2177,41 @@ public class BlockForgeActivity extends Activity {
         startActivityForResult(intent,IMPORT_2D_SCENE_REQUEST);
     }
 
-    org.json.JSONObject buildSceneJson() throws org.json.JSONException {
+    String encodeSceneSpriteFile(String name) throws Exception {
+        if(name==null||name.isEmpty()||name.contains("/")||name.contains("\\\\"))throw new java.io.IOException("Nombre de sprite no válido");
+        java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);
+        if(!file.isFile()||file.length()<=0||file.length()>2*1024*1024)throw new java.io.IOException("Sprite ausente o demasiado grande: "+name);
+        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
+        try(java.io.InputStream in=new java.io.FileInputStream(file)){
+            byte[] buffer=new byte[8192];int count,total=0;
+            while((count=in.read(buffer))!=-1){total+=count;if(total>2*1024*1024)throw new java.io.IOException("Sprite supera 2 MB: "+name);bytes.write(buffer,0,count);}
+        }
+        return android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP);
+    }
+
+    String importSceneSpriteFile(String encoded,String fallbackName,int index) throws Exception {
+        if(encoded==null||encoded.isEmpty())return fallbackName;
+        byte[] data;
+        try{data=android.util.Base64.decode(encoded,android.util.Base64.NO_WRAP);}
+        catch(IllegalArgumentException ex){throw new java.io.IOException("Imagen de sprite dañada en el archivo");}
+        if(data.length==0||data.length>2*1024*1024)throw new java.io.IOException("Imagen importada vacía o demasiado grande");
+        BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;
+        BitmapFactory.decodeByteArray(data,0,data.length,bounds);
+        if(bounds.outWidth<=0||bounds.outHeight<=0||(long)bounds.outWidth*bounds.outHeight>4_194_304L)
+            throw new java.io.IOException("Dimensiones de sprite no válidas o demasiado grandes");
+        String extension=".png";
+        if(fallbackName!=null){int dot=fallbackName.lastIndexOf('.');if(dot>=0&&dot<fallbackName.length()-1){String ext=fallbackName.substring(dot).toLowerCase(java.util.Locale.ROOT);if(".png".equals(ext)||".jpg".equals(ext)||".jpeg".equals(ext)||".webp".equals(ext))extension=ext;}}
+        String name="scene_import_"+System.currentTimeMillis()+"_"+index+extension;
+        java.io.File folder=new java.io.File(getFilesDir(),"sprites");if(!folder.exists()&&!folder.mkdirs())throw new java.io.IOException("No se pudo crear la carpeta de sprites");
+        java.io.File destination=new java.io.File(folder,name);
+        try(java.io.OutputStream out=new java.io.FileOutputStream(destination)){out.write(data);}
+        return name;
+    }
+
+    org.json.JSONObject buildSceneJson() throws Exception {
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         org.json.JSONObject rootJson=new org.json.JSONObject();
-        rootJson.put("format","BlockForge2D");rootJson.put("version",3);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
+        rootJson.put("format","BlockForge2D");rootJson.put("version",4);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
         org.json.JSONArray blockArray=new org.json.JSONArray();
         for(int i=0;i<target.blocks.size();i++){
             Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
@@ -2197,9 +2228,10 @@ public class BlockForgeActivity extends Activity {
             item.put("solid",sp.solid);item.put("vx",sp.vx);item.put("vy",sp.vy);
             item.put("animationFps",sp.animationFps);item.put("animationLoop",sp.animationLoop);
             item.put("animationPlaying",sp.animationPlaying);item.put("currentFrameIndex",sp.currentFrameIndex);
-            org.json.JSONArray frames=new org.json.JSONArray();
-            for(String frame:sp.animationFrameNames)frames.put(frame);
-            item.put("frames",frames);spriteArray.put(item);
+            item.put("imageBase64",encodeSceneSpriteFile(sp.fileName));
+            org.json.JSONArray frames=new org.json.JSONArray(),frameImages=new org.json.JSONArray();
+            for(String frame:sp.animationFrameNames){frames.put(frame);frameImages.put(encodeSceneSpriteFile(frame));}
+            item.put("frames",frames);item.put("frameImages",frameImages);spriteArray.put(item);
         }
         rootJson.put("sprites",spriteArray);
         org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);item.put("script",b.script);buttons.put(item);}rootJson.put("mobileButtons",buttons);
@@ -2212,9 +2244,11 @@ public class BlockForgeActivity extends Activity {
 
     void writeSceneJson(android.net.Uri uri) throws Exception {
         org.json.JSONObject json=buildSceneJson();
+        byte[] payload=json.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if(payload.length>8*1024*1024)throw new java.io.IOException("El nivel exportado supera 8 MB; reduce el tamaño o cantidad de imágenes.");
         try(java.io.OutputStream out=getContentResolver().openOutputStream(uri)){
             if(out==null)throw new java.io.IOException("No se pudo crear el archivo");
-            out.write(json.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.write(payload);
         }
     }
 
@@ -2223,11 +2257,11 @@ public class BlockForgeActivity extends Activity {
         try(java.io.InputStream in=getContentResolver().openInputStream(uri)){
             if(in==null)throw new java.io.IOException("No se pudo abrir el archivo");
             byte[] buffer=new byte[8192];int n,total=0;
-            while((n=in.read(buffer))!=-1){total+=n;if(total>3*1024*1024)throw new java.io.IOException("El nivel supera 3 MB");bytes.write(buffer,0,n);}
+            while((n=in.read(buffer))!=-1){total+=n;if(total>8*1024*1024)throw new java.io.IOException("El nivel supera 8 MB");bytes.write(buffer,0,n);}
         }
         org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
         int formatVersion=json.optInt("version",1);
-        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>3))
+        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>4))
             throw new java.io.IOException("Formato o versión no compatible");
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         target.setMapSize(Math.max(5,Math.min(64,json.optInt("mapWidth",10))),Math.max(5,Math.min(64,json.optInt("mapHeight",10))));
@@ -2246,15 +2280,18 @@ public class BlockForgeActivity extends Activity {
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
             if(name.isEmpty()||name.contains("/")||name.contains("\\\\"))continue;
-            SceneSprite sp=new SceneSprite(name,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
+            String importedMain=importSceneSpriteFile(item.optString("imageBase64",""),name,i);
+            SceneSprite sp=new SceneSprite(importedMain,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
             if(sp.bitmap==null)continue;
             sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
-            org.json.JSONArray frames=item.optJSONArray("frames");
+            org.json.JSONArray frames=item.optJSONArray("frames"),frameImages=item.optJSONArray("frameImages");
             if(frames!=null)for(int j=0;j<frames.length();j++){
                 String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\\\"))continue;
-                java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),fn);
+                String encoded=frameImages!=null&&j<frameImages.length()?frameImages.optString(j,""):"";
+                String importedFrame=importSceneSpriteFile(encoded,fn,i*1000+j);
+                java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),importedFrame);
                 Bitmap frame=BitmapFactory.decodeFile(file.getAbsolutePath());
-                if(frame!=null){sp.animationFrames.add(frame);sp.animationFrameNames.add(fn);}
+                if(frame!=null){sp.animationFrames.add(frame);sp.animationFrameNames.add(importedFrame);}
             }
             sp.animationFps=Math.max(1,Math.min(60,item.optInt("animationFps",targetAnimationFps)));
             sp.animationLoop=item.optBoolean("animationLoop",true);
