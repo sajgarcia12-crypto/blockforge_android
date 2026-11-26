@@ -12,6 +12,21 @@ permissions:
   contents: read
 
 jobs:
+  backend-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar backend Stripe (solo sintaxis)
+        working-directory: backend
+        run: |
+          node --check src/server.js
+          node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))"
+
   build:
     runs-on: ubuntu-24.04
 
