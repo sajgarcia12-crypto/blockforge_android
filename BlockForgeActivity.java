@@ -1751,30 +1751,28 @@ public class BlockForgeActivity extends Activity {
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
 
-                float nextX = Math.max(0f, Math.min(mapColumns - 1f, oldX + sprite.vx * dt));
+                float nextX = Math.max(0f, Math.min(mapColumns - sprite.width, oldX + sprite.vx * dt));
                 boolean horizontalHit = false;
                 if (sceneCollisionsEnabled && sprite.solid) {
                     for (int i = 0; i < blocks.size(); i++) {
                         int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
                         if (layer == 0) continue;
                         Point block = blocks.get(i);
-                        if (Math.abs(nextX - block.x) < 0.72f &&
-                                Math.abs(oldY - block.y) < 0.72f) {
-                            horizontalHit = true;
-                            break;
-                        }
+                        boolean overlapX = nextX < block.x + 1f && nextX + sprite.width > block.x;
+                        boolean overlapY = oldY < block.y + 1f && oldY + sprite.height > block.y;
+                        if (overlapX && overlapY) { horizontalHit = true; break; }
                     }
                     if (!horizontalHit) for (SceneSprite other : sprites) {
                         if (other != sprite && other.solid &&
-                                Math.abs(nextX - other.x) < 0.72f &&
-                                Math.abs(oldY - other.y) < 0.72f) {
+                                nextX < other.x + other.width && nextX + sprite.width > other.x &&
+                                oldY < other.y + other.height && oldY + sprite.height > other.y) {
                             horizontalHit = true;
                             break;
                         }
                     }
                 }
                 sprite.x = horizontalHit ? oldX : nextX;
-                if (horizontalHit || nextX <= 0f || nextX >= mapColumns - 1f) sprite.vx = 0f;
+                if (horizontalHit || nextX <= 0f || nextX >= mapColumns - sprite.width) sprite.vx = 0f;
 
                 float nextY = oldY + sprite.vy * dt;
                 boolean landed = false;
@@ -1783,10 +1781,11 @@ public class BlockForgeActivity extends Activity {
                         int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
                         if (layer == 0) continue;
                         Point block = blocks.get(i);
-                        if (Math.abs(sprite.x - block.x) >= 0.72f) continue;
-                        float top = block.y - 0.72f;
-                        float bottom = block.y + 0.72f;
-                        if (sprite.vy >= 0f && oldY <= top && nextY >= top) {
+                        boolean overlapX = sprite.x < block.x + 1f && sprite.x + sprite.width > block.x;
+                        if (!overlapX) continue;
+                        float top = block.y - sprite.height;
+                        float bottom = block.y + 1f;
+                        if (sprite.vy >= 0f && oldY + sprite.height <= block.y && nextY + sprite.height >= block.y) {
                             nextY = top;
                             landed = true;
                         } else if (sprite.vy < 0f && oldY >= bottom && nextY <= bottom) {
@@ -1796,17 +1795,21 @@ public class BlockForgeActivity extends Activity {
                     }
                     for (SceneSprite other : sprites) {
                         if (other == sprite || !other.solid ||
-                                Math.abs(sprite.x - other.x) >= 0.72f) continue;
-                        float platformTop = other.y - 0.72f;
-                        if (sprite.vy >= 0f && oldY <= platformTop && nextY >= platformTop) {
+                                sprite.x >= other.x + other.width || sprite.x + sprite.width <= other.x) continue;
+                        float platformTop = other.y - sprite.height;
+                        if (sprite.vy >= 0f && oldY + sprite.height <= other.y && nextY + sprite.height >= other.y) {
                             nextY = platformTop;
                             landed = true;
+                        } else if (sprite.vy < 0f && oldY >= other.y + other.height &&
+                                nextY <= other.y + other.height) {
+                            nextY = other.y + other.height;
+                            sprite.vy = 0f;
                         }
                     }
                 }
 
-                if (nextY >= mapRows - 1f) {
-                    nextY = mapRows - 1f;
+                if (nextY >= mapRows - sprite.height) {
+                    nextY = mapRows - sprite.height;
                     landed = true;
                 }
                 if (nextY <= 0f) {
