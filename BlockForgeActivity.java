@@ -1696,7 +1696,6 @@ public class BlockForgeActivity extends Activity {
             blockColors.clear();blockLayers.clear();persist();invalidate();
         }
 
-        @Override
         void releaseHeldMobileButton(){
             if(activeMobileButtonPointer>=0&&activeMobileButtonPointer<mobileButtons.size()
                     &&selectedSprite>=0&&selectedSprite<sprites.size()){
