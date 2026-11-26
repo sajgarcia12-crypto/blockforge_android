@@ -204,7 +204,7 @@ public class BlockForgeActivity extends Activity {
                         float nx=Float.parseFloat(x.getText().toString()),ny=Float.parseFloat(y.getText().toString());
                         float nw=Float.parseFloat(width.getText().toString()),nh=Float.parseFloat(height.getText().toString());
                         float nr=Float.parseFloat(rotation.getText().toString());
-                        if(Float.isNaN(nx)||Float.isNaN(ny)||Float.isNaN(nw)||Float.isNaN(nh)||Float.isNaN(nr)||Float.isInfinite(nx)||Float.isInfinite(ny)||Float.isInfinite(nw)||Float.isInfinite(nh)||Float.isInfinite(nr)||nw<0.25f||nw>8f||nh<0.25f||nh>8f||nr<-360f||nr>360f)throw new NumberFormatException();
+                        if(Float.isNaN(nx)||Float.isNaN(ny)||Float.isNaN(nw)||Float.isNaN(nh)||Float.isNaN(nr)||Float.isInfinite(nx)||Float.isInfinite(ny)||Float.isInfinite(nw)||Float.isInfinite(nh)||Float.isInfinite(nr)||nw<0.25f||nw>Math.min(8f,scenePreview.mapColumns)||nh<0.25f||nh>Math.min(8f,scenePreview.mapRows)||nr<-360f||nr>360f)throw new NumberFormatException();
                         sprite.x=Math.max(0f,Math.min(scenePreview.mapColumns-nw,nx));sprite.y=Math.max(0f,Math.min(scenePreview.mapRows-nh,ny));
                         sprite.width=nw;sprite.height=nh;sprite.rotation=nr;
                         scenePreview.persistSprites();scenePreview.invalidate();dialog.dismiss();
@@ -596,7 +596,9 @@ public class BlockForgeActivity extends Activity {
         scenePreview = new ScenePreview();
         String savedSceneAudio = getPreferences(MODE_PRIVATE).getString("scene_audio_" + project, "");
         if (!savedSceneAudio.isEmpty() && sceneAudioPlayer == null) playSceneAudio(savedSceneAudio);
-        viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
+        int viewportHeight = Math.max(420, Math.min(900,
+                (int)(getResources().getDisplayMetrics().heightPixels * 0.38f)));
+        viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, viewportHeight));
         content.addView(viewportFrame);
         if (physicsRunning) scenePreview.startPhysics();
 
@@ -1527,6 +1529,7 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         java.util.ArrayList<String> redoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
+        float spriteDragOffsetX = 0f, spriteDragOffsetY = 0f;
         int selectedSprite=-1;
         boolean paintingBlocks=false;
         int gestureStartCol=-1,gestureStartRow=-1;
@@ -1574,9 +1577,11 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(60,Integer.parseInt(parts[8])));
                     if(parts.length>9)loaded.animationPlaying=Boolean.parseBoolean(parts[9]);
                     if(parts.length>10)loaded.animationLoop=Boolean.parseBoolean(parts[10]);
-                    if(parts.length>11)loaded.width=Math.max(0.25f,Math.min(8f,Float.parseFloat(parts[11])));
-                    if(parts.length>12)loaded.height=Math.max(0.25f,Math.min(8f,Float.parseFloat(parts[12])));
-                    if(parts.length>13)loaded.rotation=Float.parseFloat(parts[13]);
+                    if(parts.length>11)loaded.width=Math.max(0.25f,Math.min((float)mapColumns,Float.parseFloat(parts[11])));
+                    if(parts.length>12)loaded.height=Math.max(0.25f,Math.min((float)mapRows,Float.parseFloat(parts[12])));
+                    if(parts.length>13)loaded.rotation=Math.max(-360f,Math.min(360f,Float.parseFloat(parts[13])));
+                    loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
+                    loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
@@ -1643,7 +1648,7 @@ public class BlockForgeActivity extends Activity {
             for(int i=0;i<mobileButtons.size();i++){float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;if(Math.hypot(x-cx,y-cy)<=size/2f)return i;}return -1;
         }
 
-        void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.x=Math.max(0,Math.min(mapColumns-1,sp.x));sp.y=Math.max(0,Math.min(mapRows-1,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
+        void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.width=Math.min(sp.width,mapColumns);sp.height=Math.min(sp.height,mapRows);sp.x=Math.max(0,Math.min(mapColumns-sp.width,sp.x));sp.y=Math.max(0,Math.min(mapRows-sp.height,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
 
         void persistSprites() {
             StringBuilder data = new StringBuilder();
@@ -2079,6 +2084,8 @@ public class BlockForgeActivity extends Activity {
                         } else {
                             draggingSprite = i;
                             selectedSprite = i;
+                            spriteDragOffsetX = col - sprite.x;
+                            spriteDragOffsetY = row - sprite.y;
                         }
                         break;
                     }
@@ -2094,8 +2101,8 @@ public class BlockForgeActivity extends Activity {
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
                 SceneSprite sprite = sprites.get(draggingSprite);
-                sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col));
-                sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row));
+                sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
+                sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
                 invalidate();
                 return true;
             }
@@ -2103,8 +2110,8 @@ public class BlockForgeActivity extends Activity {
                 if(paintingBlocks){paintingBlocks=false;lastPaintedCol=-1;lastPaintedRow=-1;persist();invalidate();performClick();return true;}
                 if (draggingSprite >= 0) {
                     SceneSprite sprite = sprites.get(draggingSprite);
-                    sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col));
-                    sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row));
+                    sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
+                    sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
                     draggingSprite = -1;
                     persistSprites();
                 } else {
@@ -2594,9 +2601,11 @@ public class BlockForgeActivity extends Activity {
             SceneSprite sp=new SceneSprite(importedMain,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
             if(sp.bitmap==null)continue;
             sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
-            sp.width=(float)Math.max(0.25,Math.min(8,item.optDouble("width",1)));
-            sp.height=(float)Math.max(0.25,Math.min(8,item.optDouble("height",1)));
-            sp.rotation=(float)item.optDouble("rotation",0);
+            sp.width=(float)Math.max(0.25,Math.min(Math.min(8,target.mapColumns),item.optDouble("width",1)));
+            sp.height=(float)Math.max(0.25,Math.min(Math.min(8,target.mapRows),item.optDouble("height",1)));
+            sp.x=Math.max(0f,Math.min(target.mapColumns-sp.width,sp.x));
+            sp.y=Math.max(0f,Math.min(target.mapRows-sp.height,sp.y));
+            sp.rotation=(float)Math.max(-360,Math.min(360,item.optDouble("rotation",0)));
             org.json.JSONArray frames=item.optJSONArray("frames"),frameImages=item.optJSONArray("frameImages");
             if(frames!=null)for(int j=0;j<frames.length();j++){
                 String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\"))continue;
