@@ -127,6 +127,11 @@ public class BlockForgeActivity extends Activity {
         return b;
     }
 
+    boolean isLikelyPlayerSprite(String name) {
+        String n=name==null?"":name.toLowerCase(java.util.Locale.ROOT);
+        return n.contains("hero")||n.contains("player")||n.contains("personaje")||n.contains("astronaut")||n.contains("paladin")||n.contains("knight")||n.contains("adventur");
+    }
+
     String uiText(String spanish, String english) {
         String lang = getPreferences(MODE_PRIVATE).getString("ui_language", "es");
         return "en".equals(lang) ? english : spanish;
@@ -219,14 +224,20 @@ public class BlockForgeActivity extends Activity {
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
                 android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); x.setHint("X"); x.setText(String.valueOf(sprite.x));
                 android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
-                android.widget.EditText width=new android.widget.EditText(this); width.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); width.setHint("Ancho (0.25–8)"); width.setText(String.valueOf(sprite.width));
-                android.widget.EditText height=new android.widget.EditText(this); height.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); height.setHint("Alto (0.25–8)"); height.setText(String.valueOf(sprite.height));
+                int maxWidthSteps=Math.max(1,(int)Math.floor((Math.min(8f,scenePreview.mapColumns)-0.25f)*4f));
+                int maxHeightSteps=Math.max(1,(int)Math.floor((Math.min(8f,scenePreview.mapRows)-0.25f)*4f));
+                android.widget.SeekBar width=new android.widget.SeekBar(this);width.setMax(maxWidthSteps);width.setProgress(Math.max(0,Math.min(maxWidthSteps,Math.round((sprite.width-0.25f)*4f))));
+                android.widget.SeekBar height=new android.widget.SeekBar(this);height.setMax(maxHeightSteps);height.setProgress(Math.max(0,Math.min(maxHeightSteps,Math.round((sprite.height-0.25f)*4f))));
+                TextView widthValue=label("Ancho: "+sprite.width+" unidades",13,gray);
+                TextView heightValue=label("Alto: "+sprite.height+" unidades",13,gray);
+                width.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(android.widget.SeekBar b,int p,boolean u){widthValue.setText("Ancho: "+(0.25f+p/4f)+" unidades");}public void onStartTrackingTouch(android.widget.SeekBar b){}public void onStopTrackingTouch(android.widget.SeekBar b){}});
+                height.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(android.widget.SeekBar b,int p,boolean u){heightValue.setText("Alto: "+(0.25f+p/4f)+" unidades");}public void onStartTrackingTouch(android.widget.SeekBar b){}public void onStopTrackingTouch(android.widget.SeekBar b){}});
                 android.widget.EditText rotation=new android.widget.EditText(this); rotation.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); rotation.setHint("Rotación en grados"); rotation.setText(String.valueOf(sprite.rotation));
-                LinearLayout form=vertical();form.addView(x);form.addView(y);form.addView(width);form.addView(height);form.addView(rotation);
-                new android.app.AlertDialog.Builder(this).setTitle("Transformación 2D").setView(form)
+                LinearLayout form=vertical();form.addView(x);form.addView(y);form.addView(widthValue);form.addView(width);form.addView(heightValue);form.addView(height);form.addView(rotation);
+                new android.app.AlertDialog.Builder(this).setTitle("Transformación 2D · Tamaño preciso").setView(form)
                     .setPositiveButton("Guardar",(d,w)->{try{
                         float nx=Float.parseFloat(x.getText().toString()),ny=Float.parseFloat(y.getText().toString());
-                        float nw=Float.parseFloat(width.getText().toString()),nh=Float.parseFloat(height.getText().toString());
+                        float nw=0.25f+width.getProgress()/4f,nh=0.25f+height.getProgress()/4f;
                         float nr=Float.parseFloat(rotation.getText().toString());
                         if(Float.isNaN(nx)||Float.isNaN(ny)||Float.isNaN(nw)||Float.isNaN(nh)||Float.isNaN(nr)||Float.isInfinite(nx)||Float.isInfinite(ny)||Float.isInfinite(nw)||Float.isInfinite(nh)||Float.isInfinite(nr)||nw<0.25f||nw>Math.min(8f,scenePreview.mapColumns)||nh<0.25f||nh>Math.min(8f,scenePreview.mapRows)||nr<-360f||nr>360f)throw new NumberFormatException();
                         sprite.x=Math.max(0f,Math.min(scenePreview.mapColumns-nw,nx));sprite.y=Math.max(0f,Math.min(scenePreview.mapRows-nh,ny));
@@ -2178,7 +2189,7 @@ public class BlockForgeActivity extends Activity {
             for(SceneSprite sprite:sprites) if(sprite.isPlayer) { hasPlayer=true; break; }
             if(!hasPlayer) for(SceneSprite sprite:sprites) {
                 String n=sprite.fileName.toLowerCase(java.util.Locale.ROOT);
-                if(n.contains("hero")||n.contains("player")||n.contains("personaje")||n.contains("astronaut")||n.contains("paladin")||n.contains("knight")||n.contains("adventur")) {
+                if(isLikelyPlayerSprite(n)) {
                     sprite.isPlayer=true; break;
                 }
             }
