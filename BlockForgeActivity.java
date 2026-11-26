@@ -1419,14 +1419,13 @@ public class BlockForgeActivity extends Activity {
 
         void physicsStep(float dt) {
             for (SceneSprite sprite : sprites) {
-                float oldX = sprite.x;
-                float oldY = sprite.y;
+                float oldX = sprite.x, oldY = sprite.y;
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
 
-                float nextX = Math.max(0f, Math.min(mapColumns-1f, oldX + sprite.vx * dt));
+                float nextX = Math.max(0f, Math.min(mapColumns - 1f, oldX + sprite.vx * dt));
+                boolean horizontalHit = false;
                 if (sceneCollisionsEnabled && sprite.solid) {
-                    boolean horizontalHit = false;
                     for (int i = 0; i < blocks.size(); i++) {
                         int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
                         if (layer == 0) continue;
@@ -1437,9 +1436,17 @@ public class BlockForgeActivity extends Activity {
                             break;
                         }
                     }
-                    if (horizontalHit) sprite.vx = 0f;
-                    else sprite.x = nextX;
-                } else sprite.x = nextX;
+                    if (!horizontalHit) for (SceneSprite other : sprites) {
+                        if (other != sprite && other.solid &&
+                                Math.abs(nextX - other.x) < 0.72f &&
+                                Math.abs(oldY - other.y) < 0.72f) {
+                            horizontalHit = true;
+                            break;
+                        }
+                    }
+                }
+                sprite.x = horizontalHit ? oldX : nextX;
+                if (horizontalHit || nextX <= 0f || nextX >= mapColumns - 1f) sprite.vx = 0f;
 
                 float nextY = oldY + sprite.vy * dt;
                 boolean landed = false;
@@ -1448,27 +1455,41 @@ public class BlockForgeActivity extends Activity {
                         int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
                         if (layer == 0) continue;
                         Point block = blocks.get(i);
-                        if (Math.abs(sprite.x - block.x) < 0.78f &&
-                                oldY <= block.y && nextY >= block.y - 0.82f) {
-                            nextY = block.y - 0.82f;
+                        if (Math.abs(sprite.x - block.x) >= 0.72f) continue;
+                        float top = block.y - 0.72f;
+                        float bottom = block.y + 0.72f;
+                        if (sprite.vy >= 0f && oldY <= top && nextY >= top) {
+                            nextY = top;
                             landed = true;
+                        } else if (sprite.vy < 0f && oldY >= bottom && nextY <= bottom) {
+                            nextY = bottom;
+                            sprite.vy = 0f;
                         }
                     }
                     for (SceneSprite other : sprites) {
-                        if (other != sprite && other.solid &&
-                                Math.abs(sprite.x - other.x) < 0.78f &&
-                                oldY <= other.y && nextY >= other.y - 0.82f) {
-                            nextY = other.y - 0.82f;
+                        if (other == sprite || !other.solid ||
+                                Math.abs(sprite.x - other.x) >= 0.72f) continue;
+                        float platformTop = other.y - 0.72f;
+                        if (sprite.vy >= 0f && oldY <= platformTop && nextY >= platformTop) {
+                            nextY = platformTop;
                             landed = true;
                         }
                     }
-                    if (nextY >= mapRows-1f) { nextY = mapRows-1f; landed = true; }
-                    if (nextY <= 0f) { nextY = 0f; if (sprite.vy < 0f) sprite.vy = 0f; }
                 }
-                sprite.y = Math.max(0f, Math.min(mapRows-1f, nextY));
+
+                if (nextY >= mapRows - 1f) {
+                    nextY = mapRows - 1f;
+                    landed = true;
+                }
+                if (nextY <= 0f) {
+                    nextY = 0f;
+                    if (sprite.vy < 0f) sprite.vy = 0f;
+                }
+                sprite.y = Math.max(0f, Math.min(mapRows - 1f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
                 sprite.vx *= 0.88f;
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
+                if (Math.abs(sprite.vy) < 0.025f) sprite.vy = 0f;
             }
         }
 
