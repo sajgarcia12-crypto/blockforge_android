@@ -314,6 +314,22 @@ public class BlockForgeActivity extends Activity {
     ScenePreview scenePreview;
     Scene3DView scene3DView;
 
+    void showEditorExtrasDialog() {
+        String[] options = {"Cambiar capa", "Mover cámara: " + (cameraPanMode ? "activado" : "desactivado"), "Tamaño del mapa", "Centrar cámara", "Instalar pack 30 FPS", "Instalar pack 60 FPS"};
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Herramientas de escena")
+            .setItems(options, (dialog, which) -> {
+                switch(which) {
+                    case 0: sceneLayer=(sceneLayer+1)%3; openPage(2); break;
+                    case 1: cameraPanMode=!cameraPanMode; openPage(2); break;
+                    case 2: showMapSizeDialog(); break;
+                    case 3: if(scenePreview!=null) scenePreview.resetCamera(); break;
+                    case 4: installSpritePack(30); break;
+                    case 5: installSpritePack(60); break;
+                }
+            }).show();
+    }
+
     void scenes() {
         String project = activeProjectName();
         String type = getPreferences(MODE_PRIVATE)
