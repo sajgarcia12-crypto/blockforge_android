@@ -89,6 +89,42 @@ jobs:
           test -f "$P/app/build.gradle"
           test -f "$P/app/src/main/cpp/CMakeLists.txt"
 
+      - name: Crear icono original de BlockForge
+        run: |
+          set -e
+          python3 -m pip install --quiet pillow
+          P="$GITHUB_WORKSPACE/project/BlockForge_Android"
+          python3 - "$P/app/src/main/res" <<'PY'
+          from PIL import Image, ImageDraw
+          import os, sys, math, xml.etree.ElementTree as ET
+          root=sys.argv[1]
+          sizes={"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}
+          for density,size in sizes.items():
+              folder=os.path.join(root,"mipmap-"+density)
+              os.makedirs(folder,exist_ok=True)
+              im=Image.new("RGBA",(size,size),(10,17,31,255))
+              d=ImageDraw.Draw(im)
+              cx=cy=size/2
+              r=size*.39
+              pts=[(cx+math.cos(math.radians(60*i-30))*r,cy+math.sin(math.radians(60*i-30))*r) for i in range(6)]
+              d.polygon(pts,fill=(31,105,190,255),outline=(92,205,255,255),width=max(1,size//28))
+              # Pixel-like forge mark: bright angular F inside the hexagon.
+              unit=size/12
+              blocks=[(4,3,8,4),(4,4,5,9),(5,5,8,6),(6,7,8,8)]
+              for x1,y1,x2,y2 in blocks:
+                  d.rectangle((x1*unit,y1*unit,x2*unit,y2*unit),fill=(235,248,255,255))
+              im.save(os.path.join(folder,"ic_launcher.png"))
+              im.save(os.path.join(folder,"ic_launcher_round.png"))
+          manifest=os.path.join(root,"..","AndroidManifest.xml")
+          tree=ET.parse(manifest)
+          app=tree.getroot().find("application")
+          ns="{http://schemas.android.com/apk/res/android}"
+          app.set(ns+"icon","@mipmap/ic_launcher")
+          app.set(ns+"roundIcon","@mipmap/ic_launcher_round")
+          tree.write(manifest,encoding="utf-8",xml_declaration=True)
+          print("BlockForge launcher icon installed in manifest")
+          PY
+
       - name: Copiar nueva interfaz BlockForge
         run: |
           set -e
