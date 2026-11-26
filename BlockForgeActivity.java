@@ -2554,6 +2554,9 @@ public class BlockForgeActivity extends Activity {
                         if(sprite.bitmap!=null&&!sprite.bitmap.isRecycled())sprite.bitmap.recycle();
                         for(Bitmap frame:sprite.animationFrames)if(frame!=null&&!frame.isRecycled())frame.recycle();
                         sprites.remove(hitSprite);selectedSprite=-1;persistSprites();
+                        invalidate();
+                        performClick();
+                        return true;
                     }else{
                         draggingSprite=hitSprite;selectedSprite=hitSprite;
                         spriteDragOffsetX=col-sprite.x;spriteDragOffsetY=row-sprite.y;
@@ -2572,6 +2575,16 @@ public class BlockForgeActivity extends Activity {
                 SceneSprite sprite = sprites.get(draggingSprite);
                 sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
                 sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
+                invalidate();
+                return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+                paintingBlocks=false;
+                draggingSprite=-1;
+                gestureStartCol=-1;
+                gestureStartRow=-1;
+                lastPaintedCol=-1;
+                lastPaintedRow=-1;
                 invalidate();
                 return true;
             }
