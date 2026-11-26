@@ -383,6 +383,10 @@ public class BlockForgeActivity extends Activity {
         spriteActions.addView(button("＋ IMPORTAR IMAGEN", () -> pickSpriteImage()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(spriteActions);
+        LinearLayout mobileActions=new LinearLayout(this);mobileActions.setOrientation(LinearLayout.HORIZONTAL);
+        mobileActions.addView(button("＋ CREAR BOTÓN PARA MÓVILES",()->createMobileButtonDialog()),new LinearLayout.LayoutParams(0,-2,2));
+        mobileActions.addView(button("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        content.addView(mobileActions);
         LinearLayout animationActions=new LinearLayout(this); animationActions.setOrientation(LinearLayout.HORIZONTAL);
         animationActions.addView(button("＋ FOTOGRAMA",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,-2,1));
         animationActions.addView(button("◀ FRAME",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,-2,1));
@@ -1108,6 +1112,30 @@ public class BlockForgeActivity extends Activity {
         return result;
     }
 
+    class MobileButton {
+        String id, title, icon, action;
+        MobileButton(String i,String t,String ic,String a){id=i;title=t;icon=ic;action=a;}
+    }
+
+    void createMobileButtonDialog() {
+        LinearLayout form=vertical(); form.setPadding(16,8,16,0);
+        EditText title=new EditText(this); title.setHint("Nombre del botón (ej. Disparar)"); form.addView(title);
+        EditText icon=new EditText(this); icon.setHint("Icono o emoji (ej. ★, A, ⚔)"); form.addView(icon);
+        Spinner action=new Spinner(this);
+        String[] actions={"Mover izquierda","Mover derecha","Mover arriba","Mover abajo","Saltar","Acción: activar evento"};
+        action.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,actions));form.addView(action);
+        new android.app.AlertDialog.Builder(this).setTitle("Crear botón para móviles")
+            .setMessage("Diseña el nombre y el icono, y elige qué hará al tocarlo.")
+            .setView(form).setNegativeButton("Cancelar",null)
+            .setPositiveButton("Crear",(d,w)->{
+                String n=title.getText().toString().trim();String ic=icon.getText().toString().trim();
+                if(n.isEmpty())n="Botón personalizado";if(ic.isEmpty())ic=n.substring(0,1).toUpperCase(java.util.Locale.ROOT);
+                if(scenePreview==null)scenePreview=new ScenePreview();
+                scenePreview.addMobileButton(n,ic,action.getSelectedItemPosition());
+                Toast.makeText(this,"Botón móvil creado: "+n,Toast.LENGTH_SHORT).show();openPage(2);
+            }).show();
+    }
+
     class SceneSprite {
         String fileName;
         float x, y;
@@ -1141,6 +1169,8 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<Integer> blockColors = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> blockLayers = new java.util.ArrayList<>();
         java.util.ArrayList<SceneSprite> sprites = new java.util.ArrayList<>();
+        java.util.ArrayList<MobileButton> mobileButtons = new java.util.ArrayList<>();
+        int activeMobileButtonPointer=-1;
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
         int selectedSprite=-1;
@@ -1159,6 +1189,7 @@ public class BlockForgeActivity extends Activity {
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
                 @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
+            loadMobileButtons();
             String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks_" + active, "");
             if (!saved.isEmpty()) {
                 for (String pair : saved.split(";")) {
@@ -1188,6 +1219,48 @@ public class BlockForgeActivity extends Activity {
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
+        }
+
+        void loadMobileButtons(){
+            mobileButtons.clear();String raw=getPreferences(MODE_PRIVATE).getString("mobile_buttons_"+activeProjectName(),"");
+            try{org.json.JSONArray arr=new org.json.JSONArray(raw);for(int i=0;i<arr.length();i++){org.json.JSONObject o=arr.getJSONObject(i);mobileButtons.add(new MobileButton(o.optString("id"),o.optString("title"),o.optString("icon"),o.optString("action","left")));}}catch(Exception ignored){}
+        }
+        void persistMobileButtons(){
+            org.json.JSONArray arr=new org.json.JSONArray();for(MobileButton b:mobileButtons){org.json.JSONObject o=new org.json.JSONObject();try{o.put("id",b.id);o.put("title",b.title);o.put("icon",b.icon);o.put("action",b.action);arr.put(o);}catch(Exception ignored){}}
+            getPreferences(MODE_PRIVATE).edit().putString("mobile_buttons_"+activeProjectName(),arr.toString()).apply();
+        }
+        void addMobileButton(String title,String icon,int actionIndex){
+            String[] actions={"left","right","up","down","jump","event"};
+            mobileButtons.add(new MobileButton("btn_"+System.currentTimeMillis(),title,icon,actions[Math.max(0,Math.min(actions.length-1,actionIndex))]));
+            persistMobileButtons();invalidate();
+        }
+        void installDefaultMobileButtons(){
+            mobileButtons.clear();mobileButtons.add(new MobileButton("left","Izquierda","◀","left"));
+            mobileButtons.add(new MobileButton("right","Derecha","▶","right"));mobileButtons.add(new MobileButton("jump","Saltar","▲","jump"));
+            persistMobileButtons();invalidate();Toast.makeText(BlockForgeActivity.this,"Controles predeterminados instalados",Toast.LENGTH_SHORT).show();
+        }
+        void runMobileButton(MobileButton b){
+            if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite para controlar",Toast.LENGTH_SHORT).show();return;}
+            SceneSprite sp=sprites.get(selectedSprite);
+            switch(b.action){
+                case "left":sp.vx=-5f;break;case "right":sp.vx=5f;break;
+                case "up":sp.vy=-5f;break;case "down":sp.vy=5f;break;
+                case "jump":sp.vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}break;
+                case "event":Toast.makeText(BlockForgeActivity.this,"Evento del botón: "+b.title,Toast.LENGTH_SHORT).show();break;
+            }
+            persistSprites();invalidate();
+        }
+        void drawMobileButtons(Canvas canvas){
+            if(!scenePlayMode)return;float size=Math.max(48f,Math.min(68f,getWidth()*0.14f));float gap=10f;
+            float right=getWidth()-18f, bottom=getHeight()-18f;
+            for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;
+                paint.setColor(Color.argb(175,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
+                paint.setColor(Color.WHITE);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(size*.42f);canvas.drawText(b.icon,cx,cy+size*.14f,paint);
+            }
+        }
+        int hitMobileButton(float x,float y){
+            float size=Math.max(48f,Math.min(68f,getWidth()*0.14f));float gap=10f,right=getWidth()-18f,bottom=getHeight()-18f;
+            for(int i=0;i<mobileButtons.size();i++){float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;if(Math.hypot(x-cx,y-cy)<=size/2f)return i;}return -1;
         }
 
         void persistSprites() {
@@ -1435,7 +1508,15 @@ public class BlockForgeActivity extends Activity {
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
             float cellW=Math.max(1f,getWidth()/10f),cellH=Math.max(1f,getHeight()/10f);
             int col=Math.max(0,Math.min(9,(int)(wx/cellW))),row=Math.max(0,Math.min(9,(int)(wy/cellH)));
-            if(scenePlayMode){if(event.getAction()==0)for(int i=sprites.size()-1;i>=0;i--){SceneSprite sp=sprites.get(i);if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}}return true;}
+            if(scenePlayMode){
+                if(event.getAction()==android.view.MotionEvent.ACTION_DOWN){
+                    int hit=hitMobileButton(event.getX(),event.getY());
+                    if(hit>=0){activeMobileButtonPointer=hit;runMobileButton(mobileButtons.get(hit));return true;}
+                    for(int i=sprites.size()-1;i>=0;i--){SceneSprite sp=sprites.get(i);if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}}
+                }
+                if(event.getAction()==android.view.MotionEvent.ACTION_UP)activeMobileButtonPointer=-1;
+                return true;
+            }
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                 draggingSprite = -1;
                 for (int i = sprites.size() - 1; i >= 0; i--) {
@@ -1573,6 +1654,7 @@ public class BlockForgeActivity extends Activity {
             canvas.drawText("ESCENA · "+blocks.size()+" BLOQUES · CAPA "+(sceneLayer+1)+" · "+Math.round(cameraZoom*100)+"%",12,20,paint);
             if(selectedSprite>=0&&selectedSprite<sprites.size())canvas.drawText("SELECCIONADO · "+sprites.get(selectedSprite).fileName,12,38,paint);
             canvas.restore();
+            drawMobileButtons(canvas);
         }
     }
 
