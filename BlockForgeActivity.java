@@ -2178,7 +2178,7 @@ public class BlockForgeActivity extends Activity {
     }
 
     String encodeSceneSpriteFile(String name) throws Exception {
-        if(name==null||name.isEmpty()||name.contains("/")||name.contains("\\\\"))throw new java.io.IOException("Nombre de sprite no válido");
+        if(name==null||name.isEmpty()||name.contains("/")||name.contains("\\"))throw new java.io.IOException("Nombre de sprite no válido");
         java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);
         if(!file.isFile()||file.length()<=0||file.length()>2*1024*1024)throw new java.io.IOException("Sprite ausente o demasiado grande: "+name);
         java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
@@ -2279,14 +2279,14 @@ public class BlockForgeActivity extends Activity {
         org.json.JSONArray spriteArray=json.optJSONArray("sprites");
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
-            if(name.isEmpty()||name.contains("/")||name.contains("\\\\"))continue;
+            if(name.isEmpty()||name.contains("/")||name.contains("\\"))continue;
             String importedMain=importSceneSpriteFile(item.optString("imageBase64",""),name,i);
             SceneSprite sp=new SceneSprite(importedMain,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
             if(sp.bitmap==null)continue;
             sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
             org.json.JSONArray frames=item.optJSONArray("frames"),frameImages=item.optJSONArray("frameImages");
             if(frames!=null)for(int j=0;j<frames.length();j++){
-                String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\\\"))continue;
+                String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\"))continue;
                 String encoded=frameImages!=null&&j<frameImages.length()?frameImages.optString(j,""):"";
                 String importedFrame=importSceneSpriteFile(encoded,fn,i*1000+j);
                 java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),importedFrame);
