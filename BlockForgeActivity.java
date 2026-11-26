@@ -1289,31 +1289,50 @@ public class BlockForgeActivity extends Activity {
     }
 
     void addSceneBlock(int x, int z) {
+        String project = activeProjectName();
+        int columns = scenePreview != null ? scenePreview.mapColumns :
+                Math.max(5, Math.min(64, getPreferences(MODE_PRIVATE).getInt("scene_map_w_" + project, 10)));
+        int rows = scenePreview != null ? scenePreview.mapRows :
+                Math.max(5, Math.min(64, getPreferences(MODE_PRIVATE).getInt("scene_map_h_" + project, 10)));
+        int bx = Math.max(0, Math.min(columns - 1, x));
+        int by = Math.max(0, Math.min(rows - 1, z));
         if (scenePreview != null) {
-            int bx=Math.max(0,Math.min(scenePreview.mapColumns-1,x));
-            int by=Math.max(0,Math.min(scenePreview.mapRows-1,z));
-            scenePreview.blocks.add(new Point(bx,by));
+            scenePreview.blocks.add(new Point(bx, by));
             scenePreview.blockColors.add(sceneBrushColor);
-            scenePreview.blockLayers.add(1);
+            scenePreview.blockLayers.add(sceneLayer);
             scenePreview.persist();
             scenePreview.invalidate();
             return;
         }
-        String project = activeProjectName();
         String key = "scene_blocks_" + project;
         String saved = getPreferences(MODE_PRIVATE).getString(key, "");
-        String entry = Math.max(0, Math.min(9, x)) + "," + Math.max(0, Math.min(9, z)) + "," + sceneBrushColor + ",1";
+        String entry = bx + "," + by + "," + sceneBrushColor + "," + sceneLayer;
         String updated = saved.isEmpty() ? entry : saved + ";" + entry;
         getPreferences(MODE_PRIVATE).edit().putString(key, updated).apply();
     }
 
     void clearProjectScene() {
-        getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + activeProjectName(), "").apply();
+        String project = activeProjectName();
+        getPreferences(MODE_PRIVATE).edit()
+                .putString("scene_blocks_" + project, "")
+                .putString("scene_sprites_" + project, "")
+                .remove("character_name_" + project)
+                .remove("character_x_" + project)
+                .remove("character_z_" + project)
+                .apply();
         if (scenePreview != null) {
             scenePreview.blocks.clear();
             scenePreview.blockColors.clear();
             scenePreview.blockLayers.clear();
+            for (SceneSprite sprite : scenePreview.sprites) {
+                if (sprite.bitmap != null && !sprite.bitmap.isRecycled()) sprite.bitmap.recycle();
+                for (Bitmap frame : sprite.animationFrames)
+                    if (frame != null && !frame.isRecycled()) frame.recycle();
+            }
+            scenePreview.sprites.clear();
+            scenePreview.selectedSprite = -1;
             scenePreview.persist();
+            scenePreview.persistSprites();
             scenePreview.invalidate();
         }
     }
