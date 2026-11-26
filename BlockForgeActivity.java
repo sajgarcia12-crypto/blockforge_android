@@ -3095,8 +3095,7 @@ public class BlockForgeActivity extends Activity {
             .setView(fps).setNegativeButton("Cancelar",null)
             .setPositiveButton("APLICAR",(d,w)->{
                 try{int value=Integer.parseInt(fps.getText().toString().trim());if(value<1||value>60)throw new NumberFormatException();
-                    sprite.animationFps=value;targetAnimationFps=value;
-                    getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps",value).apply();
+                    sprite.animationFps=value;
                     scenePreview.persistSprites();scenePreview.startAnimationTicker();openPage(2);
                 }catch(Exception ex){Toast.makeText(this,"Usa un valor entre 1 y 60 FPS",Toast.LENGTH_LONG).show();}
             }).show();
