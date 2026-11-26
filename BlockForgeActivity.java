@@ -2180,7 +2180,7 @@ public class BlockForgeActivity extends Activity {
     org.json.JSONObject buildSceneJson() throws org.json.JSONException {
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         org.json.JSONObject rootJson=new org.json.JSONObject();
-        rootJson.put("format","BlockForge2D");rootJson.put("version",2);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
+        rootJson.put("format","BlockForge2D");rootJson.put("version",3);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
         org.json.JSONArray blockArray=new org.json.JSONArray();
         for(int i=0;i<target.blocks.size();i++){
             Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
@@ -2195,6 +2195,8 @@ public class BlockForgeActivity extends Activity {
             org.json.JSONObject item=new org.json.JSONObject();
             item.put("file",sp.fileName);item.put("x",sp.x);item.put("y",sp.y);
             item.put("solid",sp.solid);item.put("vx",sp.vx);item.put("vy",sp.vy);
+            item.put("animationFps",sp.animationFps);item.put("animationLoop",sp.animationLoop);
+            item.put("animationPlaying",sp.animationPlaying);item.put("currentFrameIndex",sp.currentFrameIndex);
             org.json.JSONArray frames=new org.json.JSONArray();
             for(String frame:sp.animationFrameNames)frames.put(frame);
             item.put("frames",frames);spriteArray.put(item);
@@ -2225,7 +2227,7 @@ public class BlockForgeActivity extends Activity {
         }
         org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
         int formatVersion=json.optInt("version",1);
-        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion!=1&&formatVersion!=2))
+        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>3))
             throw new java.io.IOException("Formato o versión no compatible");
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         target.setMapSize(Math.max(5,Math.min(64,json.optInt("mapWidth",10))),Math.max(5,Math.min(64,json.optInt("mapHeight",10))));
@@ -2254,6 +2256,10 @@ public class BlockForgeActivity extends Activity {
                 Bitmap frame=BitmapFactory.decodeFile(file.getAbsolutePath());
                 if(frame!=null){sp.animationFrames.add(frame);sp.animationFrameNames.add(fn);}
             }
+            sp.animationFps=Math.max(1,Math.min(60,item.optInt("animationFps",targetAnimationFps)));
+            sp.animationLoop=item.optBoolean("animationLoop",true);
+            sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.max(0,Math.min(sp.animationFrames.size()-1,item.optInt("currentFrameIndex",0)));
+            sp.animationPlaying=item.optBoolean("animationPlaying",false)&&sp.animationFrames.size()>1;
             target.sprites.add(sp);
         }
         org.json.JSONObject camera=json.optJSONObject("camera");
