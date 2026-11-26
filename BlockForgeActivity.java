@@ -1564,8 +1564,6 @@ public class BlockForgeActivity extends Activity {
                 if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
                 sp.animationFps = fps;
                 sp.lastFrameAdvance = android.os.SystemClock.uptimeMillis();
-                targetAnimationFps = Math.max(30, fps);
-                getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", targetAnimationFps).apply();
                 target.persistSprites(); target.startAnimationTicker(); target.invalidate();
                 output.append("Animación configurada a ").append(fps).append(" FPS\n");
                 return true;
