@@ -1160,29 +1160,29 @@ public class BlockForgeActivity extends Activity {
         }catch(Exception ignored){}
     }
     String graphToGrafisript(){
-        StringBuilder b=new StringBuilder("# Código generado desde el grafo visual de BlockForge\\n");
+        StringBuilder b=new StringBuilder("# Código generado desde el grafo visual de BlockForge\n");
         for(GraphNode n:grafisriptNodes){
             String t=n.type;
-            if("personaje".equals(t))b.append("# Usa el sprite marcado como personaje en el inspector\\n");
-            else if("crear_personaje".equals(t))b.append("crear_personaje Jugador\\n");
-            else if("jugador_mover".equals(t))b.append("jugador.mover(").append(n.value).append(", 0)\\n");
-            else if("jugador_saltar".equals(t))b.append("jugador.saltar(").append(Math.max(0.1f,Math.min(100f,n.value))).append(")\\n");
-            else if("jugador_girar".equals(t))b.append("jugador.girar(").append(n.value).append(")\\n");
-            else if("vida".equals(t))b.append("jugador.vida(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\\n");
-            else if("danio".equals(t))b.append("jugador.recibir_danio(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\\n");
-            else if("mover".equals(t))b.append("mover_sprite(").append(n.value).append(", 0)\\n");
-            else if("saltar".equals(t))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\\n");
-            else if("bloque2d".equals(t))b.append("crear_bloque2d ").append(Math.max(0,Math.round(n.value))).append(" 0 1\\n");
-            else if("capa".equals(t))b.append("capa ").append(Math.max(0,Math.min(2,Math.round(n.value)))).append("\\n");
-            else if("cam_zoom".equals(t))b.append("camara.zoom(").append(Math.max(0.5f,Math.min(2f,n.value))).append(")\\n");
-            else if("cam_center".equals(t))b.append("camara.centrar()\\n");
-            else if("fisica_on".equals(t))b.append("fisica.activar()\\n");
-            else if("fisica_off".equals(t))b.append("fisica.pausar()\\n");
-            else if("mensaje".equals(t))b.append("mostrar_mensaje \"Hola desde BlockForge\"\\n");
-            else if("obj_enemy".equals(t))b.append("crear_objeto2d enemy ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
-            else if("obj_sword".equals(t))b.append("crear_objeto2d sword ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
-            else if("obj_coin".equals(t))b.append("crear_objeto2d coin ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
-            else if("obj_stone".equals(t))b.append("crear_objeto2d stone ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
+            if("personaje".equals(t))b.append("# Usa el sprite marcado como personaje en el inspector\n");
+            else if("crear_personaje".equals(t))b.append("crear_personaje Jugador\n");
+            else if("jugador_mover".equals(t))b.append("jugador.mover(").append(n.value).append(", 0)\n");
+            else if("jugador_saltar".equals(t))b.append("jugador.saltar(").append(Math.max(0.1f,Math.min(100f,n.value))).append(")\n");
+            else if("jugador_girar".equals(t))b.append("jugador.girar(").append(n.value).append(")\n");
+            else if("vida".equals(t))b.append("jugador.vida(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\n");
+            else if("danio".equals(t))b.append("jugador.recibir_danio(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\n");
+            else if("mover".equals(t))b.append("mover_sprite(").append(n.value).append(", 0)\n");
+            else if("saltar".equals(t))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\n");
+            else if("bloque2d".equals(t))b.append("crear_bloque2d ").append(Math.max(0,Math.round(n.value))).append(" 0 1\n");
+            else if("capa".equals(t))b.append("capa ").append(Math.max(0,Math.min(2,Math.round(n.value)))).append("\n");
+            else if("cam_zoom".equals(t))b.append("camara.zoom(").append(Math.max(0.5f,Math.min(2f,n.value))).append(")\n");
+            else if("cam_center".equals(t))b.append("camara.centrar()\n");
+            else if("fisica_on".equals(t))b.append("fisica.activar()\n");
+            else if("fisica_off".equals(t))b.append("fisica.pausar()\n");
+            else if("mensaje".equals(t))b.append("mostrar_mensaje \"Hola desde BlockForge\"\n");
+            else if("obj_enemy".equals(t))b.append("crear_objeto2d enemy ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
+            else if("obj_sword".equals(t))b.append("crear_objeto2d sword ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
+            else if("obj_coin".equals(t))b.append("crear_objeto2d coin ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
+            else if("obj_stone".equals(t))b.append("crear_objeto2d stone ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
         }
         return b.toString();
     }
@@ -1981,7 +1981,7 @@ public class BlockForgeActivity extends Activity {
                     created.isPlayer=false;
                     target.persistSprites();target.invalidate();
                 }
-                output.append("Objeto ").append(type).append(" creado en (").append(x).append(", ").append(y).append(")\\n");
+                output.append("Objeto ").append(type).append(" creado en (").append(x).append(", ").append(y).append(")\n");
                 return true;
             }
             if (line.startsWith("crear_bloque2d ")) {
