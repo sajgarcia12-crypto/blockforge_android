@@ -75,7 +75,18 @@ public class BlockForgeActivity extends Activity {
         if (scenePreview != null && physicsRunning) scenePreview.startPhysics();
     }
 
-    void applyUiTheme() {\n        boolean light = getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme", false);\n        if (light) {\n            background = Color.rgb(242, 244, 247); panel = Color.WHITE; white = Color.rgb(28, 32, 38); gray = Color.rgb(92, 101, 113);\n            uiInk = Color.rgb(28, 32, 38); uiMuted = Color.rgb(94, 103, 115); uiSurface = Color.WHITE; uiSurfaceRaised = Color.rgb(235, 238, 242); uiLine = Color.rgb(211, 216, 223);\n        } else {\n            background = Color.rgb(12,16,26); panel = Color.rgb(24,32,47); white = Color.WHITE; gray = Color.rgb(160,175,195);\n            uiInk = Color.rgb(232,236,242); uiMuted = Color.rgb(151,161,174); uiSurface = Color.rgb(29,34,42); uiSurfaceRaised = Color.rgb(36,42,51); uiLine = Color.rgb(53,61,72);\n        }\n    }\n\n    GradientDrawable shape(int color) {
+    void applyUiTheme() {
+        boolean light = getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme", false);
+        if (light) {
+            background = Color.rgb(242, 244, 247); panel = Color.WHITE; white = Color.rgb(28, 32, 38); gray = Color.rgb(92, 101, 113);
+            uiInk = Color.rgb(28, 32, 38); uiMuted = Color.rgb(94, 103, 115); uiSurface = Color.WHITE; uiSurfaceRaised = Color.rgb(235, 238, 242); uiLine = Color.rgb(211, 216, 223);
+        } else {
+            background = Color.rgb(12,16,26); panel = Color.rgb(24,32,47); white = Color.WHITE; gray = Color.rgb(160,175,195);
+            uiInk = Color.rgb(232,236,242); uiMuted = Color.rgb(151,161,174); uiSurface = Color.rgb(29,34,42); uiSurfaceRaised = Color.rgb(36,42,51); uiLine = Color.rgb(53,61,72);
+        }
+    }
+
+    GradientDrawable shape(int color) {
         GradientDrawable d = new GradientDrawable();
         d.setColor(color);
         d.setCornerRadius(18);
