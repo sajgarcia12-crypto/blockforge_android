@@ -281,54 +281,155 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
     }
 
+
+    int uiInk = Color.rgb(232, 236, 242);
+    int uiMuted = Color.rgb(151, 161, 174);
+    int uiSurface = Color.rgb(29, 34, 42);
+    int uiSurfaceRaised = Color.rgb(36, 42, 51);
+    int uiLine = Color.rgb(53, 61, 72);
+    int uiAccent = Color.rgb(74, 145, 230);
+
+    GradientDrawable uiPanel(int fill) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(fill);
+        d.setCornerRadius(16f);
+        d.setStroke(1, uiLine);
+        return d;
+    }
+
+    TextView uiLabel(String value, int size, int color, boolean bold) {
+        TextView t = label(value, size, color);
+        t.setTypeface(Typeface.DEFAULT, bold ? Typeface.BOLD : Typeface.NORMAL);
+        return t;
+    }
+
+    void uiGap(LinearLayout parent, int height) {
+        View gap = new View(this);
+        parent.addView(gap, new LinearLayout.LayoutParams(1, height));
+    }
+
+    TextView uiPrimary(String value, Runnable action) {
+        TextView b = uiLabel(value, 13, Color.WHITE, true);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(16, 13, 16, 13);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.rgb(54, 112, 184));
+        bg.setCornerRadius(12f);
+        b.setBackground(bg);
+        b.setOnClickListener(v -> action.run());
+        return b;
+    }
+
+    TextView uiSecondary(String value, Runnable action) {
+        TextView b = uiLabel(value, 12, uiInk, true);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(11, 10, 11, 10);
+        b.setMinHeight(42);
+        b.setBackground(uiPanel(uiSurfaceRaised));
+        b.setOnClickListener(v -> action.run());
+        return b;
+    }
+
+    void uiSection(String title, String detail) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView heading = uiLabel(title, 12, uiInk, true);
+        heading.setLetterSpacing(0.06f);
+        row.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+        if (detail != null && !detail.isEmpty())
+            row.addView(uiLabel(detail, 10, uiMuted, false));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = 20;
+        lp.bottomMargin = 9;
+        content.addView(row, lp);
+    }
+
+    void openProject(String name) {
+        getPreferences(MODE_PRIVATE).edit().putString("active_project", name).apply();
+        openPage(2);
+    }
+
+    void projectTile(String name) {
+        LinearLayout tile = new LinearLayout(this);
+        tile.setGravity(Gravity.CENTER_VERTICAL);
+        tile.setPadding(14, 13, 14, 13);
+        tile.setBackground(uiPanel(uiSurface));
+        LinearLayout iconBox = vertical();
+        iconBox.setGravity(Gravity.CENTER);
+        iconBox.setBackground(uiPanel(Color.rgb(39, 58, 78)));
+        iconBox.addView(uiLabel("2D", 13, Color.rgb(144, 194, 245), true));
+        tile.addView(iconBox, new LinearLayout.LayoutParams(46, 46));
+        LinearLayout details = vertical();
+        details.setPadding(12, 0, 0, 0);
+        details.addView(uiLabel(name, 14, uiInk, true));
+        String type = getPreferences(MODE_PRIVATE).getString("project_type_" + name, "2D");
+        details.addView(uiLabel(type + "  ·  En este dispositivo", 11, uiMuted, false));
+        tile.addView(details, new LinearLayout.LayoutParams(0, -2, 1));
+        tile.addView(uiLabel("›", 24, uiMuted, false));
+        tile.setOnClickListener(v -> openProject(name));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = 9;
+        content.addView(tile, lp);
+    }
+
+
     void buildInterface() {
         root = vertical();
-        root.setBackgroundColor(background);
+        root.setBackgroundColor(Color.rgb(17, 20, 26));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(18,18,18,18);
+        header.setPadding(18, 13, 18, 13);
+        header.setBackgroundColor(Color.rgb(22, 26, 33));
 
-        TextView logo = label("⬡",34,blue);
-        header.addView(logo);
+        TextView mark = uiLabel("BF", 16, Color.WHITE, true);
+        mark.setGravity(Gravity.CENTER);
+        GradientDrawable markBg = new GradientDrawable();
+        markBg.setColor(Color.rgb(53, 104, 164));
+        markBg.setCornerRadius(10f);
+        mark.setBackground(markBg);
+        header.addView(mark, new LinearLayout.LayoutParams(38, 38));
 
         LinearLayout brand = vertical();
-        brand.setPadding(12,0,0,0);
-        brand.addView(label("BLOCKFORGE",20,white));
-        brand.addView(label("STUDIO MOBILE",10,gray));
-        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        header.addView(label("● ONLINE",11,Color.GREEN));
-
+        brand.setPadding(11, 0, 0, 0);
+        brand.addView(uiLabel("BLOCKFORGE", 15, uiInk, true));
+        brand.addView(uiLabel("STUDIO  /  MOBILE", 9, uiMuted, true));
+        header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        header.addView(uiLabel("●", 10, Color.rgb(105, 185, 135), true));
+        header.addView(uiLabel(" LOCAL", 9, uiMuted, true));
         root.addView(header);
 
         View separator = new View(this);
-        separator.setBackgroundColor(panel);
-        root.addView(separator,new LinearLayout.LayoutParams(-1,2));
+        separator.setBackgroundColor(uiLine);
+        root.addView(separator, new LinearLayout.LayoutParams(-1, 1));
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         content = vertical();
-        content.setPadding(18,20,18,25);
+        content.setPadding(18, 18, 18, 24);
         scroll.addView(content);
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         navigation = new LinearLayout(this);
-        navigation.setBackgroundColor(Color.rgb(18,24,36));
-
-        String[] names = {uiText("Inicio","Home"),uiText("Proyectos","Projects"),uiText("Escenas","Scenes"),"Grafisript",uiText("Recursos","Assets"),uiText("Ajustes","Settings")};
-        String[] icons = {"⌂","▦","◇","{ }","▤","⚙"};
-
-        for(int i=0;i<names.length;i++) {
-            final int page=i;
-            LinearLayout item=vertical();
+        navigation.setGravity(Gravity.CENTER_VERTICAL);
+        navigation.setPadding(4, 5, 4, 5);
+        navigation.setBackgroundColor(Color.rgb(22, 26, 33));
+        String[] names = {uiText("Inicio","Home"),uiText("Proyectos","Projects"),uiText("Escenas","Scenes"),"Código",uiText("Recursos","Assets"),uiText("Ajustes","Settings")};
+        String[] icons = {"⌂","▦","▣","{ }","▤","⚙"};
+        for (int i = 0; i < names.length; i++) {
+            final int page = i;
+            LinearLayout item = vertical();
             item.setGravity(Gravity.CENTER);
-            item.setPadding(3,12,3,12);
-            item.addView(label(icons[i],21,blue));
-            TextView name=label(names[i],10,gray);
+            item.setPadding(1, 7, 1, 7);
+            TextView glyph = uiLabel(icons[i], 17, Color.rgb(142, 157, 176), true);
+            glyph.setGravity(Gravity.CENTER);
+            TextView name = uiLabel(names[i], 9, uiMuted, false);
+            name.setGravity(Gravity.CENTER);
+            item.addView(glyph);
             item.addView(name);
             item.setOnClickListener(v -> openPage(page));
-            navigation.addView(item,new LinearLayout.LayoutParams(0,-2,1));
+            navigation.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
         }
-
         root.addView(navigation);
         setContentView(root);
     }
@@ -351,98 +452,115 @@ public class BlockForgeActivity extends Activity {
         }
     }
 
-    void heading(String title,String subtitle) {
-        content.addView(label(title,27,white));
-        TextView sub=label(subtitle,13,gray);
-        sub.setPadding(0,7,0,20);
+
+    void heading(String title, String subtitle) {
+        TextView titleView = uiLabel(title, 25, uiInk, true);
+        titleView.setLetterSpacing(-0.02f);
+        content.addView(titleView);
+        TextView sub = uiLabel(subtitle, 13, uiMuted, false);
+        sub.setPadding(0, 6, 0, 0);
         content.addView(sub);
     }
 
-    void card(String title,String description) {
-        LinearLayout c=vertical();
-        c.setPadding(17,17,17,17);
-        c.setBackground(shape(panel));
 
-        c.addView(label(title,17,white));
-        TextView desc=label(description,13,gray);
-        desc.setPadding(0,9,0,0);
+    void card(String title, String description) {
+        LinearLayout c = vertical();
+        c.setPadding(16, 15, 16, 15);
+        c.setBackground(uiPanel(uiSurface));
+        c.addView(uiLabel(title, 14, uiInk, true));
+        TextView desc = uiLabel(description, 12, uiMuted, false);
+        desc.setPadding(0, 7, 0, 0);
         c.addView(desc);
-
-        LinearLayout.LayoutParams lp=
-            new LinearLayout.LayoutParams(-1,-2);
-        lp.bottomMargin=13;
-        content.addView(c,lp);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.bottomMargin = 9;
+        content.addView(c, lp);
     }
+
 
     void home() {
-        heading("Bienvenido a BlockForge",
-                "Tu espacio de creación de videojuegos.");
+        content.setPadding(20, 20, 20, 26);
+        TextView eyebrow = uiLabel("WORKSPACE  /  INICIO", 10, Color.rgb(126, 174, 226), true);
+        eyebrow.setLetterSpacing(0.12f);
+        content.addView(eyebrow);
+        uiGap(content, 9);
+        TextView title = uiLabel("Crea algo\nextraordinario.", 29, uiInk, true);
+        title.setLineSpacing(0, 1.02f);
+        content.addView(title);
+        TextView intro = uiLabel("Un espacio para diseñar, programar y construir tus propios juegos.", 13, uiMuted, false);
+        intro.setPadding(0, 8, 0, 17);
+        content.addView(intro);
 
-        LinearLayout hero=vertical();
-        hero.setPadding(20,24,20,24);
-        hero.setBackground(shape(Color.rgb(25,57,100)));
-
-        hero.addView(label("BLOCKFORGE STUDIO",13,
-                Color.rgb(160,205,255)));
-        TextView big=label("CREA. PROGRAMA.\nCONSTRUYE.",29,white);
-        big.setPadding(0,14,0,14);
-        hero.addView(big);
-
-        hero.addView(label(
-                "Desarrolla tus propios mundos y videojuegos.",
-                14,white));
-
-        TextView create=button("＋  NUEVO PROYECTO",
-                () -> openPage(1));
-
-        LinearLayout.LayoutParams cp=
-            new LinearLayout.LayoutParams(-1,-2);
-        cp.topMargin=22;
-        hero.addView(create,cp);
-
+        LinearLayout hero = vertical();
+        hero.setPadding(18, 18, 18, 18);
+        hero.setBackground(uiPanel(Color.rgb(31, 39, 49)));
+        hero.addView(uiLabel("EMPIEZA UN PROYECTO", 10, Color.rgb(133, 184, 238), true));
+        TextView heroTitle = uiLabel("Tu siguiente mundo\ncomienza aquí.", 21, uiInk, true);
+        heroTitle.setPadding(0, 9, 0, 6);
+        hero.addView(heroTitle);
+        hero.addView(uiLabel("Crea una escena 2D, importa recursos y desarrolla la lógica con El Grafisript.", 12, uiMuted, false));
+        TextView create = uiPrimary("＋  CREAR PROYECTO", () -> newProject());
+        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
+        cp.topMargin = 16;
+        hero.addView(create, cp);
         content.addView(hero);
 
-        heading("ESPACIO DE TRABAJO",
-                "Herramientas principales.");
-
-        card("◇  Editor de escenas",
-                "Organiza objetos y construye tus mundos 2D y 3D.");
-
-        card("{ }  El Grafisript",
-                "Programa la lógica de tus videojuegos.");
-
-        card("▦  Constructor de bloques",
-                "Diseña mundos mediante bloques reutilizables.");
-
-        card("▤  Recursos",
-                "Gestiona texturas, modelos y sonidos.");
-    }
-
-    void projects() {
-        heading("Mis proyectos",
-                "Tus proyectos guardados en este dispositivo.");
-
-        content.addView(button("＋ CREAR PROYECTO",
-                () -> newProject()));
-
-        java.util.Set<String> saved = getPreferences(MODE_PRIVATE)
-                .getStringSet("blockforge_projects", new java.util.HashSet<>());
+        uiSection("PROYECTOS RECIENTES", "EN ESTE DISPOSITIVO");
+        java.util.Set<String> saved = getPreferences(MODE_PRIVATE).getStringSet("blockforge_projects", new java.util.HashSet<>());
         java.util.ArrayList<String> names = new java.util.ArrayList<>(saved);
         java.util.Collections.sort(names);
-
         if (names.isEmpty()) {
-            card("Todavía no hay proyectos",
-                    "Pulsa CREAR PROYECTO para comenzar. Tus proyectos se guardan en este dispositivo.");
+            LinearLayout empty = vertical();
+            empty.setPadding(16, 17, 16, 17);
+            empty.setBackground(uiPanel(uiSurface));
+            empty.addView(uiLabel("Todavía no hay proyectos", 14, uiInk, true));
+            empty.addView(uiLabel("Cuando crees uno, aparecerá aquí para abrirlo rápidamente.", 12, uiMuted, false));
+            content.addView(empty);
         } else {
-            for (String name : names) {
-                content.addView(button("ABRIR  ·  " + name, () -> {
-                    getPreferences(MODE_PRIVATE).edit()
-                            .putString("active_project", name).apply();
-                    Toast.makeText(this, "Proyecto activo: " + name,
-                            Toast.LENGTH_SHORT).show();
-                    openPage(2);
-                }));
-            }
+            for (int i = names.size() - 1; i >= Math.max(0, names.size() - 3); i--) projectTile(names.get(i));
+        }
+
+        uiSection("HERRAMIENTAS", "ACCESO RÁPIDO");
+        LinearLayout tools = new LinearLayout(this);
+        tools.setOrientation(LinearLayout.VERTICAL);
+        TextView scene = uiSecondary("▣   EDITOR 2D", () -> {
+            if (getPreferences(MODE_PRIVATE).getString("active_project", "").isEmpty()) newProject();
+            else openPage(2);
+        });
+        TextView code = uiSecondary("{ }   EL GRAFISRIPT", () -> openPage(3));
+        TextView assets = uiSecondary("▤   BIBLIOTECA DE RECURSOS", () -> openPage(4));
+        tools.addView(scene);
+        uiGap(tools, 7);
+        tools.addView(code);
+        uiGap(tools, 7);
+        tools.addView(assets);
+        content.addView(tools);
+    }
+
+
+    void projects() {
+        content.setPadding(20, 20, 20, 24);
+        heading("Proyectos", "Tus juegos y escenas guardados localmente.");
+        TextView create = uiPrimary("＋  NUEVO PROYECTO", () -> newProject());
+        LinearLayout.LayoutParams createLp = new LinearLayout.LayoutParams(-1, -2);
+        createLp.topMargin = 18;
+        content.addView(create, createLp);
+
+        uiSection("BIBLIOTECA", "PROYECTOS LOCALES");
+        java.util.Set<String> saved = getPreferences(MODE_PRIVATE).getStringSet("blockforge_projects", new java.util.HashSet<>());
+        java.util.ArrayList<String> names = new java.util.ArrayList<>(saved);
+        java.util.Collections.sort(names);
+        if (names.isEmpty()) {
+            LinearLayout empty = vertical();
+            empty.setPadding(18, 22, 18, 22);
+            empty.setGravity(Gravity.CENTER);
+            empty.setBackground(uiPanel(uiSurface));
+            empty.addView(uiLabel("No hay proyectos todavía", 15, uiInk, true));
+            TextView message = uiLabel("Crea tu primer proyecto para abrir el editor.", 12, uiMuted, false);
+            message.setPadding(0, 7, 0, 0);
+            empty.addView(message);
+            content.addView(empty);
+        } else {
+            for (int i = names.size() - 1; i >= 0; i--) projectTile(names.get(i));
         }
     }
 
@@ -509,157 +627,150 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+
     TextView editorButton(String value, Runnable action) {
-        TextView b = label(value, 12, white);
+        TextView b = uiLabel(value, 11, uiInk, true);
         b.setGravity(Gravity.CENTER);
-        b.setPadding(5, 4, 5, 4);
+        b.setPadding(6, 5, 6, 5);
         b.setMinHeight(42);
-        b.setBackground(shape(Color.rgb(39, 91, 151)));
+        b.setBackground(uiPanel(uiSurfaceRaised));
         b.setOnClickListener(v -> action.run());
         return b;
     }
 
+
     void scenes() {
         String project = activeProjectName();
-        String type = getPreferences(MODE_PRIVATE)
-                .getString("project_type_" + project, "2D");
-
+        String type = getPreferences(MODE_PRIVATE).getString("project_type_" + project, "2D");
         if ("3D".equals(type)) {
-            content.addView(editorButton("← VOLVER A PROYECTOS", () -> openPage(1)));
-            heading("Editor de escenas 3D", "Vista de trabajo 3D");
+            content.setPadding(12, 10, 12, 16);
+            content.addView(editorButton("←  VOLVER A PROYECTOS", () -> openPage(1)));
+            heading("Editor 3D", project);
             scene3DView = new Scene3DView();
             content.addView(scene3DView, new LinearLayout.LayoutParams(-1, 390));
             scene3DView.onResume();
             LinearLayout actions = new LinearLayout(this);
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-            actions.addView(editorButton("＋ CUBO", () -> scene3DView.addCube()), new LinearLayout.LayoutParams(0, -2, 1));
-            actions.addView(editorButton("BORRAR", () -> scene3DView.clearCubes()), new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(editorButton("＋ CUBO", () -> scene3DView.addCube()), new LinearLayout.LayoutParams(0, 48, 1));
+            actions.addView(editorButton("BORRAR", () -> scene3DView.clearCubes()), new LinearLayout.LayoutParams(0, 48, 1));
             content.addView(actions);
-            content.addView(editorButton("GUARDAR ESCENA", () -> {
-                scene3DView.persist();
-                Toast.makeText(this, "Escena 3D guardada", Toast.LENGTH_SHORT).show();
-            }));
-            card("Motor 3D", "Renderizador inicial OpenGL ES 2.0.");
+            content.addView(editorButton("GUARDAR ESCENA", () -> { scene3DView.persist(); Toast.makeText(this, "Escena 3D guardada", Toast.LENGTH_SHORT).show(); }));
             return;
         }
 
-        // Editor 2D reorganizado: viewport primero, herramientas agrupadas y paneles compactos.
-        content.setPadding(10, 8, 10, 14);
+        content.setPadding(10, 8, 10, 16);
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(8, 7, 8, 7);
-        top.setBackground(shape(Color.rgb(22, 30, 45)));
-        top.addView(editorButton("←", () -> openPage(1)), new LinearLayout.LayoutParams(48, 48));
+        top.setPadding(7, 6, 7, 6);
+        top.setBackground(uiPanel(uiSurface));
+        top.addView(editorButton("‹", () -> openPage(1)), new LinearLayout.LayoutParams(42, 44));
         LinearLayout titleBox = vertical();
-        titleBox.addView(label("2D  /  " + project, 16, white));
-        titleBox.addView(label("ESCENA · EDITOR", 10, gray));
+        titleBox.setPadding(10, 0, 4, 0);
+        titleBox.addView(uiLabel(project, 14, uiInk, true));
+        titleBox.addView(uiLabel("ESCENA 2D  ·  EDITOR", 9, uiMuted, true));
         top.addView(titleBox, new LinearLayout.LayoutParams(0, -2, 1));
         top.addView(editorButton("▶", () -> {
-            scenePlayMode = !scenePlayMode;
-            physicsRunning = scenePlayMode;
-            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
+            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
+            if (physicsRunning && scenePreview != null) scenePreview.startPhysics();
+            else if (scenePreview != null) scenePreview.stopPhysics();
             openPage(2);
-        }), new LinearLayout.LayoutParams(54, 48));
-        top.addView(editorButton("💾", () -> {
+        }), new LinearLayout.LayoutParams(44, 44));
+        top.addView(editorButton("▣", () -> {
             if (scenePreview != null) scenePreview.persist();
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
-        }), new LinearLayout.LayoutParams(58, 48));
+        }), new LinearLayout.LayoutParams(44, 44));
         content.addView(top);
 
         LinearLayout panels = new LinearLayout(this);
-        panels.setPadding(0,5,0,5);
-        panels.addView(editorButton("☷ ESCENA", () -> showSceneTreePanel()), new LinearLayout.LayoutParams(0,44,1));
-        panels.addView(editorButton("▤ INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0,44,1));
-        panels.addView(editorButton("{ } CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0,44,1));
-        panels.addView(editorButton("▥ TIMELINE", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0,44,1));
-        panels.addView(editorButton("⋯ MÁS", () -> showToolsPanel()), new LinearLayout.LayoutParams(0,44,1));
+        panels.setPadding(0, 7, 0, 5);
+        panels.addView(editorButton("ESCENA", () -> showSceneTreePanel()), new LinearLayout.LayoutParams(0, 42, 1));
+        panels.addView(editorButton("INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0, 42, 1));
+        panels.addView(editorButton("CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0, 42, 1));
+        panels.addView(editorButton("ANIMAR", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0, 42, 1));
+        panels.addView(editorButton("MÁS", () -> showToolsPanel()), new LinearLayout.LayoutParams(0, 42, 1));
         content.addView(panels);
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(4, 7, 4, 7);
-        toolbar.setBackground(shape(Color.rgb(18, 25, 38)));
-        toolbar.addView(editorButton(sceneToolMode == 0 ? "✎" : "Lápiz", () -> { sceneToolMode=0; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(editorButton(sceneToolMode == 1 ? "▧" : "Rect.", () -> { sceneToolMode=1; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(editorButton(sceneToolMode == 2 ? "▨" : "Relleno", () -> { sceneToolMode=2; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(editorButton("↶", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(editorButton("↷", () -> scenePreview.redo()), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(editorButton("＋", () -> scenePreview.addBlock()), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.setPadding(4, 5, 4, 5);
+        toolbar.setBackground(uiPanel(Color.rgb(24, 29, 37)));
+        toolbar.addView(editorButton(sceneToolMode == 0 ? "● LÁPIZ" : "LÁPIZ", () -> { sceneToolMode = 0; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        toolbar.addView(editorButton(sceneToolMode == 1 ? "● RECT." : "RECT.", () -> { sceneToolMode = 1; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        toolbar.addView(editorButton(sceneToolMode == 2 ? "● CUBETA" : "CUBETA", () -> { sceneToolMode = 2; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        toolbar.addView(editorButton("DESHACER", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 44, 1));
+        toolbar.addView(editorButton("REHACER", () -> scenePreview.redo()), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(toolbar);
 
         LinearLayout viewportFrame = vertical();
         viewportFrame.setPadding(3, 3, 3, 3);
-        viewportFrame.setBackground(shape(Color.rgb(35, 47, 66)));
-        TextView viewportLabel = label("VISTA 2D  ·  LIENZO", 10, Color.rgb(160,205,255));
-        viewportLabel.setPadding(8, 5, 8, 5);
-        viewportFrame.addView(viewportLabel);
+        viewportFrame.setBackground(uiPanel(Color.rgb(13, 17, 23)));
+        LinearLayout viewportHeader = new LinearLayout(this);
+        viewportHeader.setGravity(Gravity.CENTER_VERTICAL);
+        viewportHeader.setPadding(9, 7, 9, 7);
+        viewportHeader.addView(uiLabel("VISTA DE ESCENA", 10, uiInk, true), new LinearLayout.LayoutParams(0, -2, 1));
+        viewportHeader.addView(uiLabel("2D  ·  " + scenePreviewStatus(), 9, uiMuted, false));
+        viewportFrame.addView(viewportHeader);
         scenePreview = new ScenePreview();
         String savedSceneAudio = getPreferences(MODE_PRIVATE).getString("scene_audio_" + project, "");
         if (!savedSceneAudio.isEmpty() && sceneAudioPlayer == null) playSceneAudio(savedSceneAudio);
-        int viewportHeight = Math.max(420, Math.min(900,
-                (int)(getResources().getDisplayMetrics().heightPixels * 0.38f)));
+        int viewportHeight = Math.max(340, Math.min(600, (int)(getResources().getDisplayMetrics().heightPixels * 0.38f)));
         viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, viewportHeight));
         content.addView(viewportFrame);
         if (physicsRunning) scenePreview.startPhysics();
 
+        uiSection("PINCEL Y VISTA", "HERRAMIENTAS DEL LIENZO");
         LinearLayout palette = new LinearLayout(this);
-        palette.setPadding(0, 7, 0, 7);
-        palette.addView(editorButton("🟩", () -> setSceneBrush(Color.rgb(55,135,90), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("🟦", () -> setSceneBrush(Color.rgb(55,115,210), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("🟥", () -> setSceneBrush(Color.rgb(205,75,75), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("⌫", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("AZUL", () -> setSceneBrush(Color.rgb(55, 115, 210), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("ROJO", () -> setSceneBrush(Color.rgb(205, 75, 75), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("BORRAR", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
         palette.addView(editorButton("HEX", () -> showSceneColorDialog()), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("▦", () -> { sceneGridVisible=!sceneGridVisible; scenePreview.invalidate(); }), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton(sceneGridVisible ? "CUADRÍCULA ON" : "CUADRÍCULA OFF", () -> { sceneGridVisible = !sceneGridVisible; if (scenePreview != null) scenePreview.invalidate(); openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(palette);
 
+        uiSection("TRANSFORMACIÓN", "CÁMARA Y CAPAS");
         LinearLayout camera = new LinearLayout(this);
         camera.addView(editorButton("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
         camera.addView(editorButton("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
         camera.addView(editorButton("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("CAPA " + new String[]{"FONDO","MUNDO","FRENTE"}[sceneLayer], () -> { sceneLayer=(sceneLayer+1)%3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(editorButton("CAPA " + new String[]{"FONDO", "MUNDO", "FRENTE"}[sceneLayer], () -> { sceneLayer = (sceneLayer + 1) % 3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(camera);
 
+        uiSection("RECURSOS DE ESCENA", "SPRITES Y MAPA");
         LinearLayout assets = new LinearLayout(this);
         assets.addView(editorButton("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(editorButton("IMPORTAR", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(editorButton("IMPORTAR PNG", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
         assets.addView(editorButton("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(assets);
 
-        LinearLayout spriteOps = new LinearLayout(this);
-        spriteOps.addView(editorButton("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(editorButton("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(editorButton("MOVER ←", () -> scenePreview.moveSelectedSprite(-0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(editorButton("MOVER →", () -> scenePreview.moveSelectedSprite(0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(spriteOps);
-
+        uiSection("ANIMACIÓN", "FOTOGRAMAS");
         LinearLayout animation = new LinearLayout(this);
         animation.addView(editorButton("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("◀", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("▶", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("ANIMAR", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("ANTERIOR", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("SIGUIENTE", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("PLAY / PAUSA", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
         animation.addView(editorButton("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(animation);
-        TextView timeline = label(scenePreview.animationStatus(), 11, Color.rgb(160,205,255));
-        timeline.setPadding(8, 8, 8, 8);
-        timeline.setBackground(shape(Color.rgb(22,30,45)));
+        TextView timeline = uiLabel(scenePreview.animationStatus(), 10, Color.rgb(145, 184, 224), false);
+        timeline.setPadding(11, 10, 11, 10);
+        timeline.setBackground(uiPanel(uiSurface));
         content.addView(timeline);
 
+        uiSection("EJECUCIÓN", "FÍSICA Y COLISIONES");
         LinearLayout runtime = new LinearLayout(this);
-        runtime.addView(editorButton(scenePlayMode ? "■ DETENER" : "▶ PROBAR", () -> {
-            scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
-            if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
+        runtime.addView(editorButton(scenePlayMode ? "DETENER" : "PROBAR", () -> {
+            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
+            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
-        }), new LinearLayout.LayoutParams(0, 48, 1));
-        runtime.addView(editorButton(physicsRunning ? "PAUSAR FÍSICA" : "FÍSICA", () -> {
-            physicsRunning=!physicsRunning;
-            if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
+        }), new LinearLayout.LayoutParams(0, 46, 1));
+        runtime.addView(editorButton(physicsRunning ? "PAUSAR FÍSICA" : "ACTIVAR FÍSICA", () -> {
+            physicsRunning = !physicsRunning;
+            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
-        }), new LinearLayout.LayoutParams(0, 48, 1));
-        runtime.addView(editorButton("COLISIÓN " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
-            sceneCollisionsEnabled=!sceneCollisionsEnabled; openPage(2);
-        }), new LinearLayout.LayoutParams(0, 48, 1));
+        }), new LinearLayout.LayoutParams(0, 46, 1));
+        runtime.addView(editorButton("COLISIONES " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
+            sceneCollisionsEnabled = !sceneCollisionsEnabled; openPage(2);
+        }), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(runtime);
-
     }
 
     void showSceneAudioPicker() {
@@ -1200,10 +1311,12 @@ public class BlockForgeActivity extends Activity {
         }
     }
 
-    String activeProjectName() {
-        return getPreferences(MODE_PRIVATE)
-                .getString("active_project", "Mi primer proyecto");
+
+    String scenePreviewStatus() {
+        return scenePreview == null ? "LISTO" : (scenePreview.blocks.size() + " BLOQUES · " + scenePreview.sprites.size() + " SPRITES");
     }
+
+    String activeProjectName() {
 
     boolean execute2DCommand(String line, StringBuilder output, int lineIndex) {
         try {
