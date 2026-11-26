@@ -1460,9 +1460,9 @@ public class BlockForgeActivity extends Activity {
         ScenePreview() {
             super(BlockForgeActivity.this);
             setBackground(shape(Color.rgb(7,13,23)));
-            cameraZoom=getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom",1f);
-            cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f);
-            cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f);
+            cameraZoom=getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom",1f));
+            cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f));
+            cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f));
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
                 @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
@@ -1596,7 +1596,7 @@ public class BlockForgeActivity extends Activity {
         String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS · "+(sp.animationLoop?"BUCLE":"UNA PASADA");}
         void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(mapColumns-1,sp.x+dx));sp.y=Math.max(0,Math.min(mapRows-1,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
-        void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
+        void saveCamera(){String project=activeProjectName();getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom_"+project,cameraZoom).putFloat("scene_camera_x_"+project,cameraOffsetX).putFloat("scene_camera_y_"+project,cameraOffsetY).apply();}
         void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);saveCamera();invalidate();}
         void resetCamera(){cameraZoom=1f;cameraOffsetX=0f;cameraOffsetY=0f;cameraPanMode=false;saveCamera();invalidate();}
         void toggleSelectedSpriteSolid() {
