@@ -2070,7 +2070,9 @@ public class BlockForgeActivity extends Activity {
         }
 
         void addSprite(String name) {
-            SceneSprite created = new SceneSprite(name, 4, 4, true);
+            float centerX=(getWidth()*0.5f-cameraOffsetX)/(cameraZoom*64f);
+            float centerY=(getHeight()*0.5f-cameraOffsetY)/(cameraZoom*64f);
+            SceneSprite created = new SceneSprite(name, centerX, centerY, true);
             created.vy = 0f;
             sprites.add(created);
             selectedSprite = sprites.size() - 1;
@@ -2468,76 +2470,40 @@ public class BlockForgeActivity extends Activity {
             if(event.getPointerCount()>1 || scaleDetector.isInProgress()){multiTouchGesture=true;return true;}
             if(action==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
             if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
+            final float worldUnit=64f;
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
-            float cellW=Math.max(1f,getWidth()/(float)mapColumns),cellH=Math.max(1f,getHeight()/(float)mapRows);
-            int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/cellW))),row=Math.max(0,Math.min(mapRows-1,(int)(wy/cellH)));
+            float worldX=wx/worldUnit,worldY=wy/worldUnit;
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                if(sceneToolMode==2){floodFill(col,row);return true;}
-                if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;paintingBlocks=false;draggingSprite=-1;return true;}
-                draggingSprite = -1;
-                for (int i = sprites.size() - 1; i >= 0; i--) {
-                    SceneSprite sprite = sprites.get(i);
-                    if (col >= sprite.x - 0.25f && col <= sprite.x + sprite.width + 0.25f &&
-                            row >= sprite.y - 0.25f && row <= sprite.y + sprite.height + 0.25f) {
-                        if (sceneEraseMode) {
-                            if (sprite.bitmap != null) sprite.bitmap.recycle();
-                            for (Bitmap frame : sprite.animationFrames) if (frame != null) frame.recycle();
-                            sprites.remove(i);
-                            selectedSprite = -1;
-                            persistSprites();
-                        } else {
-                            draggingSprite = i;
-                            selectedSprite = i;
-                            spriteDragOffsetX = col - sprite.x;
-                            spriteDragOffsetY = row - sprite.y;
+                draggingSprite=-1;
+                for(int i=sprites.size()-1;i>=0;i--){
+                    SceneSprite sprite=sprites.get(i);
+                    if(worldX>=sprite.x&&worldX<=sprite.x+sprite.width&&worldY>=sprite.y&&worldY<=sprite.y+sprite.height){
+                        if(sceneEraseMode){
+                            if(sprite.bitmap!=null)sprite.bitmap.recycle();
+                            for(Bitmap frame:sprite.animationFrames)if(frame!=null)frame.recycle();
+                            sprites.remove(i);selectedSprite=-1;persistSprites();
+                        }else{
+                            draggingSprite=i;selectedSprite=i;
+                            spriteDragOffsetX=worldX-sprite.x;spriteDragOffsetY=worldY-sprite.y;
                         }
                         break;
                     }
                 }
-                if(draggingSprite<0){paintingBlocks=true;lastPaintedCol=-1;lastPaintedRow=-1;rememberState();paintCell(col,row);invalidate();}
-                return true;
+                if(draggingSprite<0){selectedSprite=-1;lastPanX=event.getX();lastPanY=event.getY();}
+                invalidate();return true;
             }
-            if(sceneToolMode==1 && event.getAction()==android.view.MotionEvent.ACTION_UP && gestureStartCol>=0){
-                applyRectangle(gestureStartCol,gestureStartRow,col,row);gestureStartCol=-1;gestureStartRow=-1;performClick();return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_MOVE&&draggingSprite>=0){
+                SceneSprite sprite=sprites.get(draggingSprite);
+                sprite.x=worldX-spriteDragOffsetX;sprite.y=worldY-spriteDragOffsetY;
+                invalidate();return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && paintingBlocks) {
-                paintCell(col,row);invalidate();return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_MOVE&&draggingSprite<0){
+                cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;
+                lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
-                SceneSprite sprite = sprites.get(draggingSprite);
-                sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
-                sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
-                invalidate();
-                return true;
-            }
-            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                if(paintingBlocks){paintingBlocks=false;lastPaintedCol=-1;lastPaintedRow=-1;persist();invalidate();performClick();return true;}
-                if (draggingSprite >= 0) {
-                    SceneSprite sprite = sprites.get(draggingSprite);
-                    sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
-                    sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
-                    draggingSprite = -1;
-                    persistSprites();
-                } else {
-                    rememberState();
-                    if (sceneEraseMode) {
-                        for (int i = blocks.size() - 1; i >= 0; i--) {
-                            Point block = blocks.get(i);
-                            if (block.x == col && block.y == row) {
-                                blocks.remove(i);
-                                if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);
-                                break;
-                            }
-                        }
-                    } else {
-                        blocks.add(new Point(col, row));
-                        blockColors.add(sceneBrushColor);blockLayers.add(sceneLayer);
-                    }
-                    persist();
-                }
-                invalidate();
-                performClick();
-                return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_UP){
+                if(draggingSprite>=0)persistSprites();
+                draggingSprite=-1;performClick();return true;
             }
             return true;
         }
@@ -2562,24 +2528,25 @@ public class BlockForgeActivity extends Activity {
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             canvas.save();canvas.translate(cameraOffsetX,cameraOffsetY);canvas.scale(cameraZoom,cameraZoom);
-            float cellW=getWidth()/(float)mapColumns,cellH=getHeight()/(float)mapRows;
-            if (sceneGridVisible) {
-                paint.setColor(Color.rgb(32,45,65));
-                paint.setStrokeWidth(1f);
-                for (int x = 0; x <= mapColumns; x++)
-                    canvas.drawLine(x * cellW, 0, x * cellW, mapRows * cellH, paint);
-                for (int y = 0; y <= mapRows; y++)
-                    canvas.drawLine(0, y * cellH, mapColumns * cellW, y * cellH, paint);
+            final float worldUnit=64f;
+            float visibleLeft=-cameraOffsetX/(cameraZoom*worldUnit);
+            float visibleTop=-cameraOffsetY/(cameraZoom*worldUnit);
+            float visibleRight=visibleLeft+getWidth()/(cameraZoom*worldUnit);
+            float visibleBottom=visibleTop+getHeight()/(cameraZoom*worldUnit);
+            if(sceneGridVisible){
+                paint.setColor(Color.rgb(31,43,60));paint.setStrokeWidth(1f);
+                int startX=(int)Math.floor(visibleLeft),endX=(int)Math.ceil(visibleRight);
+                int startY=(int)Math.floor(visibleTop),endY=(int)Math.ceil(visibleBottom);
+                for(int x=startX;x<=endX;x++)canvas.drawLine(x*worldUnit,visibleTop*worldUnit,x*worldUnit,visibleBottom*worldUnit,paint);
+                for(int y=startY;y<=endY;y++)canvas.drawLine(visibleLeft*worldUnit,y*worldUnit,visibleRight*worldUnit,y*worldUnit,paint);
+                paint.setColor(Color.rgb(95,65,80));paint.setStrokeWidth(2f);canvas.drawLine(visibleLeft*worldUnit,0,visibleRight*worldUnit,0,paint);
+                paint.setColor(Color.rgb(65,100,75));canvas.drawLine(0,visibleTop*worldUnit,0,visibleBottom*worldUnit,paint);
             }
-
-            drawBlockLayer(canvas,0,cellW,cellH);
-            drawBlockLayer(canvas,1,cellW,cellH);
-
-            for (SceneSprite sprite : sprites) {
-                float left = sprite.x * cellW + 2;
-                float top = sprite.y * cellH + 2;
-                float right = left + cellW * sprite.width - 4;
-                float bottom = top + cellH * sprite.height - 4;
+            paint.setColor(Color.rgb(115,130,150));paint.setTextSize(12f);
+            canvas.drawText("WORLD 2D  ·  "+(int)(cameraZoom*100)+"%",12-visibleLeft*worldUnit,24-visibleTop*worldUnit,paint);
+            for(SceneSprite sprite:sprites){
+                float left=sprite.x*worldUnit,top=sprite.y*worldUnit;
+                float right=left+worldUnit*sprite.width,bottom=top+worldUnit*sprite.height;
                 float centerX = (left + right) * 0.5f, centerY = (top + bottom) * 0.5f;
                 canvas.save();
                 canvas.rotate(sprite.rotation, centerX, centerY);
