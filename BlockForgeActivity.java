@@ -411,25 +411,12 @@ public class BlockForgeActivity extends Activity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         navigation = new LinearLayout(this);
-        navigation.setGravity(Gravity.CENTER_VERTICAL);
-        navigation.setPadding(4, 5, 4, 5);
-        navigation.setBackgroundColor(Color.rgb(22, 26, 33));
-        String[] names = {uiText("Inicio","Home"),uiText("Proyectos","Projects"),uiText("Escenas","Scenes"),"Código",uiText("Recursos","Assets"),uiText("Ajustes","Settings")};
-        String[] icons = {"⌂","▦","▣","{ }","▤","⚙"};
-        for (int i = 0; i < names.length; i++) {
-            final int page = i;
-            LinearLayout item = vertical();
-            item.setGravity(Gravity.CENTER);
-            item.setPadding(1, 7, 1, 7);
-            TextView glyph = uiLabel(icons[i], 17, Color.rgb(142, 157, 176), true);
-            glyph.setGravity(Gravity.CENTER);
-            TextView name = uiLabel(names[i], 9, uiMuted, false);
-            name.setGravity(Gravity.CENTER);
-            item.addView(glyph);
-            item.addView(name);
-            item.setOnClickListener(v -> openPage(page));
-            navigation.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
-        }
+        navigation.setGravity(Gravity.CENTER);
+        navigation.setPadding(12, 8, 12, 8);
+        navigation.setBackgroundColor(Color.rgb(37, 40, 46));
+        TextView marketplaceButton = uiSecondary("▦   MARKETPLACE", () -> openPage(6));
+        navigation.addView(marketplaceButton,
+                new LinearLayout.LayoutParams(-1, -2));
         root.addView(navigation);
         setContentView(root);
     }
@@ -449,7 +436,29 @@ public class BlockForgeActivity extends Activity {
             case 3: grafisript(); break;
             case 4: resources(); break;
             case 5: settings(); break;
+            case 6: marketplace(); break;
         }
+    }
+
+
+    void marketplace() {
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(24, 22, 24, 24);
+        heading("Marketplace", "Recursos y contenido de la comunidad.");
+        LinearLayout empty = vertical();
+        empty.setGravity(Gravity.CENTER);
+        empty.setPadding(20, 36, 20, 36);
+        empty.setBackground(uiPanel(uiSurface));
+        empty.addView(uiLabel("Todavía no hay contenido", 16, uiInk, true));
+        TextView note = uiLabel("El Marketplace aparecerá aquí cuando haya recursos disponibles.",
+                12, uiMuted, false);
+        note.setGravity(Gravity.CENTER);
+        note.setPadding(0, 8, 0, 0);
+        empty.addView(note);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 0, 1);
+        lp.topMargin = 18;
+        content.addView(empty, lp);
+        content.addView(uiSecondary("←  VOLVER A PROYECTOS", () -> openPage(0)));
     }
 
 
@@ -478,62 +487,89 @@ public class BlockForgeActivity extends Activity {
 
 
     void home() {
-        content.setPadding(20, 20, 20, 26);
-        TextView eyebrow = uiLabel("WORKSPACE  /  INICIO", 10, Color.rgb(126, 174, 226), true);
-        eyebrow.setLetterSpacing(0.12f);
-        content.addView(eyebrow);
-        uiGap(content, 9);
-        TextView title = uiLabel("Crea algo\nextraordinario.", 29, uiInk, true);
-        title.setLineSpacing(0, 1.02f);
-        content.addView(title);
-        TextView intro = uiLabel("Un espacio para diseñar, programar y construir tus propios juegos.", 13, uiMuted, false);
-        intro.setPadding(0, 8, 0, 17);
-        content.addView(intro);
+        content.setPadding(0, 0, 0, 0);
+        content.setOrientation(LinearLayout.HORIZONTAL);
+        content.setBackgroundColor(Color.rgb(29, 32, 37));
 
-        LinearLayout hero = vertical();
-        hero.setPadding(18, 18, 18, 18);
-        hero.setBackground(uiPanel(Color.rgb(31, 39, 49)));
-        hero.addView(uiLabel("EMPIEZA UN PROYECTO", 10, Color.rgb(133, 184, 238), true));
-        TextView heroTitle = uiLabel("Tu siguiente mundo\ncomienza aquí.", 21, uiInk, true);
-        heroTitle.setPadding(0, 9, 0, 6);
-        hero.addView(heroTitle);
-        hero.addView(uiLabel("Crea una escena 2D, importa recursos y desarrolla la lógica con El Grafisript.", 12, uiMuted, false));
-        TextView create = uiPrimary("＋  CREAR PROYECTO", () -> newProject());
-        LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-1, -2);
-        cp.topMargin = 16;
-        hero.addView(create, cp);
-        content.addView(hero);
+        // Panel lateral: biblioteca de proyectos, al estilo de un gestor de proyectos.
+        LinearLayout sidebar = vertical();
+        sidebar.setPadding(16, 20, 16, 16);
+        sidebar.setBackgroundColor(Color.rgb(37, 40, 46));
+        TextView projectsTitle = uiLabel("PROYECTOS", 11, uiMuted, true);
+        projectsTitle.setLetterSpacing(0.12f);
+        sidebar.addView(projectsTitle);
+        uiGap(sidebar, 12);
 
-        uiSection("PROYECTOS RECIENTES", "EN ESTE DISPOSITIVO");
-        java.util.Set<String> saved = getPreferences(MODE_PRIVATE).getStringSet("blockforge_projects", new java.util.HashSet<>());
+        java.util.Set<String> saved = getPreferences(MODE_PRIVATE)
+                .getStringSet("blockforge_projects", new java.util.HashSet<>());
         java.util.ArrayList<String> names = new java.util.ArrayList<>(saved);
-        java.util.Collections.sort(names);
+        java.util.Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
         if (names.isEmpty()) {
-            LinearLayout empty = vertical();
-            empty.setPadding(16, 17, 16, 17);
-            empty.setBackground(uiPanel(uiSurface));
-            empty.addView(uiLabel("Todavía no hay proyectos", 14, uiInk, true));
-            empty.addView(uiLabel("Cuando crees uno, aparecerá aquí para abrirlo rápidamente.", 12, uiMuted, false));
-            content.addView(empty);
+            TextView empty = uiLabel("Todavía no hay proyectos", 12, uiMuted, false);
+            empty.setPadding(0, 8, 0, 8);
+            sidebar.addView(empty);
         } else {
-            for (int i = names.size() - 1; i >= Math.max(0, names.size() - 3); i--) projectTile(names.get(i));
+            for (int i = names.size() - 1; i >= 0; i--) {
+                final String projectName = names.get(i);
+                String projectType = getPreferences(MODE_PRIVATE)
+                        .getString("project_type_" + projectName, "2D");
+                TextView item = uiLabel("▣  " + projectName + "   " + projectType,
+                        12, uiInk, true);
+                item.setSingleLine(true);
+                item.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                item.setPadding(10, 13, 8, 13);
+                item.setBackground(uiPanel(Color.rgb(48, 52, 59)));
+                item.setOnClickListener(v -> openProject(projectName));
+                LinearLayout.LayoutParams itemLp = new LinearLayout.LayoutParams(-1, -2);
+                itemLp.bottomMargin = 6;
+                sidebar.addView(item, itemLp);
+            }
         }
+        LinearLayout.LayoutParams sideLp = new LinearLayout.LayoutParams(
+                (int)(getResources().getDisplayMetrics().widthPixels * 0.31f), -1);
+        content.addView(sidebar, sideLp);
 
-        uiSection("HERRAMIENTAS", "ACCESO RÁPIDO");
-        LinearLayout tools = new LinearLayout(this);
-        tools.setOrientation(LinearLayout.VERTICAL);
-        TextView scene = uiSecondary("▣   EDITOR 2D", () -> {
-            if (getPreferences(MODE_PRIVATE).getString("active_project", "").isEmpty()) newProject();
-            else openPage(2);
-        });
-        TextView code = uiSecondary("{ }   EL GRAFISRIPT", () -> openPage(3));
-        TextView assets = uiSecondary("▤   BIBLIOTECA DE RECURSOS", () -> openPage(4));
-        tools.addView(scene);
-        uiGap(tools, 7);
-        tools.addView(code);
-        uiGap(tools, 7);
-        tools.addView(assets);
-        content.addView(tools);
+        // Área principal: crear proyectos y acceso único al Marketplace.
+        LinearLayout main = vertical();
+        main.setGravity(Gravity.CENTER);
+        main.setPadding(28, 22, 28, 22);
+        main.setBackgroundColor(Color.rgb(29, 32, 37));
+        TextView eyebrow = uiLabel("BLOCKFORGE STUDIO", 11, uiMuted, true);
+        eyebrow.setLetterSpacing(0.16f);
+        main.addView(eyebrow);
+        TextView title = uiLabel("Administrador de proyectos", 25, uiInk, true);
+        title.setGravity(Gravity.CENTER);
+        title.setPadding(0, 10, 0, 6);
+        main.addView(title);
+        TextView subtitle = uiLabel("Crea un proyecto nuevo o abre uno de tu biblioteca.",
+                13, uiMuted, false);
+        subtitle.setGravity(Gravity.CENTER);
+        main.addView(subtitle);
+
+        LinearLayout createCard = vertical();
+        createCard.setPadding(22, 20, 22, 20);
+        createCard.setBackground(uiPanel(Color.rgb(43, 47, 54)));
+        LinearLayout.LayoutParams cardLp = new LinearLayout.LayoutParams(
+                Math.min((int)(getResources().getDisplayMetrics().widthPixels * 0.52f), 560), -2);
+        cardLp.topMargin = 24;
+        createCard.addView(uiLabel("NUEVO PROYECTO", 10, uiMuted, true));
+        TextView createTitle = uiLabel("Empieza algo nuevo", 20, uiInk, true);
+        createTitle.setPadding(0, 8, 0, 6);
+        createCard.addView(createTitle);
+        createCard.addView(uiLabel("Elige un nombre y decide si tu proyecto será 2D o 3D.",
+                12, uiMuted, false));
+        TextView create = uiPrimary("＋  CREAR PROYECTO", () -> newProject());
+        LinearLayout.LayoutParams createLp = new LinearLayout.LayoutParams(-1, -2);
+        createLp.topMargin = 16;
+        createCard.addView(create, createLp);
+        main.addView(createCard, cardLp);
+
+        TextView marketplace = uiSecondary("▦   IR A MARKETPLACE", () -> openPage(6));
+        LinearLayout.LayoutParams marketLp = new LinearLayout.LayoutParams(
+                Math.min((int)(getResources().getDisplayMetrics().widthPixels * 0.52f), 560), -2);
+        marketLp.topMargin = 14;
+        main.addView(marketplace, marketLp);
+        content.addView(main, new LinearLayout.LayoutParams(0, -1, 1));
     }
 
 
@@ -568,6 +604,7 @@ public class BlockForgeActivity extends Activity {
         LinearLayout form = vertical();
         form.setPadding(20, 8, 20, 0);
         EditText input = new EditText(this);
+        input.setSingleLine(true);
         input.setHint("Nombre del proyecto");
         form.addView(input);
 
@@ -590,19 +627,40 @@ public class BlockForgeActivity extends Activity {
                             Toast.LENGTH_SHORT).show();
                     return;
                 }
+                String safeName = name.replaceAll("[^a-zA-Z0-9._ -]", "_").trim();
+                if (safeName.isEmpty() || ".".equals(safeName) || "..".equals(safeName)) {
+                    Toast.makeText(this, "Ese nombre no es válido", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 String projectType = type.getSelectedItem().toString();
                 android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
                 java.util.Set<String> names = new java.util.HashSet<>(
                         prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
+                if (names.contains(name)) {
+                    Toast.makeText(this, "Ya existe un proyecto con ese nombre",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                java.io.File projectsRoot = new java.io.File(getFilesDir(), "BlockForgeProjects");
+                java.io.File projectFolder = new java.io.File(projectsRoot, safeName);
+                if ((!projectsRoot.exists() && !projectsRoot.mkdirs())
+                        || (!projectFolder.exists() && !projectFolder.mkdirs())) {
+                    Toast.makeText(this, "No se pudo crear la carpeta del proyecto",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+
                 names.add(name);
                 prefs.edit()
                         .putStringSet("blockforge_projects", names)
                         .putString("project_type_" + name, projectType)
-                        .putString("active_project", name)
+                        .putString("project_folder_" + name, projectFolder.getAbsolutePath())
                         .apply();
                 Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
                         Toast.LENGTH_LONG).show();
-                openPage(2);
+                // Permanecer en el gestor: el proyecto aparece en la lista lateral.
+                openPage(0);
             })
             .setNegativeButton("Cancelar", null)
             .show();
