@@ -156,6 +156,14 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("＋ SPRITE", () -> { dialog.dismiss(); openSpriteDrawer(); }));
         panelView.addView(label("Bloques: " + scenePreview.blocks.size(), 13, gray));
         panelView.addView(label("Sprites: " + scenePreview.sprites.size(), 13, gray));
+        int visibleBlocks = Math.min(scenePreview.blocks.size(), 20);
+        for (int i = 0; i < visibleBlocks; i++) {
+            Point block = scenePreview.blocks.get(i);
+            int layer = i < scenePreview.blockLayers.size() ? scenePreview.blockLayers.get(i) : 1;
+            panelView.addView(label("▦ Bloque (" + block.x + ", " + block.y + ") · capa " + layer, 12, gray));
+        }
+        if (scenePreview.blocks.size() > visibleBlocks)
+            panelView.addView(label("… y " + (scenePreview.blocks.size() - visibleBlocks) + " bloques más", 11, gray));
         for (int i=0;i<scenePreview.sprites.size();i++) {
             final int index=i;
             SceneSprite sprite=scenePreview.sprites.get(i);
@@ -256,7 +264,8 @@ public class BlockForgeActivity extends Activity {
         row.addView(editorButton("▶",()->scenePreview.selectAnimationFrame(1)),new LinearLayout.LayoutParams(0,48,1));
         row.addView(editorButton("PLAY",()->scenePreview.toggleAnimationPlayback()),new LinearLayout.LayoutParams(0,48,1));
         panelView.addView(row);
-        panelView.addView(editorButton("FPS Y BUCLE",()->showAnimationFpsDialog()));
+        panelView.addView(editorButton("FPS",()->showAnimationFpsDialog()));
+        panelView.addView(editorButton("BUCLE: " + (scenePreview.selectedSpriteObject() != null && scenePreview.selectedSpriteObject().animationLoop ? "ON" : "OFF"),()->scenePreview.toggleAnimationLoop()));
         panelView.addView(editorButton("ELIMINAR FRAME",()->scenePreview.deleteAnimationFrame()));
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
     }
