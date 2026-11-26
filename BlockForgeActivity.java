@@ -38,6 +38,7 @@ public class BlockForgeActivity extends Activity {
     boolean activityResumed = false;
     float physicsGravity = 24f;
     float physicsBounce = 0.15f;
+    float physicsFriction = 0.88f;
     String runtimeWorldName = "Mi mundo";
 
     @Override
@@ -48,6 +49,7 @@ public class BlockForgeActivity extends Activity {
         targetAnimationFps = getPreferences(MODE_PRIVATE).getInt("sprite_fps", 30);
         physicsGravity=getPreferences(MODE_PRIVATE).getFloat("physics_gravity",24f);
         physicsBounce=getPreferences(MODE_PRIVATE).getFloat("physics_bounce",0.15f);
+        physicsFriction=getPreferences(MODE_PRIVATE).getFloat("physics_friction",0.88f);
         sceneCollisionsEnabled=getPreferences(MODE_PRIVATE).getBoolean("scene_collisions",true);
         buildInterface();
         home();
@@ -856,18 +858,20 @@ public class BlockForgeActivity extends Activity {
         LinearLayout form=vertical();form.setPadding(18,8,18,0);
         EditText gravity=new EditText(this);gravity.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL|android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);gravity.setHint("Gravedad (0–80)");gravity.setText(String.valueOf(physicsGravity));form.addView(gravity);
         EditText bounce=new EditText(this);bounce.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);bounce.setHint("Rebote (0–1)");bounce.setText(String.valueOf(physicsBounce));form.addView(bounce);
+        EditText friction=new EditText(this);friction.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);friction.setHint("Fricción (0–1)");friction.setText(String.valueOf(physicsFriction));form.addView(friction);
         android.widget.CheckBox collisions=new android.widget.CheckBox(this);collisions.setText("Activar colisiones entre bloques y sprites");collisions.setChecked(sceneCollisionsEnabled);form.addView(collisions);
         new android.app.AlertDialog.Builder(this).setTitle("Física 2D").setView(form)
             .setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{
                 try{
                     float g=Float.parseFloat(gravity.getText().toString().trim());
                     float b=Float.parseFloat(bounce.getText().toString().trim());
-                    if(Float.isNaN(g)||Float.isInfinite(g)||g<0f||g>80f||Float.isNaN(b)||Float.isInfinite(b)||b<0f||b>1f)throw new NumberFormatException();
-                    physicsGravity=g;physicsBounce=b;sceneCollisionsEnabled=collisions.isChecked();
-                    getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",g).putFloat("physics_bounce",b).putBoolean("scene_collisions",sceneCollisionsEnabled).apply();
+                    float f=Float.parseFloat(friction.getText().toString().trim());
+                    if(Float.isNaN(g)||Float.isInfinite(g)||g<0f||g>80f||Float.isNaN(b)||Float.isInfinite(b)||b<0f||b>1f||Float.isNaN(f)||Float.isInfinite(f)||f<0f||f>1f)throw new NumberFormatException();
+                    physicsGravity=g;physicsBounce=b;physicsFriction=f;sceneCollisionsEnabled=collisions.isChecked();
+                    getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",g).putFloat("physics_bounce",b).putFloat("physics_friction",f).putBoolean("scene_collisions",sceneCollisionsEnabled).apply();
                     if(scenePreview!=null)scenePreview.invalidate();
                     Toast.makeText(this,"Física guardada en este dispositivo",Toast.LENGTH_SHORT).show();
-                }catch(Exception ex){Toast.makeText(this,"Valores inválidos. Gravedad: 0–80; rebote: 0–1.",Toast.LENGTH_LONG).show();}
+                }catch(Exception ex){Toast.makeText(this,"Valores inválidos. Gravedad: 0–80; rebote y fricción: 0–1.",Toast.LENGTH_LONG).show();}
             }).show();
     }
 
@@ -1010,6 +1014,7 @@ public class BlockForgeActivity extends Activity {
                 "animacion.bucle(true)\n"+
                 "fisica.gravedad(24)\n"+
                 "fisica.rebote(0.2)\n"+
+                "fisica.friccion(0.88)\n"+
                 "colisiones.activar()");
     }
 
@@ -1430,6 +1435,7 @@ public class BlockForgeActivity extends Activity {
                 || line.startsWith("camara.zoom(") || line.equals("camara.centrar()")
                 || line.equals("fisica.activar()") || line.equals("fisica.pausar()")
                 || line.startsWith("fisica.gravedad(") || line.startsWith("fisica.rebote(")
+                || line.startsWith("fisica.friccion(")
                 || line.startsWith("sprite.fps(") || line.equals("animacion.play()")
                 || line.equals("animacion.pausar()") || line.equals("animacion.siguiente()")
                 || line.equals("animacion.anterior()") || line.equals("animacion.bucle(true)")
@@ -1596,6 +1602,15 @@ public class BlockForgeActivity extends Activity {
                 physicsGravity = (float) gravity;
                 getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity", physicsGravity).apply();
                 output.append("Gravedad 2D: ").append(physicsGravity).append('\n');
+                return true;
+            }
+            if (line.startsWith("fisica.friccion(") && line.endsWith(")")) {
+                double friction = evaluateGrafisriptExpression(line.substring(16, line.length() - 1).trim(), variables);
+                if (Double.isNaN(friction) || Double.isInfinite(friction) || friction < 0 || friction > 1)
+                    throw new IllegalArgumentException("Fricción permitida: 0 a 1");
+                physicsFriction = (float) friction;
+                getPreferences(MODE_PRIVATE).edit().putFloat("physics_friction", physicsFriction).apply();
+                output.append("Fricción de física: ").append(physicsFriction).append('\n');
                 return true;
             }
             if (line.startsWith("fisica.rebote(") && line.endsWith(")")) {
@@ -2240,7 +2255,7 @@ public class BlockForgeActivity extends Activity {
                 }
                 sprite.y = Math.max(0f, Math.min(mapRows - 1f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
-                sprite.vx *= (float)Math.pow(0.88f, dt * 60f);
+                sprite.vx *= (float)Math.pow(physicsFriction, dt * 60f);
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
                 if (Math.abs(sprite.vy) < 0.025f) sprite.vy = 0f;
             }
