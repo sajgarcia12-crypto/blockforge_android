@@ -181,7 +181,7 @@ public class BlockForgeActivity extends Activity {
             panelView.addView(label("Selecciona un sprite desde el árbol o tocándolo en el lienzo.",13,gray));
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
-            panelView.addView(label(sprite.name,17,white));
+            panelView.addView(label(sprite.fileName,17,white));
             panelView.addView(label("Posición X: "+sprite.x+"\nPosición Y: "+sprite.y+"\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
             panelView.addView(editorButton("EDITAR POSICIÓN", () -> {
                 android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194); x.setHint("X"); x.setText(String.valueOf(sprite.x));
@@ -630,7 +630,6 @@ public class BlockForgeActivity extends Activity {
         }), new LinearLayout.LayoutParams(0, 48, 1));
         content.addView(runtime);
 
-));
     }
 
     void showSceneAudioPicker() {
