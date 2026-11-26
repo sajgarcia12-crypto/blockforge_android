@@ -385,9 +385,17 @@ public class BlockForgeActivity extends Activity {
         content.addView(spriteActions);
         LinearLayout animationActions=new LinearLayout(this); animationActions.setOrientation(LinearLayout.HORIZONTAL);
         animationActions.addView(button("＋ FOTOGRAMA",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("MOVER ←",()->scenePreview.moveSelectedSprite(-0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("MOVER →",()->scenePreview.moveSelectedSprite(0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1)); content.addView(animationActions);
+        animationActions.addView(button("◀ FRAME",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,-2,1));
+        animationActions.addView(button("FRAME ▶",()->scenePreview.selectAnimationFrame(1)),new LinearLayout.LayoutParams(0,-2,1));
+        animationActions.addView(button("▶/Ⅱ ANIMAR",()->scenePreview.toggleAnimationPlayback()),new LinearLayout.LayoutParams(0,-2,1));
+        content.addView(animationActions);
+        TextView timelineStatus=label(scenePreview.animationStatus(),12,Color.rgb(160,205,255));timelineStatus.setPadding(4,8,4,8);content.addView(timelineStatus);
+        LinearLayout timelineTools=new LinearLayout(this);timelineTools.setOrientation(LinearLayout.HORIZONTAL);
+        timelineTools.addView(button("ELIMINAR FRAME",()->{scenePreview.deleteAnimationFrame();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button("FPS: "+targetAnimationFps,()->{targetAnimationFps=targetAnimationFps==30?60:30;SceneSprite sp=scenePreview.selectedSpriteObject();if(sp!=null){sp.animationFps=targetAnimationFps;scenePreview.persistSprites();}getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps",targetAnimationFps).apply();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button("MOVER ←",()->scenePreview.moveSelectedSprite(-0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button("MOVER →",()->scenePreview.moveSelectedSprite(0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(timelineTools);
         content.addView(button(scenePlayMode?"■ DETENER PRUEBA":"▶ PROBAR NIVEL",()->{scenePlayMode=!scenePlayMode;physicsRunning=scenePlayMode;if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();openPage(2);}));
         LinearLayout physicsActions = new LinearLayout(this);
         physicsActions.setOrientation(LinearLayout.HORIZONTAL);
@@ -1098,6 +1106,10 @@ public class BlockForgeActivity extends Activity {
         Bitmap bitmap;
         java.util.ArrayList<Bitmap> animationFrames=new java.util.ArrayList<>();
         java.util.ArrayList<String> animationFrameNames=new java.util.ArrayList<>();
+        int currentFrameIndex = 0;
+        int animationFps = 8;
+        boolean animationPlaying = true;
+        long lastFrameAdvance = 0L;
         SceneSprite(String name, float px, float py, boolean isSolid) {
             fileName = name; x = px; y = py; solid = isSolid;
             java.io.File file = new java.io.File(new java.io.File(getFilesDir(), "sprites"), name);
@@ -1158,6 +1170,9 @@ public class BlockForgeActivity extends Activity {
                     if (parts.length > 4) loaded.vx = Float.parseFloat(parts[4]);
                     if(parts.length>5)loaded.vy=Float.parseFloat(parts[5]);
                     if(parts.length>6&&!parts[6].isEmpty())for(String fn:parts[6].split(",")){java.io.File ff=new java.io.File(new java.io.File(getFilesDir(),"sprites"),fn);Bitmap fb=BitmapFactory.decodeFile(ff.getAbsolutePath());if(fb!=null){loaded.animationFrames.add(fb);loaded.animationFrameNames.add(fn);}}
+                    if(parts.length>7)loaded.currentFrameIndex=Math.max(0,Math.min(loaded.animationFrames.size()-1,Integer.parseInt(parts[7])));
+                    if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(30,Integer.parseInt(parts[8])));
+                    if(parts.length>9)loaded.animationPlaying=Boolean.parseBoolean(parts[9]);
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
@@ -1171,6 +1186,7 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.y).append('|').append(sprite.solid).append('|')
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
+                data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -1185,7 +1201,12 @@ public class BlockForgeActivity extends Activity {
             invalidate();
         }
 
-        void addAnimationFrame(String name){if(selectedSprite<0||selectedSprite>=sprites.size())return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;SceneSprite sp=sprites.get(selectedSprite);sp.animationFrames.add(b);sp.animationFrameNames.add(name);persistSprites();invalidate();startAnimationTicker();}
+        SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
+        void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;persistSprites();invalidate();startAnimationTicker();}
+        void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}sp.currentFrameIndex=(sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size();sp.animationPlaying=false;persistSprites();invalidate();}
+        void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;persistSprites();startAnimationTicker();invalidate();}
+        void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
+        String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS";}
         void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size())return;SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(9,sp.x+dx));sp.y=Math.max(0,Math.min(9,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
         void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
@@ -1312,7 +1333,7 @@ public class BlockForgeActivity extends Activity {
 
         @Override protected void onAttachedToWindow(){super.onAttachedToWindow();startAnimationTicker();}
         @Override protected void onDetachedFromWindow(){removeCallbacks(animationTicker);removeCallbacks(physicsLoop);persistSprites();persist();saveCamera();super.onDetachedFromWindow();}
-        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;for(SceneSprite sp:sprites)if(sp.animationFrames.size()>1){invalidate();postDelayed(this,Math.max(8,1000/targetAnimationFps));return;}}};
+        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;boolean active=false;long delay=1000;for(SceneSprite sp:sprites){if(sp.animationPlaying&&sp.animationFrames.size()>1){active=true;long frameDelay=Math.max(16,1000/Math.max(1,sp.animationFps));delay=Math.min(delay,frameDelay);long now=android.os.SystemClock.uptimeMillis();if(now-sp.lastFrameAdvance>=frameDelay){sp.currentFrameIndex=(sp.currentFrameIndex+1)%sp.animationFrames.size();sp.lastFrameAdvance=now;}}}if(active){invalidate();postDelayed(this,Math.max(8,delay));}}};
         void startAnimationTicker(){removeCallbacks(animationTicker);postDelayed(animationTicker,100);}
 
         void persist() {
@@ -1486,7 +1507,7 @@ public class BlockForgeActivity extends Activity {
                 float top = sprite.y * cellH + 2;
                 float right = left + cellW - 4;
                 float bottom = top + cellH - 4;
-                Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty())shown=sprite.animationFrames.get((int)((android.os.SystemClock.uptimeMillis()/Math.max(16,1000/targetAnimationFps))%sprite.animationFrames.size()));
+                Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty()){int frame=Math.max(0,Math.min(sprite.currentFrameIndex,sprite.animationFrames.size()-1));shown=sprite.animationFrames.get(frame);}
                 if(shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
                 } else {
                     paint.setColor(Color.MAGENTA);
