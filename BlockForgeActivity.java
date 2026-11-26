@@ -255,10 +255,12 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editor,new LinearLayout.LayoutParams(-1,0,1));
         panelView.addView(editorButton("GUARDAR CÓDIGO",()->{
             getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
+            saveProjectFile("scripts/main.bf",editor.getText().toString());
             Toast.makeText(this,"Código guardado",Toast.LENGTH_SHORT).show();
         }));
         panelView.addView(editorButton("ABRIR EDITOR Y EJECUTAR",()->{
             getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
+            saveProjectFile("scripts/main.bf",editor.getText().toString());
             if (codeEditor != null) { codeEditorProjectName = project; codeEditor.setText(editor.getText().toString()); }
             dialog.dismiss();openPage(3);
         }));
@@ -365,6 +367,21 @@ public class BlockForgeActivity extends Activity {
         lp.topMargin = 20;
         lp.bottomMargin = 9;
         content.addView(row, lp);
+    }
+
+    void saveProjectFile(String relativePath,String value) {
+        try {
+            String project=activeProjectName();
+            String folderPath=getPreferences(MODE_PRIVATE).getString("project_folder_"+project,"");
+            if(folderPath.isEmpty())return;
+            java.io.File root=new java.io.File(folderPath).getCanonicalFile();
+            java.io.File target=new java.io.File(root,relativePath).getCanonicalFile();
+            if(!target.getPath().startsWith(root.getPath()+java.io.File.separator))return;
+            java.io.File parent=target.getParentFile();
+            if(parent!=null&&!parent.exists()&&!parent.mkdirs())return;
+            java.io.FileOutputStream out=new java.io.FileOutputStream(target);
+            out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));out.close();
+        } catch(Exception ignored) { }
     }
 
     void openProject(String name) {
@@ -2203,6 +2220,7 @@ public class BlockForgeActivity extends Activity {
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
+            saveProjectFile("scenes/sprites.json",data.toString());
         }
 
         void addSprite(String name) {
@@ -2387,6 +2405,7 @@ public class BlockForgeActivity extends Activity {
             }
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + active, data.toString()).apply();
+            saveProjectFile("scenes/main.blocks",data.toString());
         }
 
         String captureState() {
