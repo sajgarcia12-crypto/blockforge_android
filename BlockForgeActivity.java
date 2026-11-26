@@ -1025,8 +1025,11 @@ public class BlockForgeActivity extends Activity {
         ScenePreview() {
             super(BlockForgeActivity.this);
             setBackground(shape(Color.rgb(7,13,23)));
+            cameraZoom=getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom",1f);
+            cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f);
+            cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f);
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
-                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;invalidate();return true;}});
+                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks_" + active, "");
             if (!saved.isEmpty()) {
@@ -1081,8 +1084,9 @@ public class BlockForgeActivity extends Activity {
         void addAnimationFrame(String name){if(selectedSprite<0||selectedSprite>=sprites.size())return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;SceneSprite sp=sprites.get(selectedSprite);sp.animationFrames.add(b);sp.animationFrameNames.add(name);persistSprites();invalidate();startAnimationTicker();}
         void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size())return;SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(9,sp.x+dx));sp.y=Math.max(0,Math.min(9,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
-        void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);invalidate();}
-        void resetCamera(){cameraZoom=1f;cameraOffsetX=cameraOffsetY=0f;cameraPanMode=false;invalidate();}
+        void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
+        void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);saveCamera();invalidate();}
+        void resetCamera(){cameraZoom=1f;cameraOffsetX=0f;cameraOffsetY=0f;cameraPanMode=false;saveCamera();invalidate();}
         void toggleSelectedSpriteSolid() {
             if (selectedSprite < 0 || selectedSprite >= sprites.size()) {
                 Toast.makeText(BlockForgeActivity.this, "Primero toca un sprite para seleccionarlo",
@@ -1203,7 +1207,7 @@ public class BlockForgeActivity extends Activity {
         }
 
         @Override protected void onAttachedToWindow(){super.onAttachedToWindow();startAnimationTicker();}
-        @Override protected void onDetachedFromWindow(){removeCallbacks(animationTicker);removeCallbacks(physicsLoop);super.onDetachedFromWindow();}
+        @Override protected void onDetachedFromWindow(){removeCallbacks(animationTicker);removeCallbacks(physicsLoop);persistSprites();persist();saveCamera();super.onDetachedFromWindow();}
         final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;for(SceneSprite sp:sprites)if(sp.animationFrames.size()>1){invalidate();postDelayed(this,100);return;}}};
         void startAnimationTicker(){removeCallbacks(animationTicker);postDelayed(animationTicker,100);}
 
@@ -1277,7 +1281,7 @@ public class BlockForgeActivity extends Activity {
         @Override
         public boolean onTouchEvent(android.view.MotionEvent event){
             scaleDetector.onTouchEvent(event);
-            if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
+            if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
             float cellW=Math.max(1f,getWidth()/10f),cellH=Math.max(1f,getHeight()/10f);
             int col=Math.max(0,Math.min(9,(int)(wx/cellW))),row=Math.max(0,Math.min(9,(int)(wy/cellH)));
@@ -1344,6 +1348,16 @@ public class BlockForgeActivity extends Activity {
             return true;
         }
 
+        void drawBlockLayer(Canvas canvas,int layer,float cellW,float cellH){
+            for(int i=0;i<blocks.size();i++){
+                if((i<blockLayers.size()?blockLayers.get(i):1)!=layer)continue;
+                Point p=blocks.get(i);float left=p.x*cellW+3,top=p.y*cellH+3,right=left+cellW-6,bottom=top+cellH-6;
+                paint.setColor(i<blockColors.size()?blockColors.get(i):sceneBrushColor);canvas.drawRect(left,top,right,bottom,paint);
+                paint.setColor(Color.rgb(175,220,255));canvas.drawRect(left,top,right,top+5,paint);
+                paint.setColor(Color.rgb(20,35,55));canvas.drawRect(left,bottom-5,right,bottom,paint);
+            }
+        }
+
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
@@ -1358,21 +1372,8 @@ public class BlockForgeActivity extends Activity {
                     canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
             }
 
-            for(int layer=0;layer<3;layer++)for(int blockIndex=0;blockIndex<blocks.size();blockIndex++){
-                if((blockIndex<blockLayers.size()?blockLayers.get(blockIndex):1)!=layer)continue;
-                Point p=blocks.get(blockIndex);
-                float left = p.x * cellW + 3;
-                float top = p.y * cellH + 3;
-                float right = left + cellW - 6;
-                float bottom = top + cellH - 6;
-                paint.setColor(blockIndex < blockColors.size() ?
-                        blockColors.get(blockIndex) : sceneBrushColor);
-                canvas.drawRect(left, top, right, bottom, paint);
-                paint.setColor(Color.rgb(175, 220, 255));
-                canvas.drawRect(left, top, right, top + 5, paint);
-                paint.setColor(Color.rgb(20, 35, 55));
-                canvas.drawRect(left, bottom - 5, right, bottom, paint);
-            }
+            drawBlockLayer(canvas,0,cellW,cellH);
+            drawBlockLayer(canvas,1,cellW,cellH);
 
             for (SceneSprite sprite : sprites) {
                 float left = sprite.x * cellW + 2;
@@ -1385,6 +1386,7 @@ public class BlockForgeActivity extends Activity {
                     paint.setColor(Color.MAGENTA);
                     canvas.drawRect(left, top, right, bottom, paint);
                 }
+                if (sprites.indexOf(sprite)==selectedSprite) {paint.setColor(Color.YELLOW);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3f);canvas.drawRect(left-2,top-2,right+2,bottom+2,paint);paint.setStyle(Paint.Style.FILL);}
                 if (sprite.solid) {
                     paint.setColor(Color.WHITE);
                     paint.setStyle(Paint.Style.STROKE);
@@ -1393,6 +1395,7 @@ public class BlockForgeActivity extends Activity {
                 }
             }
 
+            drawBlockLayer(canvas,2,cellW,cellH);
             paint.setColor(white);
             paint.setTextSize(12);
             String active = activeProjectName();
