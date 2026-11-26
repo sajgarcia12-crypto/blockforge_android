@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - blockforge/dev-hub-foundation
+      - blockforge/2d-review
 
 permissions:
   contents: read
