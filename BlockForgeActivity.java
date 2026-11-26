@@ -2910,10 +2910,21 @@ public class BlockForgeActivity extends Activity {
         if (requestCode == PICK_SPRITE_EDIT_REQUEST) {
             try {
                 android.graphics.Bitmap imported;
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
                 try (java.io.InputStream in = getContentResolver().openInputStream(data.getData())) {
-                    imported = BitmapFactory.decodeStream(in);
+                    BitmapFactory.decodeStream(in, null, bounds);
                 }
-                if (imported == null) throw new java.io.IOException("El archivo no es una imagen válida");
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw new java.io.IOException("El archivo no es una imagen válida");
+                int sample = 1;
+                while (bounds.outWidth / sample > 512 || bounds.outHeight / sample > 512) sample *= 2;
+                BitmapFactory.Options decodeOptions = new BitmapFactory.Options();
+                decodeOptions.inSampleSize = sample;
+                decodeOptions.inPreferredConfig = Bitmap.Config.ARGB_8888;
+                try (java.io.InputStream in = getContentResolver().openInputStream(data.getData())) {
+                    imported = BitmapFactory.decodeStream(in, null, decodeOptions);
+                }
+                if (imported == null) throw new java.io.IOException("No se pudo decodificar la imagen");
                 if (activeSpriteDrawView == null) {
                     imported.recycle();
                     throw new java.io.IOException("Abre primero el editor de píxeles");
