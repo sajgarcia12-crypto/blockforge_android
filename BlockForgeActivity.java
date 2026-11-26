@@ -807,7 +807,8 @@ public class BlockForgeActivity extends Activity {
         }
 
         @Override
-        public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig config) {
+        public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl,
+                                      javax.microedition.khronos.egl.EGLConfig config) {
             android.opengl.GLES20.glClearColor(0.03f, 0.05f, 0.09f, 1f);
             android.opengl.GLES20.glEnable(android.opengl.GLES20.GL_DEPTH_TEST);
             int vs = compileShader(android.opengl.GLES20.GL_VERTEX_SHADER, vertexShader);
