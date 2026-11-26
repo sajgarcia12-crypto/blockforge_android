@@ -317,7 +317,7 @@ public class BlockForgeActivity extends Activity {
         bg.setColor(Color.rgb(54, 112, 184));
         bg.setCornerRadius(12f);
         b.setBackground(bg);
-        b.setOnClickListener(v -> action.run());
+        b.setOnClickListener(v -> { if (getPreferences(MODE_PRIVATE).getBoolean("ui_haptics", true)) v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); action.run(); });
         return b;
     }
 
@@ -327,7 +327,7 @@ public class BlockForgeActivity extends Activity {
         b.setPadding(11, 10, 11, 10);
         b.setMinHeight(42);
         b.setBackground(uiPanel(uiSurfaceRaised));
-        b.setOnClickListener(v -> action.run());
+        b.setOnClickListener(v -> { if (getPreferences(MODE_PRIVATE).getBoolean("ui_haptics", true)) v.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); action.run(); });
         return b;
     }
 
@@ -919,7 +919,7 @@ public class BlockForgeActivity extends Activity {
 
         codeEditor=new EditText(this);
         codeEditor.setTextColor(Color.rgb(180,220,255));
-        codeEditor.setTextSize(14);
+        codeEditor.setTextSize(getPreferences(MODE_PRIVATE).getInt("editor_font_size", 14));
         codeEditor.setTypeface(Typeface.MONOSPACE);
         codeEditor.setGravity(Gravity.TOP);
         codeEditor.setPadding(15,15,15,15);
@@ -3214,6 +3214,45 @@ public class BlockForgeActivity extends Activity {
             }).setNegativeButton(uiText("Cerrar","Close"),null).show();
     }
 
+    void showEditorFontSizeDialog() {
+        final int[] sizes = {12, 14, 16, 18, 20};
+        String[] labels = {"12 sp", "14 sp", "16 sp", "18 sp", "20 sp"};
+        int current = getPreferences(MODE_PRIVATE).getInt("editor_font_size", 14);
+        int selected = 1;
+        for (int i = 0; i < sizes.length; i++) if (sizes[i] == current) selected = i;
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(uiText("Tamaño del texto del editor", "Editor text size"))
+            .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                getPreferences(MODE_PRIVATE).edit().putInt("editor_font_size", sizes[which]).apply();
+                dialog.dismiss();
+                Toast.makeText(this, uiText("Tamaño guardado. Se aplicará al abrir el editor.", "Size saved. It will apply when the editor opens."), Toast.LENGTH_SHORT).show();
+                settings();
+            }).setNegativeButton(uiText("Cancelar", "Cancel"), null).show();
+    }
+
+    void clearTemporaryCache() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(uiText("Limpiar caché temporal", "Clear temporary cache"))
+            .setMessage(uiText("Se eliminarán archivos temporales y cachés. Tus proyectos y scripts no se borrarán.", "Temporary files and cache will be deleted. Your projects and scripts will not be removed."))
+            .setNegativeButton(uiText("Cancelar", "Cancel"), null)
+            .setPositiveButton(uiText("Limpiar", "Clear"), (dialog, which) -> {
+                long before = folderBytes(getCacheDir());
+                java.io.File[] children = getCacheDir().listFiles();
+                if (children != null) for (java.io.File child : children) deleteCacheEntry(child);
+                Toast.makeText(this, uiText("Caché limpiada: ", "Cache cleared: ") + readableBytes(before), Toast.LENGTH_LONG).show();
+                settings();
+            }).show();
+    }
+
+    boolean deleteCacheEntry(java.io.File entry) {
+        if (entry == null || !entry.exists()) return true;
+        if (entry.isDirectory()) {
+            java.io.File[] children = entry.listFiles();
+            if (children != null) for (java.io.File child : children) deleteCacheEntry(child);
+        }
+        return entry.delete();
+    }
+
     void settings() {
         content.setPadding(20, 20, 20, 24);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -3228,6 +3267,16 @@ public class BlockForgeActivity extends Activity {
             applyUiTheme(); buildInterface(); openPage(5);
         }));
         card(uiText("Tema actual","Current theme"),getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false)?uiText("Claro","Light"):uiText("Oscuro","Dark"));
+        uiSection(uiText("EDITOR Y COMODIDAD","EDITOR & COMFORT"), uiText("PREFERENCIAS DE EDICIÓN","EDITING PREFERENCES"));
+        int fontSize=getPreferences(MODE_PRIVATE).getInt("editor_font_size",14);
+        content.addView(uiSecondary(uiText("Aa  Tamaño del texto · ","Aa  Editor text size · ")+fontSize+" sp", () -> showEditorFontSizeDialog()));
+        boolean haptics=getPreferences(MODE_PRIVATE).getBoolean("ui_haptics",true);
+        content.addView(uiSecondary(uiText("Vibración al tocar · ","Touch vibration · ")+(haptics?uiText("Activada","On"):uiText("Desactivada","Off")), () -> {
+            boolean next=!getPreferences(MODE_PRIVATE).getBoolean("ui_haptics",true);
+            getPreferences(MODE_PRIVATE).edit().putBoolean("ui_haptics",next).apply();
+            settings();
+        }));
+        card(uiText("Guardado de scripts","Script saving"),uiText("El editor guarda al cambiar de pantalla y al salir de la app.","The editor saves when changing screens and when leaving the app."));
 
         uiSection(uiText("RENDIMIENTO","PERFORMANCE"), uiText("MEMORIA","MEMORY"));
         android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
@@ -3246,6 +3295,7 @@ public class BlockForgeActivity extends Activity {
         card(uiText("Espacio usado por BlockForge","BlockForge storage used"),readableBytes(appBytes));
         card(uiText("Almacenamiento del dispositivo","Device storage"),uiText("Libre: ","Free: ")+readableBytes(storageRoot.getUsableSpace())+" · "+uiText("Total: ","Total: ")+readableBytes(storageRoot.getTotalSpace()));
         content.addView(uiPrimary(uiText("📁  ADMINISTRAR CARPETAS","📁  MANAGE FOLDERS"), () -> showStorageManager(getFilesDir())));
+        content.addView(uiSecondary(uiText("🧹  Limpiar caché temporal","🧹  Clear temporary cache"), () -> clearTemporaryCache()));
 
         uiSection(uiText("ACERCA DE","ABOUT"), uiText("DETALLES","DETAILS"));
         card(uiText("Lenguaje de programación","Programming language"),"El Grafisript");
