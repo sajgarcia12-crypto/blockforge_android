@@ -318,155 +318,143 @@ public class BlockForgeActivity extends Activity {
         String project = activeProjectName();
         String type = getPreferences(MODE_PRIVATE)
                 .getString("project_type_" + project, "2D");
+
         if ("3D".equals(type)) {
-            heading("Editor de escenas 3D",
-                    "Vista 3D OpenGL ES: coloca cubos y observa la escena desde una cámara en perspectiva.");
+            heading("Editor de escenas 3D", "Vista de trabajo 3D");
             scene3DView = new Scene3DView();
             content.addView(scene3DView, new LinearLayout.LayoutParams(-1, 390));
             scene3DView.onResume();
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
-            actions.addView(button("＋ CUBO", () -> scene3DView.addCube()),
-                    new LinearLayout.LayoutParams(0, -2, 1));
-            actions.addView(button("BORRAR TODO", () -> scene3DView.clearCubes()),
-                    new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(button("＋ CUBO", () -> scene3DView.addCube()), new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(button("BORRAR", () -> scene3DView.clearCubes()), new LinearLayout.LayoutParams(0, -2, 1));
             content.addView(actions);
             content.addView(button("GUARDAR ESCENA", () -> {
                 scene3DView.persist();
                 Toast.makeText(this, "Escena 3D guardada", Toast.LENGTH_SHORT).show();
             }));
-            card("Controles", "Usa ＋ CUBO para añadir geometría cúbica. La escena se guarda en este proyecto.");
-            card("Estado del motor", "Renderizador 3D inicial con OpenGL ES 2.0. Todavía faltan materiales, iluminación avanzada, físicas, modelos y exportación.");
+            card("Motor 3D", "Renderizador inicial OpenGL ES 2.0.");
             return;
         }
 
-        heading("Editor de escenas 2D",
-                "Editor táctil por cuadrícula. Toca una celda para colocar un bloque.");
-        scenePreview = new ScenePreview();
-        String savedSceneAudio=getPreferences(MODE_PRIVATE).getString("scene_audio_"+project,"");
-        if(!savedSceneAudio.isEmpty() && sceneAudioPlayer==null) playSceneAudio(savedSceneAudio);
-        content.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
-        if (physicsRunning) scenePreview.startPhysics();
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.addView(button("＋ BLOQUE", () -> scenePreview.addBlock()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        actions.addView(button("BORRAR TODO", () -> scenePreview.clearBlocks()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(actions);
-        LinearLayout toolActions=new LinearLayout(this);toolActions.setOrientation(LinearLayout.HORIZONTAL);
-        toolActions.addView(button(sceneToolMode==0?"✎ LÁPIZ":"LÁPIZ",()->{sceneToolMode=0;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        toolActions.addView(button(sceneToolMode==1?"▧ RECTÁNGULO":"RECTÁNGULO",()->{sceneToolMode=1;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        toolActions.addView(button(sceneToolMode==2?"▨ RELLENO":"RELLENO",()->{sceneToolMode=2;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        content.addView(toolActions);
-        content.addView(button("⚙ CONFIGURAR FÍSICA Y COLISIONES",()->showPhysicsSettingsDialog()));
-        LinearLayout palette = new LinearLayout(this);
-        palette.setOrientation(LinearLayout.HORIZONTAL);
-        palette.addView(button("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        palette.addView(button("AZUL", () -> setSceneBrush(Color.rgb(55, 115, 210), false)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        palette.addView(button("ROJO", () -> setSceneBrush(Color.rgb(205, 75, 75), false)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        palette.addView(button("BORRAR", () -> setSceneBrush(sceneBrushColor, true)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(palette);
-        LinearLayout editActions = new LinearLayout(this);
-        editActions.setOrientation(LinearLayout.HORIZONTAL);
-        editActions.addView(button("↶ DESHACER", () -> scenePreview.undo()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        editActions.addView(button("CUADRÍCULA", () -> {
-            sceneGridVisible = !sceneGridVisible;
-            scenePreview.invalidate();
-        }), new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(editActions);
-        LinearLayout layerActions=new LinearLayout(this); layerActions.setOrientation(LinearLayout.HORIZONTAL);
-        layerActions.addView(button("CAPA: "+new String[]{"FONDO","MUNDO","FRENTE"}[sceneLayer],()->{sceneLayer=(sceneLayer+1)%3;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        layerActions.addView(button(cameraPanMode?"MOVER CÁMARA: ON":"MOVER CÁMARA",()->{cameraPanMode=!cameraPanMode;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1)); content.addView(layerActions);
-        LinearLayout cameraActions=new LinearLayout(this); cameraActions.setOrientation(LinearLayout.HORIZONTAL);
-        cameraActions.addView(button("ZOOM +",()->scenePreview.changeZoom(1.2f)),new LinearLayout.LayoutParams(0,-2,1));
-        cameraActions.addView(button("ZOOM −",()->scenePreview.changeZoom(0.83f)),new LinearLayout.LayoutParams(0,-2,1));
-        cameraActions.addView(button("CENTRAR",()->scenePreview.resetCamera()),new LinearLayout.LayoutParams(0,-2,1)); content.addView(cameraActions);
-        LinearLayout spriteActions = new LinearLayout(this);
-        spriteActions.setOrientation(LinearLayout.HORIZONTAL);
-        spriteActions.addView(button("✎ DIBUJAR SPRITE", () -> openSpriteDrawer()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        spriteActions.addView(button("＋ IMPORTAR IMAGEN", () -> pickSpriteImage()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(spriteActions);
-        LinearLayout mapActions=new LinearLayout(this);mapActions.setOrientation(LinearLayout.HORIZONTAL);
-        mapActions.addView(button("TAMAÑO DEL MAPA",()->showMapSizeDialog()),new LinearLayout.LayoutParams(0,-2,1));
-        mapActions.addView(button("CENTRAR CÁMARA",()->scenePreview.resetCamera()),new LinearLayout.LayoutParams(0,-2,1));content.addView(mapActions);
-        LinearLayout mobileActions=new LinearLayout(this);mobileActions.setOrientation(LinearLayout.HORIZONTAL);
-        mobileActions.addView(button("＋ CREAR BOTÓN PARA MÓVILES",()->createMobileButtonDialog()),new LinearLayout.LayoutParams(0,-2,2));
-        mobileActions.addView(button("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        content.addView(mobileActions);
-        content.addView(button("⚙ ADMINISTRAR BOTONES MÓVILES",()->manageMobileButtons()));
-        LinearLayout animationActions=new LinearLayout(this); animationActions.setOrientation(LinearLayout.HORIZONTAL);
-        animationActions.addView(button("＋ FOTOGRAMA",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("◀ FRAME",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("FRAME ▶",()->scenePreview.selectAnimationFrame(1)),new LinearLayout.LayoutParams(0,-2,1));
-        animationActions.addView(button("▶/Ⅱ ANIMAR",()->scenePreview.toggleAnimationPlayback()),new LinearLayout.LayoutParams(0,-2,1));
-        content.addView(animationActions);
-        TextView timelineStatus=label(scenePreview.animationStatus(),12,Color.rgb(160,205,255));timelineStatus.setPadding(4,8,4,8);content.addView(timelineStatus);
-        LinearLayout timelineTools=new LinearLayout(this);timelineTools.setOrientation(LinearLayout.HORIZONTAL);
-        timelineTools.addView(button("ELIMINAR FRAME",()->{scenePreview.deleteAnimationFrame();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button("FPS: "+(scenePreview.selectedSpriteObject()==null?targetAnimationFps:scenePreview.selectedSpriteObject().animationFps),()->showAnimationFpsDialog()),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button(scenePreview.selectedSpriteObject()!=null&&scenePreview.selectedSpriteObject().animationLoop?"BUCLE":"UNA PASADA",()->{scenePreview.toggleAnimationLoop();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button("MOVER ←",()->scenePreview.moveSelectedSprite(-0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button("MOVER →",()->scenePreview.moveSelectedSprite(0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(timelineTools);
-        content.addView(button(scenePlayMode?"■ DETENER PRUEBA":"▶ PROBAR NIVEL",()->{scenePlayMode=!scenePlayMode;physicsRunning=scenePlayMode;if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();openPage(2);}));
-        if(scenePlayMode){
-            card("CONTROLES TÁCTILES","Selecciona un sprite en la escena y muévelo con estos controles durante la prueba.");
-            LinearLayout dpadTop=new LinearLayout(this);dpadTop.setGravity(Gravity.CENTER);
-            dpadTop.addView(button("▲",()->scenePreview.moveSelectedSprite(0,-0.5f)),new LinearLayout.LayoutParams(110,-2));content.addView(dpadTop);
-            LinearLayout dpadBottom=new LinearLayout(this);dpadBottom.setGravity(Gravity.CENTER);
-            dpadBottom.addView(button("◀",()->scenePreview.moveSelectedSprite(-0.5f,0)),new LinearLayout.LayoutParams(90,-2));
-            dpadBottom.addView(button("▼",()->scenePreview.moveSelectedSprite(0,0.5f)),new LinearLayout.LayoutParams(90,-2));
-            dpadBottom.addView(button("▶",()->scenePreview.moveSelectedSprite(0.5f,0)),new LinearLayout.LayoutParams(90,-2));
-            dpadBottom.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(dpadBottom);
-        }
-        LinearLayout physicsActions = new LinearLayout(this);
-        physicsActions.setOrientation(LinearLayout.HORIZONTAL);
-        physicsActions.addView(button(physicsRunning ? "PAUSAR FÍSICAS" : "▶ INICIAR FÍSICAS", () -> {
-            physicsRunning = !physicsRunning;
+        // Editor 2D reorganizado: viewport primero, herramientas agrupadas y paneles compactos.
+        content.setPadding(10, 8, 10, 14);
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(8, 7, 8, 7);
+        top.setBackground(shape(Color.rgb(22, 30, 45)));
+        LinearLayout titleBox = vertical();
+        titleBox.addView(label("2D  /  " + project, 16, white));
+        titleBox.addView(label("ESCENA · EDITOR", 10, gray));
+        top.addView(titleBox, new LinearLayout.LayoutParams(0, -2, 1));
+        top.addView(button("▶", () -> {
+            scenePlayMode = !scenePlayMode;
+            physicsRunning = scenePlayMode;
             if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
-        }), new LinearLayout.LayoutParams(0, -2, 1));
-        physicsActions.addView(button("COLISIONES: " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
-            sceneCollisionsEnabled = !sceneCollisionsEnabled;
+        }), new LinearLayout.LayoutParams(54, 48));
+        top.addView(button("💾", () -> {
+            if (scenePreview != null) scenePreview.persist();
+            Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
+        }), new LinearLayout.LayoutParams(58, 48));
+        content.addView(top);
+
+        LinearLayout toolbar = new LinearLayout(this);
+        toolbar.setGravity(Gravity.CENTER_VERTICAL);
+        toolbar.setPadding(4, 7, 4, 7);
+        toolbar.setBackground(shape(Color.rgb(18, 25, 38)));
+        toolbar.addView(button(sceneToolMode == 0 ? "✎" : "Lápiz", () -> { sceneToolMode=0; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(button(sceneToolMode == 1 ? "▧" : "Rect.", () -> { sceneToolMode=1; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(button(sceneToolMode == 2 ? "▨" : "Relleno", () -> { sceneToolMode=2; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(button("↶", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(button("＋", () -> scenePreview.addBlock()), new LinearLayout.LayoutParams(0, 46, 1));
+        content.addView(toolbar);
+
+        LinearLayout viewportFrame = vertical();
+        viewportFrame.setPadding(3, 3, 3, 3);
+        viewportFrame.setBackground(shape(Color.rgb(35, 47, 66)));
+        TextView viewportLabel = label("VISTA 2D  ·  LIENZO", 10, Color.rgb(160,205,255));
+        viewportLabel.setPadding(8, 5, 8, 5);
+        viewportFrame.addView(viewportLabel);
+        scenePreview = new ScenePreview();
+        String savedSceneAudio = getPreferences(MODE_PRIVATE).getString("scene_audio_" + project, "");
+        if (!savedSceneAudio.isEmpty() && sceneAudioPlayer == null) playSceneAudio(savedSceneAudio);
+        viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
+        content.addView(viewportFrame);
+        if (physicsRunning) scenePreview.startPhysics();
+
+        LinearLayout palette = new LinearLayout(this);
+        palette.setPadding(0, 7, 0, 7);
+        palette.addView(button("🟩", () -> setSceneBrush(Color.rgb(55,135,90), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(button("🟦", () -> setSceneBrush(Color.rgb(55,115,210), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(button("🟥", () -> setSceneBrush(Color.rgb(205,75,75), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(button("⌫", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(button("▦", () -> { sceneGridVisible=!sceneGridVisible; scenePreview.invalidate(); }), new LinearLayout.LayoutParams(0, 44, 1));
+        content.addView(palette);
+
+        LinearLayout camera = new LinearLayout(this);
+        camera.addView(button("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(button("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(button("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(button("CAPA " + new String[]{"FONDO","MUNDO","FRENTE"}[sceneLayer], () -> { sceneLayer=(sceneLayer+1)%3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        content.addView(camera);
+
+        LinearLayout assets = new LinearLayout(this);
+        assets.addView(button("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(button("IMPORTAR", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(button("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
+        content.addView(assets);
+
+        LinearLayout spriteOps = new LinearLayout(this);
+        spriteOps.addView(button("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(button("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(button("MOVER ←", () -> scenePreview.moveSelectedSprite(-0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(button("MOVER →", () -> scenePreview.moveSelectedSprite(0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
+        content.addView(spriteOps);
+
+        LinearLayout animation = new LinearLayout(this);
+        animation.addView(button("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(button("◀", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(button("▶", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(button("ANIMAR", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(button("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
+        content.addView(animation);
+        TextView timeline = label(scenePreview.animationStatus(), 11, Color.rgb(160,205,255));
+        timeline.setPadding(8, 8, 8, 8);
+        timeline.setBackground(shape(Color.rgb(22,30,45)));
+        content.addView(timeline);
+
+        LinearLayout runtime = new LinearLayout(this);
+        runtime.addView(button(scenePlayMode ? "■ DETENER" : "▶ PROBAR", () -> {
+            scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
+            if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
-        }), new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(physicsActions);
-        LinearLayout packActions = new LinearLayout(this);
-        packActions.setOrientation(LinearLayout.HORIZONTAL);
-        packActions.addView(button("INSTALAR PACK 30 FPS", () -> installSpritePack(30)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        packActions.addView(button("INSTALAR PACK 60 FPS", () -> installSpritePack(60)),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(packActions);
-        LinearLayout spriteTools = new LinearLayout(this);
-        spriteTools.setOrientation(LinearLayout.HORIZONTAL);
-        spriteTools.addView(button("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        spriteTools.addView(button("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()),
-                new LinearLayout.LayoutParams(0, -2, 1));
-        content.addView(spriteTools);
-        LinearLayout audioActions=new LinearLayout(this);audioActions.setOrientation(LinearLayout.HORIZONTAL);
-        audioActions.addView(button("♫ ELEGIR AUDIO",()->showSceneAudioPicker()),new LinearLayout.LayoutParams(0,-2,1));
-        audioActions.addView(button("DETENER AUDIO",()->stopSceneAudio()),new LinearLayout.LayoutParams(0,-2,1));content.addView(audioActions);
-        LinearLayout transferActions=new LinearLayout(this);transferActions.setOrientation(LinearLayout.HORIZONTAL);
-        transferActions.addView(button("EXPORTAR NIVEL",()->exportScenePicker()),new LinearLayout.LayoutParams(0,-2,1));
-        transferActions.addView(button("IMPORTAR NIVEL",()->importScenePicker()),new LinearLayout.LayoutParams(0,-2,1));content.addView(transferActions);
+        }), new LinearLayout.LayoutParams(0, 48, 1));
+        runtime.addView(button(physicsRunning ? "PAUSAR FÍSICA" : "FÍSICA", () -> {
+            physicsRunning=!physicsRunning;
+            if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
+            openPage(2);
+        }), new LinearLayout.LayoutParams(0, 48, 1));
+        runtime.addView(button("COLISIÓN " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
+            sceneCollisionsEnabled=!sceneCollisionsEnabled; openPage(2);
+        }), new LinearLayout.LayoutParams(0, 48, 1));
+        content.addView(runtime);
+
+        content.addView(button("⚙  FÍSICA Y COLISIONES", () -> showPhysicsSettingsDialog()));
+        content.addView(button("☷  CAPAS, CÁMARA Y CONTROLES MÓVILES", () -> showEditorExtrasDialog()));
+        content.addView(button("＋  CREAR BOTÓN MÓVIL", () -> createMobileButtonDialog()));
+        content.addView(button("ADMINISTRAR BOTONES MÓVILES", () -> manageMobileButtons()));
+        content.addView(button("BOTONES PREDETERMINADOS", () -> { scenePreview.installDefaultMobileButtons(); openPage(2); }));
+        content.addView(button("♫  AUDIO DE ESCENA", () -> showSceneAudioPicker()));
+        content.addView(button("DETENER AUDIO", () -> stopSceneAudio()));
+        LinearLayout transfer = new LinearLayout(this);
+        transfer.addView(button("EXPORTAR NIVEL", () -> exportScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
+        transfer.addView(button("IMPORTAR NIVEL", () -> importScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
+        content.addView(transfer);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
         }));
-        card("Sprites", "Dibuja un sprite de 16×16 píxeles o importa una imagen PNG/JPG. Toca y arrastra un sprite para moverlo.");
-        card("Físicas 2D", "Simulación continua con gravedad, velocidad, plataformas, límites, rebote y colisiones básicas. Usa el botón para iniciar o pausar.");
-        card("Herramientas 2D", "Tres capas, cámara con zoom y desplazamiento, animación por fotogramas, controles de sprites, audio en bucle y exportación/importación JSON del nivel. Las imágenes deben estar disponibles en la biblioteca del dispositivo al importar.");
-        card("Paquetes de sprites y rendimiento", "Instala paquetes pixel art integrados sin conexión. Elige 30 FPS para priorizar batería o 60 FPS para una animación más fluida; la selección se guarda en el dispositivo.");
     }
 
     void showSceneAudioPicker() {
