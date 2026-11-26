@@ -305,6 +305,22 @@ public class BlockForgeActivity extends Activity {
         LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if(panelView==null)return;
         panelView.addView(label(scenePreview.animationStatus(),13,gray));
+        SceneSprite timelineSprite=scenePreview.selectedSpriteObject();
+        if(timelineSprite!=null && !timelineSprite.animationFrameNames.isEmpty()){
+            HorizontalScrollView frameScroll=new HorizontalScrollView(this);
+            frameScroll.setHorizontalScrollBarEnabled(false);
+            LinearLayout frameStrip=new LinearLayout(this);
+            for(int fi=0;fi<timelineSprite.animationFrameNames.size();fi++){
+                final int frameIndex=fi;
+                String frameLabel=(fi==timelineSprite.currentFrameIndex?"● ":"")+String.format(java.util.Locale.ROOT,"%02d",fi+1)+" · "+timelineSprite.animationFrameNames.get(fi);
+                frameStrip.addView(editorButton(frameLabel,()->scenePreview.selectAnimationFrameIndex(frameIndex)),
+                    new LinearLayout.LayoutParams(-2,48));
+            }
+            frameScroll.addView(frameStrip);
+            panelView.addView(frameScroll);
+        } else {
+            panelView.addView(label("Aún no hay fotogramas. Añade imágenes para crear una animación.",12,gray));
+        }
         LinearLayout row=new LinearLayout(this);
         row.addView(editorButton("＋ FRAME",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,48,1));
         row.addView(editorButton("◀",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,48,1));
@@ -2076,7 +2092,8 @@ public class BlockForgeActivity extends Activity {
 
         SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
         void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;sp.animationPlaying=false;persistSprites();invalidate();startAnimationTicker();}
-        void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}sp.currentFrameIndex=(sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size();sp.animationPlaying=false;persistSprites();invalidate();}
+        void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}selectAnimationFrameIndex((sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size());}
+        void selectAnimationFrameIndex(int index){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty())return;sp.currentFrameIndex=Math.max(0,Math.min(sp.animationFrames.size()-1,index));sp.animationPlaying=false;persistSprites();invalidate();}
         void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;if(sp.animationPlaying&&sp.currentFrameIndex>=sp.animationFrames.size()-1&&!sp.animationLoop)sp.currentFrameIndex=0;sp.lastFrameAdvance=android.os.SystemClock.uptimeMillis();persistSprites();startAnimationTicker();invalidate();}
         void toggleAnimationLoop(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationLoop=!sp.animationLoop;persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,sp.animationLoop?"Animación en bucle":"Animación de una sola pasada",Toast.LENGTH_SHORT).show();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
