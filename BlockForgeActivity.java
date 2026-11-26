@@ -101,8 +101,8 @@ public class BlockForgeActivity extends Activity {
         navigation = new LinearLayout(this);
         navigation.setBackgroundColor(Color.rgb(18,24,36));
 
-        String[] names = {"Inicio","Proyectos","Escenas","Grafisript","Ajustes"};
-        String[] icons = {"⌂","▦","◇","{ }","⚙"};
+        String[] names = {"Inicio","Proyectos","Escenas","Grafisript","Recursos","Ajustes"};
+        String[] icons = {"⌂","▦","◇","{ }","▤","⚙"};
 
         for(int i=0;i<names.length;i++) {
             final int page=i;
@@ -128,7 +128,8 @@ public class BlockForgeActivity extends Activity {
             case 1: projects(); break;
             case 2: scenes(); break;
             case 3: grafisript(); break;
-            case 4: settings(); break;
+            case 4: resources(); break;
+            case 5: settings(); break;
         }
     }
 
@@ -537,6 +538,70 @@ public class BlockForgeActivity extends Activity {
             paint.setTextSize(12);
             canvas.drawText("ESCENA · " + blocks.size() + " BLOQUES", 12, 20, paint);
         }
+    }
+
+
+    static final int PICK_RESOURCE_REQUEST = 7421;
+
+    void resources() {
+        heading("Biblioteca de recursos",
+                "Importa imágenes, texturas, audio y archivos al almacenamiento privado de BlockForge.");
+        content.addView(button("＋ IMPORTAR ARCHIVO", () -> {
+            android.content.Intent intent = new android.content.Intent(
+                    android.content.Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            startActivityForResult(intent, PICK_RESOURCE_REQUEST);
+        }));
+        java.io.File folder = new java.io.File(getFilesDir(), "resources");
+        if (!folder.exists()) folder.mkdirs();
+        java.io.File[] files = folder.listFiles();
+        if (files == null || files.length == 0) {
+            card("Sin recursos todavía", "Pulsa IMPORTAR ARCHIVO para añadir recursos desde tu dispositivo.");
+        } else {
+            for (java.io.File file : files) {
+                card(file.getName(), (file.length() / 1024) + " KB · Guardado en BlockForge.");
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode,
+                                    android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_RESOURCE_REQUEST || resultCode != RESULT_OK ||
+                data == null || data.getData() == null) return;
+        try {
+            android.net.Uri uri = data.getData();
+            String name = uri.getLastPathSegment();
+            if (name == null || name.trim().isEmpty())
+                name = "recurso_" + System.currentTimeMillis();
+            name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
+            java.io.File folder = new java.io.File(getFilesDir(), "resources");
+            if (!folder.exists()) folder.mkdirs();
+            java.io.File destination = new java.io.File(folder, name);
+            try (java.io.InputStream in = getContentResolver().openInputStream(uri);
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
+                if (in == null) throw new java.io.IOException("No se pudo abrir el archivo");
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+            }
+            Toast.makeText(this, "Recurso importado: " + name, Toast.LENGTH_LONG).show();
+            openPage(4);
+        } catch (Exception ex) {
+            Toast.makeText(this, "No se pudo importar: " + ex.getMessage(),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    void settings() {
+        heading("Configuración", "Preferencias de BlockForge Studio.");
+        card("Apariencia", "Tema oscuro experimental.");
+        card("Idioma", "Interfaz actual: español.");
+        card("Motor gráfico", "C++ / SDL2. La conexión completa con la interfaz Java sigue pendiente.");
+        card("Lenguaje", "El Grafisript · intérprete inicial.");
+        card("Información", "BlockForge Studio Mobile · Versión experimental.");
     }
 
 }
