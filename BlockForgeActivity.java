@@ -257,6 +257,7 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(label("FÍSICA Y COLISIONES",11,Color.rgb(135,180,235)));
         panelView.addView(editorButton("CONFIGURAR FÍSICA",()->showPhysicsSettingsDialog()));
         panelView.addView(editorButton("CAPAS, CÁMARA Y PACKS",()->showEditorExtrasDialog()));
+        panelView.addView(editorButton("BIBLIOTECA DE SPRITES",()->showSpriteLibraryDialog()));
         panelView.addView(editorButton("AÑADIR BOTÓN MÓVIL",()->createMobileButtonDialog()));
         panelView.addView(editorButton("ADMINISTRAR BOTONES",()->manageMobileButtons()));
         panelView.addView(editorButton("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();dialog.dismiss();}));
@@ -267,6 +268,34 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("IMPORTAR NIVEL",()->importScenePicker()));
         panelView.addView(editorButton("GUARDAR ESCENA",()->{scenePreview.persist();Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show();}));
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
+    void showSpriteLibraryDialog() {
+        java.io.File folder = new java.io.File(getFilesDir(), "sprites");
+        if (!folder.exists()) folder.mkdirs();
+        java.io.File[] all = folder.listFiles();
+        java.util.ArrayList<java.io.File> images = new java.util.ArrayList<>();
+        if (all != null) for (java.io.File file : all) {
+            String n = file.getName().toLowerCase(java.util.Locale.ROOT);
+            if (file.isFile() && (n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".webp"))) images.add(file);
+        }
+        java.util.Collections.sort(images, (a,b) -> a.getName().compareToIgnoreCase(b.getName()));
+        if (images.isEmpty()) {
+            new android.app.AlertDialog.Builder(this).setTitle("Biblioteca de sprites")
+                .setMessage("Todavía no hay imágenes. Dibuja un sprite o importa un PNG desde el editor 2D.")
+                .setPositiveButton("DIBUJAR", (d,w) -> openSpriteDrawer())
+                .setNegativeButton("CERRAR", null).show();
+            return;
+        }
+        String[] names = new String[images.size()];
+        for (int i=0;i<images.size();i++) names[i] = images.get(i).getName() + "  ·  " + Math.max(1, images.get(i).length()/1024) + " KB";
+        new android.app.AlertDialog.Builder(this).setTitle("BIBLIOTECA · " + images.size() + " SPRITES")
+            .setItems(names, (d,which) -> {
+                if (scenePreview == null) { Toast.makeText(this,"Abre primero una escena 2D",Toast.LENGTH_SHORT).show(); return; }
+                scenePreview.addSprite(images.get(which).getName());
+                Toast.makeText(this,"Sprite añadido a la escena",Toast.LENGTH_SHORT).show();
+                openPage(2);
+            }).setNegativeButton("CERRAR",null).show();
     }
 
     void showTimelinePanel() {
