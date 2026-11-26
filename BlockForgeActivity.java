@@ -411,7 +411,8 @@ public class BlockForgeActivity extends Activity {
         TextView timelineStatus=label(scenePreview.animationStatus(),12,Color.rgb(160,205,255));timelineStatus.setPadding(4,8,4,8);content.addView(timelineStatus);
         LinearLayout timelineTools=new LinearLayout(this);timelineTools.setOrientation(LinearLayout.HORIZONTAL);
         timelineTools.addView(button("ELIMINAR FRAME",()->{scenePreview.deleteAnimationFrame();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
-        timelineTools.addView(button("FPS: "+targetAnimationFps,()->{targetAnimationFps=targetAnimationFps==30?60:30;SceneSprite sp=scenePreview.selectedSpriteObject();if(sp!=null){sp.animationFps=targetAnimationFps;scenePreview.persistSprites();}getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps",targetAnimationFps).apply();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button("FPS: "+(scenePreview.selectedSpriteObject()==null?targetAnimationFps:scenePreview.selectedSpriteObject().animationFps),()->showAnimationFpsDialog()),new LinearLayout.LayoutParams(0,-2,1));
+        timelineTools.addView(button(scenePreview.selectedSpriteObject()!=null&&scenePreview.selectedSpriteObject().animationLoop?"BUCLE":"UNA PASADA",()->{scenePreview.toggleAnimationLoop();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
         timelineTools.addView(button("MOVER ←",()->scenePreview.moveSelectedSprite(-0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
         timelineTools.addView(button("MOVER →",()->scenePreview.moveSelectedSprite(0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
         timelineTools.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(timelineTools);
@@ -1253,6 +1254,7 @@ public class BlockForgeActivity extends Activity {
         int currentFrameIndex = 0;
         int animationFps = 8;
         boolean animationPlaying = true;
+        boolean animationLoop = true;
         long lastFrameAdvance = 0L;
         SceneSprite(String name, float px, float py, boolean isSolid) {
             fileName = name; x = px; y = py; solid = isSolid;
@@ -1327,6 +1329,7 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>7)loaded.currentFrameIndex=Math.max(0,Math.min(loaded.animationFrames.size()-1,Integer.parseInt(parts[7])));
                     if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(60,Integer.parseInt(parts[8])));
                     if(parts.length>9)loaded.animationPlaying=Boolean.parseBoolean(parts[9]);
+                    if(parts.length>10)loaded.animationLoop=Boolean.parseBoolean(parts[10]);
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
@@ -1403,7 +1406,7 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.y).append('|').append(sprite.solid).append('|')
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
-                data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying);
+                data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -1421,9 +1424,10 @@ public class BlockForgeActivity extends Activity {
         SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
         void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;sp.animationPlaying=false;persistSprites();invalidate();startAnimationTicker();}
         void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}sp.currentFrameIndex=(sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size();sp.animationPlaying=false;persistSprites();invalidate();}
-        void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;persistSprites();startAnimationTicker();invalidate();}
+        void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;if(sp.animationPlaying&&sp.currentFrameIndex>=sp.animationFrames.size()-1&&!sp.animationLoop)sp.currentFrameIndex=0;sp.lastFrameAdvance=android.os.SystemClock.uptimeMillis();persistSprites();startAnimationTicker();invalidate();}
+        void toggleAnimationLoop(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationLoop=!sp.animationLoop;persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,sp.animationLoop?"Animación en bucle":"Animación de una sola pasada",Toast.LENGTH_SHORT).show();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
-        String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS";}
+        String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS · "+(sp.animationLoop?"BUCLE":"UNA PASADA");}
         void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(mapColumns-1,sp.x+dx));sp.y=Math.max(0,Math.min(mapRows-1,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
         void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
@@ -1571,7 +1575,7 @@ public class BlockForgeActivity extends Activity {
 
         @Override protected void onAttachedToWindow(){super.onAttachedToWindow();startAnimationTicker();}
         @Override protected void onDetachedFromWindow(){removeCallbacks(animationTicker);removeCallbacks(physicsLoop);persistSprites();persist();saveCamera();super.onDetachedFromWindow();}
-        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;boolean active=false;long delay=1000;for(SceneSprite sp:sprites){if(sp.animationPlaying&&sp.animationFrames.size()>1){active=true;long frameDelay=Math.max(16,1000/Math.max(1,sp.animationFps));delay=Math.min(delay,frameDelay);long now=android.os.SystemClock.uptimeMillis();if(now-sp.lastFrameAdvance>=frameDelay){sp.currentFrameIndex=(sp.currentFrameIndex+1)%sp.animationFrames.size();sp.lastFrameAdvance=now;}}}if(active){invalidate();postDelayed(this,Math.max(8,delay));}}};
+        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;boolean active=false,stopped=false;long delay=1000;for(SceneSprite sp:sprites){if(sp.animationPlaying&&sp.animationFrames.size()>1){long frameDelay=Math.max(16,1000/Math.max(1,sp.animationFps));delay=Math.min(delay,frameDelay);long now=android.os.SystemClock.uptimeMillis();if(now-sp.lastFrameAdvance>=frameDelay){if(sp.currentFrameIndex>=sp.animationFrames.size()-1&&!sp.animationLoop){sp.currentFrameIndex=sp.animationFrames.size()-1;sp.animationPlaying=false;stopped=true;}else{sp.currentFrameIndex=(sp.currentFrameIndex+1)%sp.animationFrames.size();sp.lastFrameAdvance=now;}}if(sp.animationPlaying)active=true;}}if(stopped)persistSprites();if(active||stopped)invalidate();if(active)postDelayed(this,Math.max(8,delay));}};
         void startAnimationTicker(){removeCallbacks(animationTicker);postDelayed(animationTicker,100);}
 
         void persist() {
@@ -2258,6 +2262,22 @@ public class BlockForgeActivity extends Activity {
         if(audio.isEmpty())getPreferences(MODE_PRIVATE).edit().remove("scene_audio_"+activeProjectName()).apply();
         else getPreferences(MODE_PRIVATE).edit().putString("scene_audio_"+activeProjectName(),audio).apply();
         target.persist();target.persistSprites();target.saveCamera();target.invalidate();target.startAnimationTicker();
+    }
+
+    void showAnimationFpsDialog(){
+        if(scenePreview==null||scenePreview.selectedSpriteObject()==null){Toast.makeText(this,"Selecciona un sprite primero",Toast.LENGTH_SHORT).show();return;}
+        SceneSprite sprite=scenePreview.selectedSpriteObject();
+        EditText fps=new EditText(this);fps.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);fps.setText(String.valueOf(sprite.animationFps));fps.setHint("FPS entre 1 y 60");
+        new android.app.AlertDialog.Builder(this).setTitle("Velocidad de animación")
+            .setMessage("Elige cuántos fotogramas se muestran por segundo.")
+            .setView(fps).setNegativeButton("Cancelar",null)
+            .setPositiveButton("APLICAR",(d,w)->{
+                try{int value=Integer.parseInt(fps.getText().toString().trim());if(value<1||value>60)throw new NumberFormatException();
+                    sprite.animationFps=value;targetAnimationFps=value;
+                    getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps",value).apply();
+                    scenePreview.persistSprites();scenePreview.startAnimationTicker();openPage(2);
+                }catch(Exception ex){Toast.makeText(this,"Usa un valor entre 1 y 60 FPS",Toast.LENGTH_LONG).show();}
+            }).show();
     }
 
     void pickAnimationFrame() {
