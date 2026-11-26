@@ -1171,7 +1171,7 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>5)loaded.vy=Float.parseFloat(parts[5]);
                     if(parts.length>6&&!parts[6].isEmpty())for(String fn:parts[6].split(",")){java.io.File ff=new java.io.File(new java.io.File(getFilesDir(),"sprites"),fn);Bitmap fb=BitmapFactory.decodeFile(ff.getAbsolutePath());if(fb!=null){loaded.animationFrames.add(fb);loaded.animationFrameNames.add(fn);}}
                     if(parts.length>7)loaded.currentFrameIndex=Math.max(0,Math.min(loaded.animationFrames.size()-1,Integer.parseInt(parts[7])));
-                    if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(30,Integer.parseInt(parts[8])));
+                    if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(60,Integer.parseInt(parts[8])));
                     if(parts.length>9)loaded.animationPlaying=Boolean.parseBoolean(parts[9]);
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
@@ -1202,7 +1202,7 @@ public class BlockForgeActivity extends Activity {
         }
 
         SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
-        void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;persistSprites();invalidate();startAnimationTicker();}
+        void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;sp.animationPlaying=false;persistSprites();invalidate();startAnimationTicker();}
         void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}sp.currentFrameIndex=(sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size();sp.animationPlaying=false;persistSprites();invalidate();}
         void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;persistSprites();startAnimationTicker();invalidate();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
