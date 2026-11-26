@@ -1116,8 +1116,13 @@ public class BlockForgeActivity extends Activity {
     }
 
     class MobileButton {
-        String id, title, icon, action;
-        MobileButton(String i,String t,String ic,String a){id=i;title=t;icon=ic;action=a;}
+        String id, title, icon, action, iconFile="";
+        Bitmap iconBitmap;
+        MobileButton(String i,String t,String ic,String a){this(i,t,ic,a,"");}
+        MobileButton(String i,String t,String ic,String a,String file){
+            id=i;title=t;icon=ic;action=a;iconFile=file==null?"":file;
+            if(!iconFile.isEmpty())iconBitmap=BitmapFactory.decodeFile(new java.io.File(new java.io.File(getFilesDir(),"sprites"),iconFile).getAbsolutePath());
+        }
     }
 
     void showMapSizeDialog(){
@@ -1127,7 +1132,8 @@ public class BlockForgeActivity extends Activity {
         new android.app.AlertDialog.Builder(this).setTitle("Tamaño del mapa").setMessage("Configura las dimensiones de tu mundo 2D.").setView(form).setNegativeButton("Cancelar",null).setPositiveButton("APLICAR",(d,w)->{try{int c=Integer.parseInt(width.getText().toString()),r=Integer.parseInt(height.getText().toString());if(c<5||c>64||r<5||r>64)throw new NumberFormatException();scenePreview.setMapSize(c,r);openPage(2);}catch(Exception ex){Toast.makeText(this,"Usa valores entre 5 y 64",Toast.LENGTH_LONG).show();}}).show();
     }
 
-    void createMobileButtonDialog() {
+    void createMobileButtonDialog() { createMobileButtonDialog(""); }
+    void createMobileButtonDialog(String iconFile) {
         LinearLayout form=vertical(); form.setPadding(16,8,16,0);
         EditText title=new EditText(this); title.setHint("Nombre del botón (ej. Disparar)"); form.addView(title);
         EditText icon=new EditText(this); icon.setHint("Icono o emoji (ej. ★, A, ⚔)"); form.addView(icon);
@@ -1141,7 +1147,7 @@ public class BlockForgeActivity extends Activity {
                 String n=title.getText().toString().trim();String ic=icon.getText().toString().trim();
                 if(n.isEmpty())n="Botón personalizado";if(ic.isEmpty())ic=n.substring(0,1).toUpperCase(java.util.Locale.ROOT);
                 if(scenePreview==null)scenePreview=new ScenePreview();
-                scenePreview.addMobileButton(n,ic,action.getSelectedItemPosition());
+                scenePreview.addMobileButton(n,ic,action.getSelectedItemPosition(),iconFile);
                 Toast.makeText(this,"Botón móvil creado: "+n,Toast.LENGTH_SHORT).show();openPage(2);
             }).show();
     }
@@ -1236,15 +1242,15 @@ public class BlockForgeActivity extends Activity {
 
         void loadMobileButtons(){
             mobileButtons.clear();String raw=getPreferences(MODE_PRIVATE).getString("mobile_buttons_"+activeProjectName(),"");
-            try{org.json.JSONArray arr=new org.json.JSONArray(raw);for(int i=0;i<arr.length();i++){org.json.JSONObject o=arr.getJSONObject(i);mobileButtons.add(new MobileButton(o.optString("id"),o.optString("title"),o.optString("icon"),o.optString("action","left")));}}catch(Exception ignored){}
+            try{org.json.JSONArray arr=new org.json.JSONArray(raw);for(int i=0;i<arr.length();i++){org.json.JSONObject o=arr.getJSONObject(i);mobileButtons.add(new MobileButton(o.optString("id"),o.optString("title"),o.optString("icon"),o.optString("action","left"),o.optString("iconFile","")));}}catch(Exception ignored){}
         }
         void persistMobileButtons(){
-            org.json.JSONArray arr=new org.json.JSONArray();for(MobileButton b:mobileButtons){org.json.JSONObject o=new org.json.JSONObject();try{o.put("id",b.id);o.put("title",b.title);o.put("icon",b.icon);o.put("action",b.action);arr.put(o);}catch(Exception ignored){}}
+            org.json.JSONArray arr=new org.json.JSONArray();for(MobileButton b:mobileButtons){org.json.JSONObject o=new org.json.JSONObject();try{o.put("id",b.id);o.put("title",b.title);o.put("icon",b.icon);o.put("action",b.action);o.put("iconFile",b.iconFile);arr.put(o);}catch(Exception ignored){}}
             getPreferences(MODE_PRIVATE).edit().putString("mobile_buttons_"+activeProjectName(),arr.toString()).apply();
         }
-        void addMobileButton(String title,String icon,int actionIndex){
+        void addMobileButton(String title,String icon,int actionIndex,String iconFile){
             String[] actions={"left","right","up","down","jump","event"};
-            mobileButtons.add(new MobileButton("btn_"+System.currentTimeMillis(),title,icon,actions[Math.max(0,Math.min(actions.length-1,actionIndex))]));
+            mobileButtons.add(new MobileButton("btn_"+System.currentTimeMillis(),title,icon,actions[Math.max(0,Math.min(actions.length-1,actionIndex))],iconFile));
             persistMobileButtons();invalidate();
         }
         void installDefaultMobileButtons(){
@@ -1268,7 +1274,7 @@ public class BlockForgeActivity extends Activity {
             float right=getWidth()-18f, bottom=getHeight()-18f;
             for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;
                 paint.setColor(Color.argb(175,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
-                paint.setColor(Color.WHITE);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(size*.42f);canvas.drawText(b.icon,cx,cy+size*.14f,paint);
+                if(b.iconBitmap!=null&&!b.iconBitmap.isRecycled()){paint.setColor(Color.WHITE);canvas.drawBitmap(b.iconBitmap,null,new RectF(cx-size*.32f,cy-size*.32f,cx+size*.32f,cy+size*.32f),paint);}else{paint.setColor(Color.WHITE);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(size*.42f);canvas.drawText(b.icon,cx,cy+size*.14f,paint);}
             }
         }
         int hitMobileButton(float x,float y){
@@ -1967,7 +1973,7 @@ public class BlockForgeActivity extends Activity {
             item.put("frames",frames);spriteArray.put(item);
         }
         rootJson.put("sprites",spriteArray);
-        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);buttons.put(item);}rootJson.put("mobileButtons",buttons);
+        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);buttons.put(item);}rootJson.put("mobileButtons",buttons);
         org.json.JSONObject camera=new org.json.JSONObject();
         camera.put("zoom",target.cameraZoom);camera.put("x",target.cameraOffsetX);camera.put("y",target.cameraOffsetY);
         rootJson.put("camera",camera);
@@ -2006,7 +2012,7 @@ public class BlockForgeActivity extends Activity {
         }
         for(SceneSprite old:target.sprites){if(old.bitmap!=null)old.bitmap.recycle();for(Bitmap frame:old.animationFrames)if(frame!=null)frame.recycle();}
         target.sprites.clear();target.selectedSprite=-1;
-        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left")));}target.persistMobileButtons();
+        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left"),b.optString("iconFile","")));}target.persistMobileButtons();
         org.json.JSONArray spriteArray=json.optJSONArray("sprites");
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
@@ -2048,6 +2054,7 @@ public class BlockForgeActivity extends Activity {
         LinearLayout wrap = vertical();
         wrap.setPadding(12, 8, 12, 8);
         wrap.addView(drawing, new LinearLayout.LayoutParams(-1, 360));
+        android.widget.CheckBox asMobileButton=new android.widget.CheckBox(this);asMobileButton.setText("Crear botón para móviles con este icono");asMobileButton.setTextColor(Color.WHITE);wrap.addView(asMobileButton);
         LinearLayout colors = new LinearLayout(this);
         int[] palette = {Color.BLACK, Color.WHITE, Color.RED, Color.GREEN,
                 Color.BLUE, Color.YELLOW, Color.MAGENTA, Color.CYAN,
@@ -2069,7 +2076,7 @@ public class BlockForgeActivity extends Activity {
                         String name = saveDrawnSprite(drawing.exportBitmap());
                         if (scenePreview != null) scenePreview.addSprite(name);
                         Toast.makeText(this, "Sprite creado", Toast.LENGTH_SHORT).show();
-                        openPage(2);
+                        if(asMobileButton.isChecked())createMobileButtonDialog(name);else openPage(2);
                     } catch (Exception ex) {
                         Toast.makeText(this, "Error al guardar sprite: " + ex.getMessage(),
                                 Toast.LENGTH_LONG).show();
