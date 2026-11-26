@@ -1202,7 +1202,7 @@ public class BlockForgeActivity extends Activity {
                     break;
                 case "ayuda":
                     output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
-                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, girar_sprite, escalar_sprite, velocidad_sprite, sprite.solido, sprite.atravesable, eliminar_sprite, duplicar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, fisica.gravedad, colisiones.activar, colisiones.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
+                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, girar_sprite, escalar_sprite, velocidad_sprite, sprite.capa, sprite.solido, sprite.atravesable, eliminar_sprite, duplicar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, fisica.gravedad, colisiones.activar, colisiones.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
                     executed++;
                     break;
                 default:
@@ -1424,6 +1424,17 @@ public class BlockForgeActivity extends Activity {
                 sp.y = Math.max(0f, Math.min(target.mapRows - sp.height, sp.y));
                 target.persistSprites(); target.invalidate();
                 output.append("Tamaño aplicado: ").append(sp.width).append(" × ").append(sp.height).append('\n');
+                return true;
+            }
+            if (line.startsWith("sprite.capa(") && line.endsWith(")")) {
+                int layer = evaluateGrafisriptInteger(line.substring(12, line.length() - 1).trim(), variables);
+                if (layer < 0 || layer > 2)
+                    throw new IllegalArgumentException("Capa permitida: 0 fondo, 1 mundo, 2 frente");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.layer = layer;
+                target.persistSprites(); target.invalidate();
+                output.append("Capa del sprite: ").append(layer).append('\n');
                 return true;
             }
             if (line.equals("sprite.solido()") || line.equals("sprite.atravesable()")) {
@@ -2426,9 +2437,9 @@ public class BlockForgeActivity extends Activity {
             }
 
             drawBlockLayer(canvas,0,cellW,cellH);
-            drawBlockLayer(canvas,1,cellW,cellH);
-
             for (int drawLayer = 0; drawLayer < 3; drawLayer++) {
+              if(drawLayer==1)drawBlockLayer(canvas,1,cellW,cellH);
+              if(drawLayer==2)drawBlockLayer(canvas,2,cellW,cellH);
               for (int spriteIndex = 0; spriteIndex < sprites.size(); spriteIndex++) {
                 SceneSprite sprite = sprites.get(spriteIndex);
                 if (sprite.layer != drawLayer) continue;
@@ -2456,7 +2467,6 @@ public class BlockForgeActivity extends Activity {
               }
             }
 
-            drawBlockLayer(canvas,2,cellW,cellH);
             paint.setColor(white);
             paint.setTextSize(12);
             String active = activeProjectName();
@@ -2788,7 +2798,7 @@ public class BlockForgeActivity extends Activity {
     org.json.JSONObject buildSceneJson() throws Exception {
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         org.json.JSONObject rootJson=new org.json.JSONObject();
-        rootJson.put("format","BlockForge2D");rootJson.put("version",5);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
+        rootJson.put("format","BlockForge2D");rootJson.put("version",6);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
         org.json.JSONArray blockArray=new org.json.JSONArray();
         for(int i=0;i<target.blocks.size();i++){
             Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
@@ -2839,7 +2849,7 @@ public class BlockForgeActivity extends Activity {
         }
         org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
         int formatVersion=json.optInt("version",1);
-        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>5))
+        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>6))
             throw new java.io.IOException("Formato o versión no compatible");
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         target.setMapSize(Math.max(5,Math.min(64,json.optInt("mapWidth",10))),Math.max(5,Math.min(64,json.optInt("mapHeight",10))));
