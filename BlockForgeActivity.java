@@ -369,21 +369,21 @@ public class BlockForgeActivity extends Activity {
                 .getString("active_project", "Mi primer proyecto");
         codeEditor.setText(getPreferences(MODE_PRIVATE).getString(
             "grafisript_" + project,
-            "# Demo de El Grafisript · variables, condiciones y bucles\\n"+
-            "crear_mundo \\"Mi mundo\\"\\n"+
-            "variable puntos = 2 + 3\\n"+
-            "si puntos > 3 {\\n"+
-            "    mostrar_mensaje \\"¡Ganaste!\\"\\n"+
-            "} sino {\\n"+
-            "    mostrar_mensaje \\"Sigue intentando\\"\\n"+
-            "}\\n"+
-            "repetir 3 {\\n"+
-            "    crear_bloque piedra 1 0 1\\n"+
-            "}\\n"+
-            "crear_personaje Jugador\\n"+
-            "jugador.mover(2, 1)\\n"+
-            "mostrar_mensaje \\"¡Jugador listo!\\"\\n"+
-            "ver_bloques\\n"
+            "# Demo de El Grafisript · variables, condiciones y bucles\n"+
+            "crear_mundo \"Mi mundo\"\n"+
+            "variable puntos = 2 + 3\n"+
+            "si puntos > 3 {\n"+
+            "    mostrar_mensaje \"¡Ganaste!\"\n"+
+            "} sino {\n"+
+            "    mostrar_mensaje \"Sigue intentando\"\n"+
+            "}\n"+
+            "repetir 3 {\n"+
+            "    crear_bloque piedra 1 0 1\n"+
+            "}\n"+
+            "crear_personaje Jugador\n"+
+            "jugador.mover(2, 1)\n"+
+            "mostrar_mensaje \"¡Jugador listo!\"\n"+
+            "ver_bloques\n"
         ));
 
         content.addView(codeEditor);
