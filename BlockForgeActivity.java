@@ -115,6 +115,7 @@ public class BlockForgeActivity extends Activity {
     }
 
     void openPage(int page) {
+        saveCurrentScript();
         content.removeAllViews();
         switch(page) {
             case 0: home(); break;
@@ -194,19 +195,30 @@ public class BlockForgeActivity extends Activity {
 
     void projects() {
         heading("Mis proyectos",
-                "Gestiona tus creaciones.");
+                "Tus proyectos guardados en este dispositivo.");
 
         content.addView(button("＋ CREAR PROYECTO",
                 () -> newProject()));
 
-        card("Mi primer videojuego",
-                "Proyecto de demostración.");
+        java.util.Set<String> saved = getPreferences(MODE_PRIVATE)
+                .getStringSet("blockforge_projects", new java.util.HashSet<>());
+        java.util.ArrayList<String> names = new java.util.ArrayList<>(saved);
+        java.util.Collections.sort(names);
 
-        card("Mundo de bloques",
-                "Proyecto de construcción experimental.");
-
-        card("Proyecto vacío",
-                "Comienza una creación desde cero.");
+        if (names.isEmpty()) {
+            card("Todavía no hay proyectos",
+                    "Pulsa CREAR PROYECTO para comenzar. Tus proyectos se guardan en este dispositivo.");
+        } else {
+            for (String name : names) {
+                content.addView(button("ABRIR  ·  " + name, () -> {
+                    getPreferences(MODE_PRIVATE).edit()
+                            .putString("active_project", name).apply();
+                    Toast.makeText(this, "Proyecto activo: " + name,
+                            Toast.LENGTH_SHORT).show();
+                    openPage(3);
+                }));
+            }
+        }
     }
 
     void newProject() {
@@ -216,9 +228,21 @@ public class BlockForgeActivity extends Activity {
             .setTitle("Nuevo proyecto")
             .setView(input)
             .setPositiveButton("Crear",(d,w)->{
-                Toast.makeText(this,
-                    "Proyecto preparado: "+input.getText(),
-                    Toast.LENGTH_LONG).show();
+                String name = input.getText().toString().trim();
+                if (name.isEmpty()) {
+                    Toast.makeText(this, "Escribe un nombre para el proyecto",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+                java.util.Set<String> names = new java.util.HashSet<>(
+                        prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
+                names.add(name);
+                prefs.edit().putStringSet("blockforge_projects", names)
+                        .putString("active_project", name).apply();
+                Toast.makeText(this, "Proyecto guardado: " + name,
+                        Toast.LENGTH_LONG).show();
+                openPage(3);
             })
             .setNegativeButton("Cancelar",null)
             .show();
@@ -260,13 +284,16 @@ public class BlockForgeActivity extends Activity {
         codeEditor.setMinLines(15);
         codeEditor.setBackground(shape(Color.rgb(5,10,18)));
 
-        codeEditor.setText(
-            "# Mi primer programa\n"+
+        String project = getPreferences(MODE_PRIVATE)
+                .getString("active_project", "Mi primer proyecto");
+        codeEditor.setText(getPreferences(MODE_PRIVATE).getString(
+            "grafisript_" + project,
+            "# Proyecto: " + project + "\n"+
             "crear_mundo \"Mi mundo\"\n"+
             "crear_bloque piedra 1 1 1\n"+
             "mostrar_mensaje \"Hola BlockForge\"\n"+
             "ver_bloques\n"
-        );
+        ));
 
         content.addView(codeEditor);
 
@@ -290,6 +317,15 @@ public class BlockForgeActivity extends Activity {
                 "limpiar_mundo\n"+
                 "ver_bloques\n"+
                 "ayuda");
+    }
+
+    void saveCurrentScript() {
+        if (codeEditor == null) return;
+        String project = getPreferences(MODE_PRIVATE)
+                .getString("active_project", "Mi primer proyecto");
+        getPreferences(MODE_PRIVATE).edit()
+                .putString("grafisript_" + project,
+                        codeEditor.getText().toString()).apply();
     }
 
     void runGrafisript() {
