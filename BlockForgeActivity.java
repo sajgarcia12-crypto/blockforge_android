@@ -3156,6 +3156,7 @@ public class BlockForgeActivity extends Activity {
         tools.addView(editorButton("RELLENO", () -> drawing.setTool(2)), new LinearLayout.LayoutParams(0, 44, 1));
         tools.addView(editorButton("DESHACER", () -> drawing.undo()), new LinearLayout.LayoutParams(0, 44, 1));
         tools.addView(editorButton("REHACER", () -> drawing.redo()), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("SHADERS", () -> new android.app.AlertDialog.Builder(this).setTitle("Efectos de color").setItems(new String[]{"Original","Escala de grises","Sepia","Invertir colores","Neón"},(d,w)->drawing.applyEffect(w)).show()), new LinearLayout.LayoutParams(0,44,1));
         wrap.addView(tools);
 
         HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
@@ -3281,6 +3282,19 @@ public class BlockForgeActivity extends Activity {
             invalidate();
         }
         void clear() { snapshot(); java.util.Arrays.fill(pixels, Color.TRANSPARENT); invalidate(); }
+        void applyEffect(int effect){
+            snapshot();
+            for(int i=0;i<pixels.length;i++){
+                int c=pixels[i];if(Color.alpha(c)==0)continue;
+                int r=Color.red(c),g=Color.green(c),b=Color.blue(c);
+                if(effect==1){int v=(int)(.299*r+.587*g+.114*b);r=g=b=v;}
+                else if(effect==2){int nr=(int)(.393*r+.769*g+.189*b),ng=(int)(.349*r+.686*g+.168*b),nb=(int)(.272*r+.534*g+.131*b);r=Math.min(255,nr);g=Math.min(255,ng);b=Math.min(255,nb);}
+                else if(effect==3){r=255-r;g=255-g;b=255-b;}
+                else if(effect==4){r=Math.min(255,(int)(r*1.35+35));g=Math.min(255,(int)(g*1.25+20));b=Math.min(255,(int)(b*1.45+45));}
+                pixels[i]=Color.argb(Color.alpha(c),r,g,b);
+            }
+            invalidate();
+        }
         Bitmap exportBitmap() {
             Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
             bitmap.setPixels(pixels, 0, size, 0, 0, size, size);
