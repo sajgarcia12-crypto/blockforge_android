@@ -536,7 +536,7 @@ public class BlockForgeActivity extends Activity {
                 int cut = line.startsWith("imprimir ") ? 9 : 16;
                 String message = unquote(line.substring(cut).trim());
                 for (java.util.Map.Entry<String, Double> entry : variables.entrySet()) {
-                    message = message.replace("\${" + entry.getKey() + "}",
+                    message = message.replace("${" + entry.getKey() + "}",
                             String.valueOf(entry.getValue()));
                 }
                 output.append(message).append('\n');
