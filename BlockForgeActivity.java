@@ -915,7 +915,7 @@ public class BlockForgeActivity extends Activity {
                 target.persistSprites();target.invalidate();output.append("Sprite movido a (").append(sp.x).append(", ").append(sp.y).append(")\n");return true;
             }
             if (line.startsWith("saltar_sprite(") && line.endsWith(")")) {
-                float force=Float.parseFloat(line.substring(13,line.length()-1).trim());
+                float force=Float.parseFloat(line.substring(14,line.length()-1).trim());
                 if(force<=0||force>20)throw new IllegalArgumentException("Fuerza permitida: mayor que 0 y hasta 20");
                 if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
                 int index=target.selectedSprite>=0?target.selectedSprite:0;target.sprites.get(index).vy=-force;
