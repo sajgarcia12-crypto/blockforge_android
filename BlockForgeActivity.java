@@ -1405,6 +1405,21 @@ public class BlockForgeActivity extends Activity {
 
     boolean execute2DCommand(String line, java.util.Map<String, Double> variables,
                               StringBuilder output, int lineIndex) {
+        boolean is2DCommand = line.startsWith("crear_bloque2d ") || line.startsWith("capa ")
+                || line.startsWith("mover_sprite(") || line.startsWith("saltar_sprite(")
+                || line.startsWith("girar_sprite(") || line.startsWith("escalar_sprite(")
+                || line.startsWith("sprite.capa(") || line.equals("sprite.solido()")
+                || line.equals("sprite.atravesable()") || line.equals("eliminar_sprite()")
+                || line.equals("duplicar_sprite()") || line.startsWith("velocidad_sprite(")
+                || line.startsWith("camara.zoom(") || line.equals("camara.centrar()")
+                || line.equals("fisica.activar()") || line.equals("fisica.pausar()")
+                || line.startsWith("fisica.gravedad(") || line.startsWith("fisica.rebote(")
+                || line.startsWith("sprite.fps(") || line.equals("animacion.play()")
+                || line.equals("animacion.pausar()") || line.equals("animacion.siguiente()")
+                || line.equals("animacion.anterior()") || line.equals("animacion.bucle(true)")
+                || line.equals("animacion.bucle(false)") || line.equals("colisiones.activar()")
+                || line.equals("colisiones.pausar()");
+        if (!is2DCommand) return false;
         try {
             ScenePreview target = scenePreview != null ? scenePreview : new ScenePreview();
             if (line.startsWith("crear_bloque2d ")) {
