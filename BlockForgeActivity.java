@@ -19,6 +19,9 @@ public class BlockForgeActivity extends Activity {
     int white = Color.WHITE;
     int gray = Color.rgb(160,175,195);
     EditText codeEditor;
+    TextView runtimeOutput;
+    int runtimeBlockCount = 0;
+    String runtimeWorldName = "Mi mundo";
 
     @Override
     public void onCreate(Bundle saved) {
@@ -267,16 +270,114 @@ public class BlockForgeActivity extends Activity {
 
         content.addView(codeEditor);
 
-        content.addView(button("▶ EJECUTAR",
-                () -> Toast.makeText(this,
-                    "El editor está preparado. El intérprete completo aún debe integrarse.",
-                    Toast.LENGTH_LONG).show()));
+        TextView consoleTitle = label("CONSOLA DE EL GRAFISRIPT", 13, gray);
+        consoleTitle.setPadding(0, 16, 0, 8);
+        content.addView(consoleTitle);
 
-        card("Comandos disponibles como ejemplo",
-                "crear_mundo nombre\n"+
+        runtimeOutput = label("Listo. Pulsa EJECUTAR para interpretar tu código.", 13,
+                Color.rgb(145, 230, 170));
+        runtimeOutput.setTypeface(Typeface.MONOSPACE);
+        runtimeOutput.setPadding(14, 14, 14, 14);
+        runtimeOutput.setBackground(shape(Color.rgb(5, 10, 18)));
+        content.addView(runtimeOutput);
+
+        content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
+
+        card("Comandos disponibles",
+                "crear_mundo \"Nombre\"\n"+
                 "crear_bloque tipo x y z\n"+
-                "mostrar_mensaje texto\n"+
-                "ver_bloques");
+                "mostrar_mensaje \"texto\"\n"+
+                "limpiar_mundo\n"+
+                "ver_bloques\n"+
+                "ayuda");
+    }
+
+    void runGrafisript() {
+        if (codeEditor == null || runtimeOutput == null) return;
+
+        StringBuilder output = new StringBuilder();
+        String[] lines = codeEditor.getText().toString().split("\\r?\\n");
+        int executed = 0;
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+
+            int space = line.indexOf(' ');
+            String command = space < 0 ? line : line.substring(0, space);
+            String args = space < 0 ? "" : line.substring(space + 1).trim();
+
+            switch (command) {
+                case "crear_mundo":
+                    runtimeWorldName = unquote(args);
+                    if (runtimeWorldName.isEmpty()) runtimeWorldName = "Mundo Grafisript";
+                    runtimeBlockCount = 0;
+                    output.append("Mundo creado: ").append(runtimeWorldName).append('\\n');
+                    executed++;
+                    break;
+
+                case "crear_bloque": {
+                    String[] parts = args.split("\\s+");
+                    if (parts.length != 4) {
+                        output.append("Línea ").append(i + 1)
+                              .append(": uso: crear_bloque tipo x y z\\n");
+                        break;
+                    }
+                    try {
+                        Integer.parseInt(parts[1]);
+                        Integer.parseInt(parts[2]);
+                        Integer.parseInt(parts[3]);
+                        runtimeBlockCount++;
+                        output.append("Bloque ").append(parts[0])
+                              .append(" agregado en (").append(parts[1]).append(", ")
+                              .append(parts[2]).append(", ").append(parts[3]).append(")\\n");
+                        executed++;
+                    } catch (NumberFormatException ex) {
+                        output.append("Línea ").append(i + 1)
+                              .append(": las coordenadas deben ser números enteros\\n");
+                    }
+                    break;
+                }
+
+                case "mostrar_mensaje":
+                    output.append(unquote(args)).append('\\n');
+                    executed++;
+                    break;
+
+                case "limpiar_mundo":
+                    runtimeBlockCount = 0;
+                    output.append("Mundo limpiado\\n");
+                    executed++;
+                    break;
+
+                case "ver_bloques":
+                    output.append("Bloques registrados: ").append(runtimeBlockCount).append('\\n');
+                    executed++;
+                    break;
+
+                case "ayuda":
+                    output.append("Comandos: crear_mundo, crear_bloque, mostrar_mensaje, ")
+                          .append("limpiar_mundo, ver_bloques, ayuda\\n");
+                    executed++;
+                    break;
+
+                default:
+                    output.append("Línea ").append(i + 1)
+                          .append(": comando desconocido: ").append(command).append('\\n');
+                    break;
+            }
+        }
+
+        output.append("\\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
+        runtimeOutput.setText(output.toString());
+    }
+
+    String unquote(String value) {
+        String result = value.trim();
+        if (result.length() >= 2 && result.startsWith("\\"") && result.endsWith("\\"")) {
+            return result.substring(1, result.length() - 1);
+        }
+        return result;
     }
 
     void settings() {
