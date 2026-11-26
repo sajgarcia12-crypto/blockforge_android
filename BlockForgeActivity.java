@@ -1107,113 +1107,200 @@ public class BlockForgeActivity extends Activity {
         v.setPadding(5,10,3,7);return v;
     }
 
-    void showNodePalette(){
-        String[] choices={"Personaje 2D","Saltar","Mover horizontal","Activar física","Pausar física"};
-        new android.app.AlertDialog.Builder(this).setTitle("Añadir nodo Grafisript")
-            .setItems(choices,(d,which)->{
-                float value=which==1?6f:(which==2?1f:0f);
-                String[] types={"personaje","saltar","mover","fisica_on","fisica_off"};
-                grafisriptNodes.add(new GraphNode(types[which],value));
-                persistGraphNodes();showNodeGraphPanel();
-            }).setNegativeButton("Cancelar",null).show();
-    }
+    static final String[][] GRAPH_NODE_CATALOG = {
+        {"PERSONAJE","personaje","0"},
+        {"Crear personaje","crear_personaje","0"},
+        {"Mover jugador X/Z","jugador_mover","1"},
+        {"Saltar jugador","jugador_saltar","5"},
+        {"Girar jugador","jugador_girar","90"},
+        {"Establecer vida","vida","100"},
+        {"Aplicar daño","danio","10"},
+        {"Mover sprite X/Y","mover","1"},
+        {"Saltar sprite","saltar","6"},
+        {"Crear bloque 2D","bloque2d","1"},
+        {"Cambiar capa","capa","1"},
+        {"Zoom de cámara","cam_zoom","1"},
+        {"Centrar cámara","cam_center","0"},
+        {"Activar física","fisica_on","0"},
+        {"Pausar física","fisica_off","0"},
+        {"Mostrar mensaje","mensaje","0"}
+    };
 
+    String graphNodeTitle(String type){
+        for(String[] item:GRAPH_NODE_CATALOG)if(item[1].equals(type))return item[0];
+        return "Nodo personalizado";
+    }
+    float graphNodeDefault(String type){
+        for(String[] item:GRAPH_NODE_CATALOG)if(item[1].equals(type))try{return Float.parseFloat(item[2]);}catch(Exception ignored){}
+        return 0f;
+    }
+    void showNodePalette(){
+        showNodeGraphPanel();
+    }
     void persistGraphNodes(){
         org.json.JSONArray a=new org.json.JSONArray();
-        for(GraphNode n:grafisriptNodes){org.json.JSONObject o=new org.json.JSONObject();try{o.put("type",n.type);o.put("value",n.value);a.put(o);}catch(Exception ignored){}}
+        for(GraphNode n:grafisriptNodes){
+            org.json.JSONObject o=new org.json.JSONObject();
+            try{o.put("type",n.type);o.put("value",n.value);a.put(o);}catch(Exception ignored){}
+        }
         getPreferences(MODE_PRIVATE).edit().putString("grafisript_nodes_"+activeProjectName(),a.toString()).apply();
     }
     void loadGraphNodes(){
         grafisriptNodes.clear();
-        try{org.json.JSONArray a=new org.json.JSONArray(getPreferences(MODE_PRIVATE).getString("grafisript_nodes_"+activeProjectName(),"[]"));
-            for(int i=0;i<a.length();i++){org.json.JSONObject o=a.getJSONObject(i);grafisriptNodes.add(new GraphNode(o.optString("type","saltar"),(float)o.optDouble("value",6)));}}
-        catch(Exception ignored){}
+        try{
+            org.json.JSONArray a=new org.json.JSONArray(getPreferences(MODE_PRIVATE).getString("grafisript_nodes_"+activeProjectName(),"[]"));
+            for(int i=0;i<a.length();i++){
+                org.json.JSONObject o=a.getJSONObject(i);
+                grafisriptNodes.add(new GraphNode(o.optString("type","saltar"),(float)o.optDouble("value",6)));
+            }
+        }catch(Exception ignored){}
     }
     String graphToGrafisript(){
-        StringBuilder b=new StringBuilder("# Generado desde el grafo visual de BlockForge\n");
+        StringBuilder b=new StringBuilder("# Código generado desde el grafo visual de BlockForge\\n");
         for(GraphNode n:grafisriptNodes){
-            if("personaje".equals(n.type))b.append("# Personaje: usa el sprite seleccionado en la escena\n");
-            else if("saltar".equals(n.type))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\n");
-            else if("mover".equals(n.type))b.append("mover_sprite(").append(n.value).append(", 0)\n");
-            else if("fisica_on".equals(n.type))b.append("fisica.activar()\n");
-            else if("fisica_off".equals(n.type))b.append("fisica.pausar()\n");
+            String t=n.type;
+            if("personaje".equals(t))b.append("# Usa el sprite marcado como personaje en el inspector\\n");
+            else if("crear_personaje".equals(t))b.append("crear_personaje Jugador\\n");
+            else if("jugador_mover".equals(t))b.append("jugador.mover(").append(n.value).append(", 0)\\n");
+            else if("jugador_saltar".equals(t))b.append("jugador.saltar(").append(Math.max(0.1f,Math.min(100f,n.value))).append(")\\n");
+            else if("jugador_girar".equals(t))b.append("jugador.girar(").append(n.value).append(")\\n");
+            else if("vida".equals(t))b.append("jugador.vida(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\\n");
+            else if("danio".equals(t))b.append("jugador.recibir_danio(").append(Math.max(0,Math.min(1000,Math.round(n.value)))).append(")\\n");
+            else if("mover".equals(t))b.append("mover_sprite(").append(n.value).append(", 0)\\n");
+            else if("saltar".equals(t))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\\n");
+            else if("bloque2d".equals(t))b.append("crear_bloque2d ").append(Math.max(0,Math.round(n.value))).append(" 0 1\\n");
+            else if("capa".equals(t))b.append("capa ").append(Math.max(0,Math.min(2,Math.round(n.value)))).append("\\n");
+            else if("cam_zoom".equals(t))b.append("camara.zoom(").append(Math.max(0.5f,Math.min(2f,n.value))).append(")\\n");
+            else if("cam_center".equals(t))b.append("camara.centrar()\\n");
+            else if("fisica_on".equals(t))b.append("fisica.activar()\\n");
+            else if("fisica_off".equals(t))b.append("fisica.pausar()\\n");
+            else if("mensaje".equals(t))b.append("mostrar_mensaje \"Hola desde BlockForge\"\\n");
         }
         return b.toString();
     }
     void showNodeGraphPanel(){
         loadGraphNodes();
-        android.app.Dialog dialog=editorPanel("GRAFISRIPT · GRAFO VISUAL",Gravity.BOTTOM,98);
-        if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(430,getResources().getDisplayMetrics().heightPixels*84/100));
-        LinearLayout p=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
-        p.addView(label("Arrastra un bloque al lienzo o tócalo para añadirlo. Los bloques se ejecutan en orden mediante Grafisript.",11,gray));
-        LinearLayout graphWorkspace=new LinearLayout(this);
-        graphWorkspace.setOrientation(LinearLayout.HORIZONTAL);
-        graphWorkspace.setBackgroundColor(Color.rgb(19,23,30));
-        LinearLayout palette=vertical();palette.setPadding(5,5,5,5);palette.setBackgroundColor(Color.rgb(31,38,49));
-        palette.addView(panelHeading("NODOS"));
-        LinearLayout graphStack=vertical();graphStack.setPadding(9,8,9,8);
+        final android.app.Dialog dialog=new android.app.Dialog(this);
+        LinearLayout page=vertical();
+        page.setPadding(10,10,10,10);
+        page.setBackgroundColor(Color.rgb(15,19,26));
+        LinearLayout header=new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView heading=label("GRAFISRIPT · EDITOR DE NODOS",16,white);
+        heading.setTypeface(Typeface.DEFAULT_BOLD);
+        header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
+        header.addView(editorButton("✕",dialog::dismiss),new LinearLayout.LayoutParams(48,44));
+        page.addView(header);
+        page.addView(label("Elige un nodo para añadirlo. Edita sus valores y cambia el orden con ↑ ↓. Los cables curvos muestran la secuencia.",11,gray));
+        LinearLayout workspace=new LinearLayout(this);
+        workspace.setOrientation(LinearLayout.HORIZONTAL);
+        workspace.setBackgroundColor(Color.rgb(19,23,30));
+        LinearLayout palette=vertical();
+        palette.setPadding(5,5,5,5);
+        palette.setBackgroundColor(Color.rgb(28,34,44));
+        palette.addView(panelHeading("BIBLIOTECA"));
+        ScrollView paletteScroll=new ScrollView(this);
+        LinearLayout paletteItems=vertical();
+        for(String[] item:GRAPH_NODE_CATALOG){
+            final String type=item[1];
+            TextView chip=editorButton("＋ "+item[0],()->{
+                grafisriptNodes.add(new GraphNode(type,graphNodeDefault(type)));
+                persistGraphNodes();dialog.dismiss();showNodeGraphPanel();
+            });
+            chip.setTextSize(10);
+            chip.setMinHeight(48);
+            paletteItems.addView(chip);
+            chip.setOnLongClickListener(v->{
+                android.content.ClipData data=android.content.ClipData.newPlainText("grafisript-node",type);
+                if(android.os.Build.VERSION.SDK_INT>=24)v.startDragAndDrop(data,new View.DragShadowBuilder(v),type,0);
+                else v.startDrag(data,new View.DragShadowBuilder(v),type,0);
+                return true;
+            });
+        }
+        paletteScroll.addView(paletteItems);
+        palette.addView(paletteScroll,new LinearLayout.LayoutParams(-1,0,1));
+        ScrollView graphScroll=new ScrollView(this);
+        graphScroll.setFillViewport(true);
+        LinearLayout graphStack=vertical();
+        graphStack.setPadding(10,10,10,20);
         graphStack.setOnDragListener((v,event)->{
             if(event.getAction()==android.view.DragEvent.ACTION_DRAG_STARTED)return event.getClipDescription()!=null;
             if(event.getAction()==android.view.DragEvent.ACTION_DROP){
-                String nodeType=String.valueOf(event.getClipData().getItemAt(0).getText());
-                float defaultValue="saltar".equals(nodeType)?6f:("mover".equals(nodeType)?1f:0f);
-                grafisriptNodes.add(new GraphNode(nodeType,defaultValue));persistGraphNodes();
-                dialog.dismiss();showNodeGraphPanel();return true;
+                String type=String.valueOf(event.getClipData().getItemAt(0).getText());
+                grafisriptNodes.add(new GraphNode(type,graphNodeDefault(type)));
+                persistGraphNodes();dialog.dismiss();showNodeGraphPanel();return true;
             }
             return true;
         });
-        String[] labels={"Personaje 2D","Saltar","Mover","Activar física","Pausar física"};
-        String[] types={"personaje","saltar","mover","fisica_on","fisica_off"};
-        for(int i=0;i<labels.length;i++){
-            final String nodeType=types[i];
-            TextView chip=editorButton("＋ "+labels[i],()->{
-                float val="saltar".equals(nodeType)?6f:("mover".equals(nodeType)?1f:0f);
-                grafisriptNodes.add(new GraphNode(nodeType,val));persistGraphNodes();
-                dialog.dismiss();showNodeGraphPanel();
-            });
-            chip.setTextSize(10);
-            chip.setOnLongClickListener(v->{
-                android.content.ClipData data=android.content.ClipData.newPlainText("grafisript-node",nodeType);
-                if(android.os.Build.VERSION.SDK_INT>=24)v.startDragAndDrop(data,new View.DragShadowBuilder(v),nodeType,0);
-                else v.startDrag(data,new View.DragShadowBuilder(v),nodeType,0);
-                return true;
-            });
-            palette.addView(chip);
-        }
-        ScrollView graphScroll=new ScrollView(this);
-        graphScroll.setFillViewport(true);
-        graphScroll.addView(graphStack);
-        for(int i=0;i<grafisriptNodes.size();i++){
-            final int index=i;GraphNode n=grafisriptNodes.get(i);
-            String title=("personaje".equals(n.type)?"PERSONAJE 2D · SPRITE SELECCIONADO":"saltar".equals(n.type)?"SALTAR":"mover".equals(n.type)?"MOVER HORIZONTAL":"fisica_on".equals(n.type)?"ACTIVAR FÍSICA":"PAUSAR FÍSICA");
-            LinearLayout nodeCard=vertical();nodeCard.setPadding(8,7,8,7);
-            nodeCard.setBackground(uiPanel(Color.rgb(45,59,77)));
-            TextView nodeTitle=label((i==0?"● INICIO  ":"● ENTRADA  ")+title,11,white);
-            nodeTitle.setTypeface(Typeface.DEFAULT_BOLD);nodeCard.addView(nodeTitle);
-            if("saltar".equals(n.type)||"mover".equals(n.type)){
-                TextView parameter=editorButton(("saltar".equals(n.type)?"FUERZA: ":"VELOCIDAD X: ")+n.value+"   ✎",()->{
-                    EditText input=new EditText(this);input.setSingleLine(true);input.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL|android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);input.setText(String.valueOf(n.value));
-                    new android.app.AlertDialog.Builder(this).setTitle("Valor del nodo").setView(input).setPositiveButton("Aplicar",(d,w)->{try{n.value=Float.parseFloat(input.getText().toString());if(Float.isNaN(n.value)||Float.isInfinite(n.value))throw new NumberFormatException();persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}catch(Exception ex){Toast.makeText(this,"Introduce un número válido",Toast.LENGTH_SHORT).show();}}).setNegativeButton("Cancelar",null).show();
-                });
-                nodeCard.addView(parameter);
-            }
-            nodeCard.addView(editorButton("QUITAR BLOQUE",()->{grafisriptNodes.remove(index);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}));
-            graphStack.addView(nodeCard);
-            if(i<grafisriptNodes.size()-1){TextView wire=label("│\n▼",19,Color.rgb(70,166,235));wire.setGravity(Gravity.CENTER);graphStack.addView(wire);}
-        }
         if(grafisriptNodes.isEmpty()){
-            TextView empty=label("SUELTA AQUÍ LOS NODOS\n\nPersonaje → Saltar → Física",12,gray);
-            empty.setGravity(Gravity.CENTER);empty.setPadding(12,35,12,35);graphStack.addView(empty);
+            TextView empty=label("TU GRAFO ESTÁ VACÍO\\n\\nAñade nodos desde la biblioteca.",13,gray);
+            empty.setGravity(Gravity.CENTER);empty.setPadding(12,55,12,55);graphStack.addView(empty);
         }
-        graphWorkspace.addView(palette,new LinearLayout.LayoutParams(Math.max(125,getResources().getDisplayMetrics().widthPixels/4),-1));
-        graphWorkspace.addView(graphScroll,new LinearLayout.LayoutParams(0,-1,1));
-        p.addView(graphWorkspace,new LinearLayout.LayoutParams(-1,0,1));
-        p.addView(editorButton("GENERAR CÓDIGO GRAFISRIPT",()->{
-            String code=graphToGrafisript();getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+activeProjectName(),code).apply();
-            Toast.makeText(this,"Código Grafisript generado desde los nodos",Toast.LENGTH_LONG).show();
+        for(int i=0;i<grafisriptNodes.size();i++){
+            final int index=i;
+            GraphNode node=grafisriptNodes.get(i);
+            LinearLayout card=vertical();
+            card.setPadding(10,9,10,9);
+            card.setBackground(uiPanel(Color.rgb(39,51,68)));
+            TextView title=label((i==0?"● INICIO  ":"● SIGUIENTE  ")+graphNodeTitle(node.type).toUpperCase(java.util.Locale.ROOT),12,white);
+            title.setTypeface(Typeface.DEFAULT_BOLD);
+            card.addView(title);
+            if(!"personaje".equals(node.type)&&!"fisica_on".equals(node.type)&&!"fisica_off".equals(node.type)&&!"cam_center".equals(node.type)&&!"mensaje".equals(node.type)){
+                TextView value=editorButton("VALOR: "+node.value+"   ✎ EDITAR",()->{
+                    EditText input=new EditText(this);
+                    input.setSingleLine(true);
+                    input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL|android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+                    input.setText(String.valueOf(node.value));
+                    new android.app.AlertDialog.Builder(this).setTitle("Parámetro · "+graphNodeTitle(node.type)).setView(input)
+                        .setPositiveButton("GUARDAR",(d,w)->{
+                            try{float v=Float.parseFloat(input.getText().toString());if(Float.isNaN(v)||Float.isInfinite(v))throw new NumberFormatException();node.value=v;persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}
+                            catch(Exception ex){Toast.makeText(this,"Escribe un número válido",Toast.LENGTH_SHORT).show();}
+                        }).setNegativeButton("Cancelar",null).show();
+                });
+                card.addView(value);
+            }
+            LinearLayout actions=new LinearLayout(this);
+            actions.addView(editorButton("↑",()->{if(index>0){java.util.Collections.swap(grafisriptNodes,index,index-1);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}}),new LinearLayout.LayoutParams(0,44,1));
+            actions.addView(editorButton("↓",()->{if(index<grafisriptNodes.size()-1){java.util.Collections.swap(grafisriptNodes,index,index+1);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}}),new LinearLayout.LayoutParams(0,44,1));
+            actions.addView(editorButton("ELIMINAR",()->{grafisriptNodes.remove(index);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}),new LinearLayout.LayoutParams(0,44,2));
+            card.addView(actions);
+            graphStack.addView(card);
+            if(i<grafisriptNodes.size()-1){
+                View wire=new View(this){
+                    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+                    @Override protected void onDraw(Canvas canvas){
+                        super.onDraw(canvas);
+                        float x=getWidth()/2f;
+                        p.setColor(Color.rgb(76,170,235));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3f);
+                        Path path=new Path();path.moveTo(x,0);path.cubicTo(x,14,x,25,x,40);
+                        canvas.drawPath(path,p);
+                        p.setStyle(Paint.Style.FILL);canvas.drawCircle(x,40,4,p);
+                    }
+                };
+                graphStack.addView(wire,new LinearLayout.LayoutParams(-1,44));
+            }
+        }
+        graphScroll.addView(graphStack);
+        workspace.addView(palette,new LinearLayout.LayoutParams(Math.max(138,getResources().getDisplayMetrics().widthPixels*36/100),-1));
+        workspace.addView(graphScroll,new LinearLayout.LayoutParams(0,-1,1));
+        page.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
+        page.addView(editorButton("GENERAR CÓDIGO GRAFISRIPT",()->{
+            String code=graphToGrafisript();
+            getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+activeProjectName(),code).apply();
+            saveProjectFile("scripts/main.bf",code);
+            Toast.makeText(this,"Código generado y guardado",Toast.LENGTH_LONG).show();
             dialog.dismiss();showCodePanel();
         }));
-        p.addView(editorButton("CERRAR",dialog::dismiss));
+        page.addView(editorButton("CERRAR",dialog::dismiss));
+        dialog.setContentView(page);
+        android.view.Window window=dialog.getWindow();
+        if(window!=null){
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setLayout(-1,-1);
+            window.setGravity(Gravity.CENTER);
+        }
+        dialog.show();
+        if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,-1);
     }
 
     void showPhysicsSettings(){
@@ -2250,6 +2337,16 @@ public class BlockForgeActivity extends Activity {
             mobileButtons.add(new MobileButton("right","Derecha","▶","right"));mobileButtons.add(new MobileButton("jump","Saltar","▲","jump"));
             persistMobileButtons();invalidate();Toast.makeText(BlockForgeActivity.this,"Controles predeterminados instalados",Toast.LENGTH_SHORT).show();
         }
+        void triggerMobileJump(){
+            int playerIndex=-1;
+            for(int i=0;i<sprites.size();i++)if(sprites.get(i).isPlayer){playerIndex=i;break;}
+            if(playerIndex<0){Toast.makeText(BlockForgeActivity.this,"Designa un personaje en el inspector",Toast.LENGTH_SHORT).show();return;}
+            selectedSprite=playerIndex;
+            SceneSprite player=sprites.get(playerIndex);
+            player.vy=-9f;
+            if(!physicsRunning){physicsRunning=true;startPhysics();}
+            invalidate();
+        }
         void runMobileButton(MobileButton b){
             if("script".equals(b.action)){
                 StringBuilder output=new StringBuilder();
@@ -2710,7 +2807,7 @@ public class BlockForgeActivity extends Activity {
                     if(hit>=0){
                         MobileButton pressed=mobileButtons.get(hit);
                         // Segundo dedo: permite saltar mientras el primero mantiene correr.
-                        if("jump".equals(pressed.action) && activeMobileTouchId>=0){runMobileButton(pressed);return true;}
+                        if("jump".equals(pressed.action) && activeMobileTouchId>=0){triggerMobileJump();return true;}
                         if(activeMobileTouchId<0 || action==android.view.MotionEvent.ACTION_DOWN){
                             activeMobileButtonPointer=hit;activeMobileTouchId=event.getPointerId(pointerIndex);runMobileButton(pressed);
                         } else if("jump".equals(pressed.action)){runMobileButton(pressed);}
