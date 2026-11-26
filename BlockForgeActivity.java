@@ -379,6 +379,7 @@ public class BlockForgeActivity extends Activity {
                     runtimeWorldName = unquote(args);
                     if (runtimeWorldName.isEmpty()) runtimeWorldName = "Mundo Grafisript";
                     runtimeBlockCount = 0;
+                    clearProjectScene();
                     output.append("Mundo creado: ").append(runtimeWorldName).append('\n');
                     executed++;
                     break;
@@ -391,10 +392,11 @@ public class BlockForgeActivity extends Activity {
                         break;
                     }
                     try {
-                        Integer.parseInt(parts[1]);
+                        int bx = Integer.parseInt(parts[1]);
                         Integer.parseInt(parts[2]);
-                        Integer.parseInt(parts[3]);
+                        int bz = Integer.parseInt(parts[3]);
                         runtimeBlockCount++;
+                        addSceneBlock(bx, bz);
                         output.append("Bloque ").append(parts[0])
                               .append(" agregado en (").append(parts[1]).append(", ")
                               .append(parts[2]).append(", ").append(parts[3]).append(")\n");
@@ -437,6 +439,24 @@ public class BlockForgeActivity extends Activity {
 
         output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
         runtimeOutput.setText(output.toString());
+    }
+
+    void addSceneBlock(int x, int z) {
+        String project = getPreferences(MODE_PRIVATE)
+                .getString("active_project", "Mi primer proyecto");
+        String key = "scene_blocks_" + project;
+        String saved = getPreferences(MODE_PRIVATE).getString(key, "");
+        String entry = Math.max(0, Math.min(9, x)) + "," +
+                Math.max(0, Math.min(9, z));
+        String updated = saved.isEmpty() ? entry : saved + ";" + entry;
+        getPreferences(MODE_PRIVATE).edit().putString(key, updated).apply();
+    }
+
+    void clearProjectScene() {
+        String project = getPreferences(MODE_PRIVATE)
+                .getString("active_project", "Mi primer proyecto");
+        getPreferences(MODE_PRIVATE).edit()
+                .putString("scene_blocks_" + project, "").apply();
     }
 
     String unquote(String value) {
