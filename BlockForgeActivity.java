@@ -830,7 +830,11 @@ public class BlockForgeActivity extends Activity {
             scenePreview.setBackgroundColor(Color.rgb(24,31,43));
             if(scenePreview.sprites.size()>0 && (scenePreview.selectedSprite<0||scenePreview.selectedSprite>=scenePreview.sprites.size()))scenePreview.selectedSprite=0;
             content.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
-            if(physicsRunning)scenePreview.startPhysics();
+            // Arrancar la física cuando el viewport ya esté unido a la ventana.
+            if(physicsRunning) scenePreview.post(() -> {
+                if(scenePlayMode && physicsRunning && scenePreview != null
+                        && scenePreview.isAttachedToWindow()) scenePreview.startPhysics();
+            });
             return;
         }
 
@@ -3063,17 +3067,32 @@ public class BlockForgeActivity extends Activity {
 
 
     void startSceneGame() {
-        if(scenePreview==null)scenePreview=new ScenePreview();
-        if(scenePreview.sprites.isEmpty() && scenePreview.blocks.isEmpty()){
-            Toast.makeText(this,"Añade al menos un sprite u objeto antes de ejecutar la escena",Toast.LENGTH_LONG).show();
-            return;
+        try {
+            if (scenePreview == null) scenePreview = new ScenePreview();
+            if (scenePreview.sprites.isEmpty() && scenePreview.blocks.isEmpty()) {
+                Toast.makeText(this,"Añade al menos un sprite u objeto antes de ejecutar la escena",Toast.LENGTH_LONG).show();
+                return;
+            }
+            // Cambiar primero al viewport de juego; no ejecutar física sobre una vista aún desmontada.
+            scenePlayMode = true;
+            if (scenePreview.selectedSprite < 0 && !scenePreview.sprites.isEmpty())
+                scenePreview.selectedSprite = 0;
+            if (scenePreview.mobileButtons.isEmpty())
+                scenePreview.installDefaultMobileButtons();
+            physicsRunning = true;
+            openPage(2);
+        } catch (RuntimeException ex) {
+            scenePlayMode = false;
+            physicsRunning = false;
+            if (scenePreview != null) {
+                try { scenePreview.stopPhysics(); } catch (RuntimeException ignored) { }
+            }
+            android.util.Log.e("BlockForge", "No se pudo iniciar Play Mode", ex);
+            Toast.makeText(this, "No se pudo iniciar el juego: " +
+                    (ex.getMessage() == null ? "error interno" : ex.getMessage()),
+                    Toast.LENGTH_LONG).show();
+            try { openPage(2); } catch (RuntimeException ignored) { }
         }
-        scenePlayMode=true;
-        if(scenePreview.selectedSprite<0&&!scenePreview.sprites.isEmpty())scenePreview.selectedSprite=0;
-        if(scenePreview.mobileButtons.isEmpty())scenePreview.installDefaultMobileButtons();
-        physicsRunning=true;
-        scenePreview.startPhysics();
-        openPage(2);
     }
 
     void stopSceneGame() {
