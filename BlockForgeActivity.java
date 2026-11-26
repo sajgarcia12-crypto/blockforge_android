@@ -24,6 +24,7 @@ public class BlockForgeActivity extends Activity {
     String codeEditorProjectName = null;
     TextView runtimeOutput;
     int runtimeBlockCount = 0;
+    static final int PICK_BACKGROUND_REQUEST = 7123;
     int sceneBrushColor = Color.rgb(55, 135, 90);
     boolean sceneEraseMode = false;
     boolean sceneGridVisible = true;
@@ -275,7 +276,8 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("ADMINISTRAR BOTONES",()->manageMobileButtons()));
         panelView.addView(editorButton("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();dialog.dismiss();}));
         panelView.addView(label("AUDIO Y ARCHIVOS",11,Color.rgb(135,180,235)));
-        panelView.addView(editorButton("ELEGIR AUDIO",()->showSceneAudioPicker()));
+        panelView.addView(editorButton("SONIDOS PREDETERMINADOS",()->installOriginalSoundPack()));
+        panelView.addView(editorButton("ELEGIR AUDIO / ARCHIVO",()->showSceneAudioPicker()));
         panelView.addView(editorButton("DETENER AUDIO",()->stopSceneAudio()));
         panelView.addView(editorButton("EXPORTAR NIVEL",()->exportScenePicker()));
         panelView.addView(editorButton("IMPORTAR NIVEL",()->importScenePicker()));
@@ -677,6 +679,18 @@ public class BlockForgeActivity extends Activity {
         marketLp.topMargin = 14;
         main.addView(marketplace, marketLp);
         content.addView(main, new LinearLayout.LayoutParams(0, -1, 1));
+        LinearLayout support = vertical();
+        support.setPadding(12,12,12,12);
+        support.setBackgroundColor(Color.rgb(25,28,34));
+        support.addView(uiLabel("MOTOR GRÁFICO INDIE",11,Color.rgb(135,180,235),true));
+        TextView supportText=uiLabel("Apoya al creador con donaciones, promocionando tus juegos o compartiendo ideas.",10,uiMuted,false);
+        supportText.setPadding(0,5,0,7); support.addView(supportText);
+        support.addView(editorButton("♡  APOYAR / GITHUB",()->{
+            try { startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://github.com/sajgarcia12-crypto/blockforge_android"))); }
+            catch(Exception ignored) { Toast.makeText(this,"GitHub: sajgarcia12-crypto/blockforge_android",Toast.LENGTH_LONG).show(); }
+        }));
+        support.addView(uiLabel("Discord: katorne1234  ·  Ideas y comunidad",10,uiMuted,false));
+        content.addView(support,new LinearLayout.LayoutParams(-1,-2));
     }
 
 
@@ -758,12 +772,30 @@ public class BlockForgeActivity extends Activity {
                     return;
                 }
 
+                String[] projectDirs = {"assets","scenes","scripts","textures","audio","backgrounds","exports"};
+                for (String dirName : projectDirs) {
+                    java.io.File dir = new java.io.File(projectFolder, dirName);
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        Toast.makeText(this, "No se pudo crear la carpeta " + dirName, Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                }
+                try {
+                    org.json.JSONObject manifest = new org.json.JSONObject();
+                    manifest.put("name", name); manifest.put("type", projectType);
+                    manifest.put("format", "blockforge-project"); manifest.put("version", 1);
+                    manifest.put("createdAt", System.currentTimeMillis());
+                    java.io.FileOutputStream manifestOut = new java.io.FileOutputStream(new java.io.File(projectFolder, "project.json"));
+                    manifestOut.write(manifest.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    manifestOut.close();
+                } catch (Exception ex) {
+                    Toast.makeText(this, "No se pudo crear project.json", Toast.LENGTH_LONG).show(); return;
+                }
                 names.add(name);
-                prefs.edit()
-                        .putStringSet("blockforge_projects", names)
-                        .putString("project_type_" + name, projectType)
-                        .putString("project_folder_" + name, projectFolder.getAbsolutePath())
-                        .apply();
+                prefs.edit().putStringSet("blockforge_projects", names)
+                    .putString("project_type_" + name, projectType)
+                    .putString("project_folder_" + name, projectFolder.getAbsolutePath())
+                    .putInt("scene_bg_color_" + name, Color.rgb(24,32,43)).apply();
                 Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
                         Toast.LENGTH_LONG).show();
                 // Abrir directamente el editor correspondiente al tipo elegido.
@@ -875,6 +907,8 @@ public class BlockForgeActivity extends Activity {
         top.addView(editorButton("💾", () -> { if(scenePreview!=null){scenePreview.persist();scenePreview.persistSprites();} Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show(); }), new LinearLayout.LayoutParams(42,42));
         content.addView(top, new LinearLayout.LayoutParams(-1, 48));
 
+        HorizontalScrollView toolsScroll = new HorizontalScrollView(this);
+        toolsScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout tools = new LinearLayout(this);
         tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(5,3,5,3);
@@ -887,12 +921,15 @@ public class BlockForgeActivity extends Activity {
         addWorkspaceTool(tools,"Animación",()->showTimelinePanel());
         addWorkspaceTool(tools,"Deshacer",()->{if(scenePreview!=null)scenePreview.undo();});
         addWorkspaceTool(tools,"Rehacer",()->{if(scenePreview!=null)scenePreview.redo();});
-        content.addView(tools,new LinearLayout.LayoutParams(-1,44));
+        toolsScroll.addView(tools);
+        content.addView(toolsScroll,new LinearLayout.LayoutParams(-1,52));
 
         LinearLayout workspace = new LinearLayout(this);
         workspace.setOrientation(LinearLayout.HORIZONTAL);
         workspace.setBackgroundColor(Color.rgb(18,20,24));
-        int sideWidth = Math.max(148, Math.min(205, getResources().getDisplayMetrics().widthPixels / 5));
+        int screenWidth=getResources().getDisplayMetrics().widthPixels;
+        boolean compactEditor=screenWidth<650;
+        int sideWidth=compactEditor?0:Math.max(148,Math.min(205,screenWidth/5));
         LinearLayout left = vertical();
         left.setPadding(7,7,7,7);
         left.setBackgroundColor(Color.rgb(36,39,44));
@@ -904,7 +941,7 @@ public class BlockForgeActivity extends Activity {
         left.addView(panelHeading("ARCHIVOS"));
         left.addView(editorButton("Importar PNG",()->pickSpriteImage()));
         left.addView(editorButton("Recursos",()->openPage(4)));
-        workspace.addView(left,new LinearLayout.LayoutParams(sideWidth,-1));
+        if(!compactEditor) workspace.addView(left,new LinearLayout.LayoutParams(sideWidth,-1));
 
         LinearLayout center = vertical();
         center.setPadding(4,4,4,4);
@@ -938,15 +975,28 @@ public class BlockForgeActivity extends Activity {
         inspector.addView(editorButton("Físicas 2D",()->showPhysicsSettings()));
         inspector.addView(editorButton("Colisiones "+(sceneCollisionsEnabled?"ON":"OFF"),()->{sceneCollisionsEnabled=!sceneCollisionsEnabled;openPage(2);}));
         inspector.addView(panelHeading("CAPAS"));
-        inspector.addView(editorButton("Fondo",()->{sceneLayer=0;Toast.makeText(this,"Capa Fondo",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(editorButton("Fondo · opciones",()->showBackgroundPicker()));
         inspector.addView(editorButton("Mundo",()->{sceneLayer=1;Toast.makeText(this,"Capa Mundo",Toast.LENGTH_SHORT).show();}));
         inspector.addView(editorButton("Frente",()->{sceneLayer=2;Toast.makeText(this,"Capa Frente",Toast.LENGTH_SHORT).show();}));
         inspector.addView(panelHeading("PROYECTO"));
         inspector.addView(editorButton("Tamaño del mapa",()->showMapSizeDialog()));
         inspector.addView(editorButton("Exportar escena",()->exportScenePicker()));
-        workspace.addView(inspector,new LinearLayout.LayoutParams(sideWidth,-1));
-        int workspaceHeight=Math.max(420,(int)(getResources().getDisplayMetrics().heightPixels*0.58f));
+        if(!compactEditor) workspace.addView(inspector,new LinearLayout.LayoutParams(sideWidth,-1));
+        int workspaceHeight=compactEditor?Math.max(300,(int)(getResources().getDisplayMetrics().heightPixels*0.48f)):Math.max(420,(int)(getResources().getDisplayMetrics().heightPixels*0.58f));
         content.addView(workspace,new LinearLayout.LayoutParams(-1,workspaceHeight));
+        if(compactEditor){
+            HorizontalScrollView quickScroll=new HorizontalScrollView(this);
+            quickScroll.setHorizontalScrollBarEnabled(false);
+            LinearLayout quick=new LinearLayout(this);quick.setPadding(6,5,6,5);quick.setGravity(Gravity.CENTER_VERTICAL);
+            String[] names={"＋ Sprite","Fondo","Propiedades","Árbol","Física","Capas","Recursos","Nodos","Animación","Deshacer","Rehacer"};
+            Runnable[] actions={
+                ()->openSpriteDrawer(),()->showBackgroundPicker(),()->showInspectorPanel(),()->showSceneTreePanel(),
+                ()->showPhysicsSettingsDialog(),()->showEditorExtrasDialog(),()->openPage(4),()->showNodeGraphPanel(),
+                ()->showTimelinePanel(),()->{if(scenePreview!=null)scenePreview.undo();},()->{if(scenePreview!=null)scenePreview.redo();}
+            };
+            for(int i=0;i<names.length;i++){TextView b=editorButton(names[i],actions[i]);b.setTextSize(12);b.setMinHeight(54);b.setPadding(14,10,14,10);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,54);lp.setMargins(3,0,3,0);quick.addView(b,lp);}
+            quickScroll.addView(quick);content.addView(quickScroll,new LinearLayout.LayoutParams(-1,64));
+        }
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
@@ -1131,6 +1181,39 @@ public class BlockForgeActivity extends Activity {
                     Toast.makeText(this,"Física guardada en este dispositivo",Toast.LENGTH_SHORT).show();
                 }catch(Exception ex){Toast.makeText(this,"Valores inválidos. Gravedad: 0–80; rebote: 0–1.",Toast.LENGTH_LONG).show();}
             }).show();
+    }
+
+    void installOriginalSoundPack() {
+        try {
+            java.io.File folder=new java.io.File(getFilesDir(),"resources");
+            if(!folder.exists()&&!folder.mkdirs())throw new java.io.IOException("No se pudo crear Recursos");
+            createToneWav(new java.io.File(folder,"bf_click_original.wav"),660,90);
+            createToneWav(new java.io.File(folder,"bf_jump_original.wav"),520,180);
+            createToneWav(new java.io.File(folder,"bf_coin_original.wav"),990,220);
+            createToneWav(new java.io.File(folder,"bf_ambient_original.wav"),220,900);
+            final String[] files={"bf_click_original.wav","bf_jump_original.wav","bf_coin_original.wav","bf_ambient_original.wav"};
+            new android.app.AlertDialog.Builder(this).setTitle("Sonidos sintéticos originales").setItems(new String[]{"Click","Salto","Moneda","Ambiente"},(d,w)->playSceneAudio(files[w])).setNegativeButton("Cerrar",null).show();
+            Toast.makeText(this,"Pack de sonidos originales instalado",Toast.LENGTH_LONG).show();
+        } catch(Exception ex){Toast.makeText(this,"Error creando sonidos: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
+    }
+    void createToneWav(java.io.File file,int frequency,int durationMs) throws java.io.IOException {
+        int rate=22050,count=rate*durationMs/1000;
+        java.io.DataOutputStream out=new java.io.DataOutputStream(new java.io.BufferedOutputStream(new java.io.FileOutputStream(file)));
+        out.writeBytes("RIFF");writeLE(out,36+count*2);out.writeBytes("WAVEfmt ");writeLE(out,16);writeLE(out,1);writeLE(out,1);writeLE(out,rate);writeLE(out,rate*2);writeLE(out,2);writeLE(out,16);out.writeBytes("data");writeLE(out,count*2);
+        for(int i=0;i<count;i++){double fade=Math.min(1.0,Math.min(i/500.0,(count-i)/1200.0));short v=(short)(Math.sin(2*Math.PI*frequency*i/rate)*5000*fade);out.write(v&255);out.write((v>>8)&255);}out.close();
+    }
+    void writeLE(java.io.DataOutputStream out,int v)throws java.io.IOException{out.write(v&255);out.write((v>>8)&255);out.write((v>>16)&255);out.write((v>>24)&255);}
+
+    void showBackgroundPicker(){
+        String[] options={"Crear fondo de color","Fondos predeterminados","Añadir imagen desde archivos","Quitar imagen"};
+        new android.app.AlertDialog.Builder(this).setTitle("FONDO DE LA ESCENA").setItems(options,(d,w)->{
+            if(w==0||w==1){
+                final int[] colors=w==0?new int[]{Color.rgb(24,32,43),Color.rgb(36,54,82),Color.rgb(45,67,48),Color.rgb(78,48,70),Color.BLACK,Color.WHITE}:new int[]{Color.rgb(100,170,225),Color.rgb(47,91,58),Color.rgb(190,105,65),Color.rgb(10,17,35)};
+                final String[] labels=w==0?new String[]{"Azul noche","Azul profundo","Bosque","Atardecer","Negro","Blanco"}:new String[]{"Cielo","Bosque","Atardecer","Noche"};
+                new android.app.AlertDialog.Builder(this).setTitle("Seleccionar fondo").setItems(labels,(dd,k)->{getPreferences(MODE_PRIVATE).edit().putInt("scene_bg_color_"+activeProjectName(),colors[k]).remove("scene_bg_image_"+activeProjectName()).apply();if(scenePreview!=null)scenePreview.invalidate();}).show();
+            }else if(w==2){android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("image/*");startActivityForResult(intent,PICK_BACKGROUND_REQUEST);}
+            else{getPreferences(MODE_PRIVATE).edit().remove("scene_bg_image_"+activeProjectName()).apply();if(scenePreview!=null)scenePreview.invalidate();}
+        }).show();
     }
 
     void playSceneAudio(String name) {
@@ -2578,6 +2661,9 @@ public class BlockForgeActivity extends Activity {
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
+            canvas.drawColor(getPreferences(MODE_PRIVATE).getInt("scene_bg_color_"+activeProjectName(),Color.rgb(24,32,43)));
+            String bgName=getPreferences(MODE_PRIVATE).getString("scene_bg_image_"+activeProjectName(),"");
+            if(!bgName.isEmpty()){java.io.File bgFile=new java.io.File(new java.io.File(getFilesDir(),"backgrounds"),bgName);Bitmap bg=BitmapFactory.decodeFile(bgFile.getAbsolutePath());if(bg!=null){paint.setFilterBitmap(true);canvas.drawBitmap(bg,null,new RectF(0,0,getWidth(),getHeight()),paint);bg.recycle();}}
             canvas.save();canvas.translate(cameraOffsetX,cameraOffsetY);canvas.scale(cameraZoom,cameraZoom);
             final float worldUnit=64f;
             float visibleLeft=-cameraOffsetX/(cameraZoom*worldUnit);
@@ -2852,6 +2938,10 @@ public class BlockForgeActivity extends Activity {
             try { readSceneJson(data.getData()); Toast.makeText(this,"Nivel 2D importado",Toast.LENGTH_LONG).show(); openPage(2); }
             catch(Exception ex){Toast.makeText(this,"Archivo de nivel inválido: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
             return;
+        }
+        if(requestCode==PICK_BACKGROUND_REQUEST){
+            try{String name=copyUriToFolder(data.getData(),"backgrounds","background");getPreferences(MODE_PRIVATE).edit().putString("scene_bg_image_"+activeProjectName(),name).apply();if(scenePreview!=null)scenePreview.invalidate();Toast.makeText(this,"Fondo importado",Toast.LENGTH_SHORT).show();openPage(2);}
+            catch(Exception ex){Toast.makeText(this,"No se pudo importar fondo: "+ex.getMessage(),Toast.LENGTH_LONG).show();}return;
         }
         if (requestCode == PICK_ANIMATION_FRAME_REQUEST) {
             try { String name=copyUriToFolder(data.getData(),"sprites","frame"); if(scenePreview!=null)scenePreview.addAnimationFrame(name); Toast.makeText(this,"Fotograma añadido",Toast.LENGTH_LONG).show(); openPage(2); }
