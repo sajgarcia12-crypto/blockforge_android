@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: blockforge-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend-check:
     runs-on: ubuntu-24.04
@@ -146,7 +150,18 @@ jobs:
       - name: Compilar BlockForge APK
         working-directory: project/BlockForge_Android
         run: |
-          gradle --no-daemon assembleDebug
+          set -e
+          for attempt in 1 2 3; do
+            if gradle --no-daemon assembleDebug; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Gradle falló; reintentando en $((attempt * 30)) segundos..."
+              sleep $((attempt * 30))
+            fi
+          done
+          echo "La compilación falló después de 3 intentos"
+          exit 1
 
       - name: Verificar APK
         run: |
