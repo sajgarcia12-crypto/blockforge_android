@@ -148,7 +148,7 @@ public class BlockForgeActivity extends Activity {
     void showSceneTreePanel() {
         if (scenePreview == null) return;
         android.app.Dialog dialog = editorPanel(uiText("ESCENA · ÁRBOL","SCENE · TREE"), Gravity.LEFT, 86);
-        LinearLayout panelView = (LinearLayout) dialog.findViewById(android.R.id.content);
+        LinearLayout panelView = (LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if (panelView == null) return;
         panelView.addView(label("NODOS Y OBJETOS", 11, Color.rgb(135,180,235)));
         panelView.addView(editorButton("＋ BLOQUE", () -> { scenePreview.addBlock(); dialog.dismiss(); }));
@@ -174,7 +174,7 @@ public class BlockForgeActivity extends Activity {
     void showInspectorPanel() {
         if (scenePreview == null) return;
         android.app.Dialog dialog = editorPanel(uiText("INSPECTOR","INSPECTOR"), Gravity.RIGHT, 88);
-        LinearLayout panelView = (LinearLayout) dialog.findViewById(android.R.id.content);
+        LinearLayout panelView = (LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if (panelView == null) return;
         SceneSprite sprite=scenePreview.selectedSpriteObject();
         if(sprite==null) {
@@ -202,7 +202,7 @@ public class BlockForgeActivity extends Activity {
         String project=activeProjectName();
         android.app.Dialog dialog=editorPanel("EL GRAFISRIPT",Gravity.BOTTOM,96);
         if(dialog.getWindow()!=null) dialog.getWindow().setLayout(-1,Math.max(420,getResources().getDisplayMetrics().heightPixels*72/100));
-        LinearLayout panelView=(LinearLayout)dialog.findViewById(android.R.id.content);
+        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if(panelView==null)return;
         panelView.addView(label("Código del proyecto · se guarda en el editor principal",12,gray));
         EditText editor=new EditText(this);
@@ -225,7 +225,7 @@ public class BlockForgeActivity extends Activity {
         if(scenePreview==null)return;
         android.app.Dialog dialog=editorPanel("ANIMACIÓN · TIMELINE",Gravity.BOTTOM,96);
         if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(320,getResources().getDisplayMetrics().heightPixels*55/100));
-        LinearLayout panelView=(LinearLayout)dialog.findViewById(android.R.id.content);
+        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if(panelView==null)return;
         panelView.addView(label(scenePreview.animationStatus(),13,gray));
         LinearLayout row=new LinearLayout(this);
@@ -272,7 +272,7 @@ public class BlockForgeActivity extends Activity {
         navigation = new LinearLayout(this);
         navigation.setBackgroundColor(Color.rgb(18,24,36));
 
-        String[] names = {"Inicio","Proyectos","Escenas","Grafisript","Recursos","Ajustes"};
+        String[] names = {uiText("Inicio","Home"),uiText("Proyectos","Projects"),uiText("Escenas","Scenes"),"Grafisript",uiText("Recursos","Assets"),uiText("Ajustes","Settings")};
         String[] icons = {"⌂","▦","◇","{ }","▤","⚙"};
 
         for(int i=0;i<names.length;i++) {
@@ -520,6 +520,14 @@ public class BlockForgeActivity extends Activity {
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
         }), new LinearLayout.LayoutParams(58, 48));
         content.addView(top);
+
+        LinearLayout panels = new LinearLayout(this);
+        panels.setPadding(0,5,0,5);
+        panels.addView(editorButton("☷ ESCENA", () -> showSceneTreePanel()), new LinearLayout.LayoutParams(0,44,1));
+        panels.addView(editorButton("▤ INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0,44,1));
+        panels.addView(editorButton("{ } CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0,44,1));
+        panels.addView(editorButton("▥ TIMELINE", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0,44,1));
+        content.addView(panels);
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
@@ -2634,12 +2642,14 @@ public class BlockForgeActivity extends Activity {
     }
 
     void settings() {
-        heading("Configuración", "Preferencias de BlockForge Studio.");
-        card("Apariencia", "Tema oscuro experimental.");
-        card("Idioma", "Interfaz actual: español.");
-        card("Motor gráfico", "C++ / SDL2. La conexión completa con la interfaz Java sigue pendiente.");
-        card("Lenguaje", "El Grafisript · intérprete inicial.");
-        card("Información", "BlockForge Studio Mobile · Versión experimental.");
+        heading(uiText("Configuración","Settings"), uiText("Preferencias de BlockForge Studio.","BlockForge Studio preferences."));
+        content.addView(editorButton(uiText("🌐  CAMBIAR IDIOMA","🌐  CHANGE LANGUAGE"), () -> showLanguagePicker()));
+        String lang=getPreferences(MODE_PRIVATE).getString("ui_language","es");
+        card(uiText("Idioma activo","Active language"),"en".equals(lang)?"English":"Español");
+        card(uiText("Apariencia","Appearance"),uiText("Tema oscuro de BlockForge.","BlockForge dark theme."));
+        card(uiText("Lenguaje de programación","Programming language"),"El Grafisript");
+        card(uiText("Motor gráfico","Graphics engine"),"C++ / SDL2 · OpenGL ES");
+        card(uiText("Información","About"),"BlockForge Studio Mobile · Experimental");
     }
 
 }
