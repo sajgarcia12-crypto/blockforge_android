@@ -1317,6 +1317,8 @@ public class BlockForgeActivity extends Activity {
     }
 
     String activeProjectName() {
+        return getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
+    }
 
     boolean execute2DCommand(String line, StringBuilder output, int lineIndex) {
         try {
