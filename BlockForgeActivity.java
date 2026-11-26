@@ -379,18 +379,19 @@ public class BlockForgeActivity extends Activity {
 
         content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
 
-        card("Comandos disponibles",
-                "crear_mundo \"Nombre\"\n"+
-                "crear_bloque tipo x y z\n"+
-                "crear_personaje Nombre\n"+
-                "jugador.mover(x, z)\n"+
-                "jugador.saltar(altura)\n"+
-                "jugador.girar(grados)\n"+
-                "jugador.vida(valor)\n"+
-                "mostrar_mensaje \"texto\"\n"+
-                "limpiar_mundo\n"+
-                "ver_bloques\n"+
-                "ayuda");
+        card("Sintaxis del lenguaje",
+                "variable puntos = 2 + 3\\n"+
+                "si puntos > 3 {\\n"+
+                "    mostrar_mensaje \\"Ganaste: ${puntos}\\"\\n"+
+                "} sino {\\n"+
+                "    mostrar_mensaje \\"Sigue intentando\\"\\n"+
+                "}\\n"+
+                "repetir 3 {\\n"+
+                "    crear_bloque piedra 1 0 1\\n"+
+                "}\\n"+
+                "crear_personaje Jugador\\n"+
+                "jugador.mover(2, 1)\\n"+
+                "mostrar_mensaje \\"Listo\\"");
     }
 
     void saveCurrentScript() {
@@ -404,16 +405,125 @@ public class BlockForgeActivity extends Activity {
 
     void runGrafisript() {
         if (codeEditor == null || runtimeOutput == null) return;
-
+        String[] lines = codeEditor.getText().toString().split("\\r?\\n");
         StringBuilder output = new StringBuilder();
-        String[] lines = codeEditor.getText().toString().split("\\r?\n");
+        java.util.Map<String, Double> variables = new java.util.HashMap<>();
+        int[] cursor = new int[]{0};
+        int executed = executeGrafisriptBlock(lines, cursor, variables, output, 0);
+        output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
+        runtimeOutput.setText(output.toString());
+    }
+
+    int executeGrafisriptBlock(String[] lines, int[] cursor,
+            java.util.Map<String, Double> variables, StringBuilder output, int depth) {
+        if (depth > 12) {
+            output.append("Error: demasiados bloques anidados (máximo 12).\n");
+            return 0;
+        }
         int executed = 0;
-
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i].trim();
+        while (cursor[0] < lines.length) {
+            int lineNumber = cursor[0] + 1;
+            String line = lines[cursor[0]++].trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
+            if (line.equals("}") || line.equals("fin")) return executed;
 
-            if (executeCharacterCommand(line, output, i)) {
+            if (line.startsWith("si ") && line.endsWith("{")) {
+                String condition = line.substring(3, line.length() - 1).trim();
+                int bodyStart = cursor[0];
+                int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) {
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar el bloque si.\n");
+                    return executed;
+                }
+                boolean result = evaluateGrafisriptCondition(condition, variables);
+                if (result) {
+                    executed += executeGrafisriptBlock(lines, cursor, variables, output, depth + 1);
+                } else {
+                    cursor[0] = bodyEnd + 1;
+                }
+                if (cursor[0] < lines.length && lines[cursor[0]].trim().startsWith("sino")) {
+                    String otherwise = lines[cursor[0]++].trim();
+                    if (!otherwise.equals("sino {")) {
+                        output.append("Línea ").append(cursor[0]).append(": usa sino {.\n");
+                        continue;
+                    }
+                    int elseEnd = findGrafisriptBlockEnd(lines, cursor[0]);
+                    if (elseEnd < 0) {
+                        output.append("Error: falta cerrar el bloque sino.\n");
+                        return executed;
+                    }
+                    if (!result) {
+                        executed += executeGrafisriptBlock(lines, cursor, variables, output, depth + 1);
+                    } else {
+                        cursor[0] = elseEnd + 1;
+                    }
+                }
+                continue;
+            }
+
+            if (line.startsWith("repetir ") && line.endsWith("{")) {
+                String amountText = line.substring(8, line.length() - 1).trim();
+                int bodyStart = cursor[0];
+                int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) {
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar repetir.\n");
+                    return executed;
+                }
+                int count;
+                try {
+                    count = (int)evaluateGrafisriptExpression(amountText, variables);
+                } catch (Exception ex) {
+                    output.append("Línea ").append(lineNumber).append(": repetición inválida.\n");
+                    cursor[0] = bodyEnd + 1;
+                    continue;
+                }
+                if (count < 0 || count > 1000) {
+                    output.append("Línea ").append(lineNumber).append(": repetir acepta de 0 a 1000.\n");
+                    cursor[0] = bodyEnd + 1;
+                    continue;
+                }
+                String[] body = java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd);
+                for (int n = 0; n < count; n++) {
+                    int[] nestedCursor = new int[]{0};
+                    executed += executeGrafisriptBlock(body, nestedCursor, variables, output, depth + 1);
+                }
+                cursor[0] = bodyEnd + 1;
+                continue;
+            }
+
+            if (line.startsWith("variable ")) line = line.substring(9).trim();
+            int assignment = line.indexOf('=');
+            if (assignment > 0 && !line.contains("==") && !line.contains(">=") &&
+                    !line.contains("<=") && !line.contains("!=")) {
+                String name = line.substring(0, assignment).trim();
+                if (name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+                    try {
+                        double value = evaluateGrafisriptExpression(
+                                line.substring(assignment + 1).trim(), variables);
+                        variables.put(name, value);
+                        output.append(name).append(" = ").append(value).append('\n');
+                        executed++;
+                    } catch (Exception ex) {
+                        output.append("Línea ").append(lineNumber)
+                                .append(": expresión inválida: ").append(ex.getMessage()).append('\n');
+                    }
+                    continue;
+                }
+            }
+
+            if (line.startsWith("mostrar_mensaje ") || line.startsWith("imprimir ")) {
+                int cut = line.startsWith("imprimir ") ? 9 : 16;
+                String message = unquote(line.substring(cut).trim());
+                for (java.util.Map.Entry<String, Double> entry : variables.entrySet()) {
+                    message = message.replace(" + entry.getKey() + ",
+                            String.valueOf(entry.getValue()));
+                }
+                output.append(message).append('\n');
+                executed++;
+                continue;
+            }
+
+            if (executeCharacterCommand(line, output, lineNumber - 1)) {
                 executed++;
                 continue;
             }
@@ -421,7 +531,6 @@ public class BlockForgeActivity extends Activity {
             int space = line.indexOf(' ');
             String command = space < 0 ? line : line.substring(0, space);
             String args = space < 0 ? "" : line.substring(space + 1).trim();
-
             switch (command) {
                 case "crear_mundo":
                     runtimeWorldName = unquote(args);
@@ -431,64 +540,156 @@ public class BlockForgeActivity extends Activity {
                     output.append("Mundo creado: ").append(runtimeWorldName).append('\n');
                     executed++;
                     break;
-
                 case "crear_bloque": {
                     String[] parts = args.split("\\s+");
                     if (parts.length != 4) {
-                        output.append("Línea ").append(i + 1)
-                              .append(": uso: crear_bloque tipo x y z\n");
+                        output.append("Línea ").append(lineNumber)
+                                .append(": uso: crear_bloque tipo x y z\n");
                         break;
                     }
                     try {
-                        int bx = Integer.parseInt(parts[1]);
-                        Integer.parseInt(parts[2]);
-                        int bz = Integer.parseInt(parts[3]);
+                        int bx = (int)evaluateGrafisriptExpression(parts[1], variables);
+                        int by = (int)evaluateGrafisriptExpression(parts[2], variables);
+                        int bz = (int)evaluateGrafisriptExpression(parts[3], variables);
                         runtimeBlockCount++;
                         addSceneBlock(bx, bz);
-                        output.append("Bloque ").append(parts[0])
-                              .append(" agregado en (").append(parts[1]).append(", ")
-                              .append(parts[2]).append(", ").append(parts[3]).append(")\n");
+                        output.append("Bloque ").append(parts[0]).append(" en (")
+                                .append(bx).append(", ").append(by).append(", ").append(bz).append(")\n");
+                        refreshScenePreview();
                         executed++;
-                    } catch (NumberFormatException ex) {
-                        output.append("Línea ").append(i + 1)
-                              .append(": las coordenadas deben ser números enteros\n");
+                    } catch (Exception ex) {
+                        output.append("Línea ").append(lineNumber)
+                                .append(": coordenadas inválidas.\n");
                     }
                     break;
                 }
-
-                case "mostrar_mensaje":
-                    output.append(unquote(args)).append('\n');
-                    executed++;
-                    break;
-
                 case "limpiar_mundo":
                     runtimeBlockCount = 0;
                     clearProjectScene();
                     refreshScenePreview();
-                    output.append("Mundo limpiado\\n");
+                    output.append("Mundo limpiado.\n");
                     executed++;
                     break;
-
                 case "ver_bloques":
                     output.append("Bloques registrados: ").append(runtimeBlockCount).append('\n');
                     executed++;
                     break;
-
                 case "ayuda":
-                    output.append("Comandos: crear_mundo, crear_bloque, mostrar_mensaje, ")
-                          .append("limpiar_mundo, ver_bloques, ayuda\n");
+                    output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
+                            .append("jugador.saltar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
                     executed++;
                     break;
-
                 default:
-                    output.append("Línea ").append(i + 1)
-                          .append(": comando desconocido: ").append(command).append('\n');
+                    output.append("Línea ").append(lineNumber)
+                            .append(": comando desconocido: ").append(command).append('\n');
                     break;
             }
         }
+        return executed;
+    }
 
-        output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
-        runtimeOutput.setText(output.toString());
+    int findGrafisriptBlockEnd(String[] lines, int start) {
+        int nesting = 1;
+        for (int i = start; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if ((line.startsWith("si ") || line.startsWith("repetir ")) && line.endsWith("{")) nesting++;
+            if (line.equals("}") || line.equals("fin")) {
+                nesting--;
+                if (nesting == 0) return i;
+            }
+        }
+        return -1;
+    }
+
+    boolean evaluateGrafisriptCondition(String condition, java.util.Map<String, Double> variables) {
+        String[] operators = {">=", "<=", "==", "!=", ">", "<"};
+        for (String operator : operators) {
+            int at = condition.indexOf(operator);
+            if (at > 0) {
+                double left = evaluateGrafisriptExpression(condition.substring(0, at).trim(), variables);
+                double right = evaluateGrafisriptExpression(condition.substring(at + operator.length()).trim(), variables);
+                switch (operator) {
+                    case ">=": return left >= right;
+                    case "<=": return left <= right;
+                    case "==": return left == right;
+                    case "!=": return left != right;
+                    case ">": return left > right;
+                    case "<": return left < right;
+                }
+            }
+        }
+        return evaluateGrafisriptExpression(condition, variables) != 0;
+    }
+
+    double evaluateGrafisriptExpression(String expression, java.util.Map<String, Double> variables) {
+        return new GrafisriptExpression(expression, variables).parse();
+    }
+
+    class GrafisriptExpression {
+        final String source;
+        final java.util.Map<String, Double> variables;
+        int position = 0;
+        GrafisriptExpression(String source, java.util.Map<String, Double> variables) {
+            this.source = source;
+            this.variables = variables;
+        }
+        double parse() {
+            double value = addSubtract();
+            skipSpaces();
+            if (position != source.length()) throw new IllegalArgumentException("símbolo inesperado");
+            return value;
+        }
+        double addSubtract() {
+            double value = multiplyDivide();
+            while (true) {
+                skipSpaces();
+                if (take('+')) value += multiplyDivide();
+                else if (take('-')) value -= multiplyDivide();
+                else return value;
+            }
+        }
+        double multiplyDivide() {
+            double value = atom();
+            while (true) {
+                skipSpaces();
+                if (take('*')) value *= atom();
+                else if (take('/')) {
+                    double divisor = atom();
+                    if (divisor == 0) throw new IllegalArgumentException("división por cero");
+                    value /= divisor;
+                } else return value;
+            }
+        }
+        double atom() {
+            skipSpaces();
+            if (take('(')) {
+                double value = addSubtract();
+                skipSpaces();
+                if (!take(')')) throw new IllegalArgumentException("falta )");
+                return value;
+            }
+            int begin = position;
+            if (position < source.length() && (source.charAt(position) == '-' || source.charAt(position) == '+')) position++;
+            while (position < source.length() &&
+                    (Character.isDigit(source.charAt(position)) || source.charAt(position) == '.')) position++;
+            if (position > begin) return Double.parseDouble(source.substring(begin, position));
+            while (position < source.length() &&
+                    (Character.isLetterOrDigit(source.charAt(position)) || source.charAt(position) == '_')) position++;
+            if (position == begin) throw new IllegalArgumentException("se esperaba un número o variable");
+            String name = source.substring(begin, position);
+            if (!variables.containsKey(name)) throw new IllegalArgumentException("variable no definida: " + name);
+            return variables.get(name);
+        }
+        void skipSpaces() {
+            while (position < source.length() && Character.isWhitespace(source.charAt(position))) position++;
+        }
+        boolean take(char expected) {
+            if (position < source.length() && source.charAt(position) == expected) {
+                position++;
+                return true;
+            }
+            return false;
+        }
     }
 
     String activeProjectName() {
