@@ -617,6 +617,7 @@ public class BlockForgeActivity extends Activity {
 
     ScenePreview scenePreview;
     Scene3DView scene3DView;
+    SpriteDrawView activeSpriteDrawView;
 
     void showEditorExtrasDialog() {
         String[] options = {"Cambiar capa", "Mover cámara: " + (cameraPanMode ? "activado" : "desactivado"), "Tamaño del mapa", "Centrar cámara", "Instalar pack 30 FPS", "Instalar pack 60 FPS"};
@@ -2712,10 +2713,12 @@ public class BlockForgeActivity extends Activity {
                     imported = BitmapFactory.decodeStream(in);
                 }
                 if (imported == null) throw new java.io.IOException("El archivo no es una imagen válida");
-                String name = saveDrawnSprite(imported, "importado_editable");
-                if (scenePreview != null) scenePreview.addSprite(name);
-                Toast.makeText(this, "PNG importado y añadido a la escena", Toast.LENGTH_LONG).show();
-                openPage(2);
+                if (activeSpriteDrawView == null) {
+                    imported.recycle();
+                    throw new java.io.IOException("Abre primero el editor de píxeles");
+                }
+                activeSpriteDrawView.loadBitmap(imported);
+                Toast.makeText(this, "Imagen cargada en el lienzo. Se ajustó al tamaño seleccionado.", Toast.LENGTH_LONG).show();
             } catch (Exception ex) {
                 Toast.makeText(this, "No se pudo importar la imagen: " + ex.getMessage(), Toast.LENGTH_LONG).show();
             }
@@ -2963,6 +2966,7 @@ public class BlockForgeActivity extends Activity {
         wrap.addView(top);
 
         SpriteDrawView drawing = new SpriteDrawView();
+        activeSpriteDrawView = drawing;
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(-1, 0, 1);
         canvasParams.topMargin = 10;
         canvasParams.bottomMargin = 10;
@@ -3022,7 +3026,7 @@ public class BlockForgeActivity extends Activity {
         LinearLayout pixelActions = new LinearLayout(this);
         pixelActions.addView(editorButton("CUADRÍCULA", () -> { drawing.showGrid = !drawing.showGrid; drawing.invalidate(); }),
                 new LinearLayout.LayoutParams(0, 42, 1));
-        pixelActions.addView(editorButton("ABRIR PNG", () -> {
+        pixelActions.addView(editorButton("IMPORTAR A LIENZO", () -> {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
             intent.setType("image/*");
@@ -3109,6 +3113,7 @@ public class BlockForgeActivity extends Activity {
         int tool = 0;
         boolean showGrid = true;
         int lineStart = -1;
+        int lastPaintedPixel = -1;
         float cellSize, gridLeft, gridTop;
 
         SpriteDrawView() {
@@ -3203,17 +3208,24 @@ public class BlockForgeActivity extends Activity {
                 if (index < 0) return false;
                 snapshot();
                 lineStart = index;
+                lastPaintedPixel = index;
                 if (tool != 3) paintAt(index);
                 invalidate();
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                if (index >= 0 && tool != 2 && tool != 3 && tool != 4) { paintAt(index); invalidate(); }
+                if (index >= 0 && tool != 2 && tool != 3 && tool != 4 && index != lastPaintedPixel) {
+                    if (tool == 0 && lastPaintedPixel >= 0) drawLine(lastPaintedPixel, index);
+                    else paintAt(index);
+                    lastPaintedPixel = index;
+                    invalidate();
+                }
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
                 if (tool == 3 && index >= 0) { drawLine(lineStart,index); invalidate(); }
                 lineStart = -1;
+                lastPaintedPixel = -1;
                 return true;
             }
             return event.getAction() == android.view.MotionEvent.ACTION_CANCEL;
