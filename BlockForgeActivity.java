@@ -3214,7 +3214,7 @@ public class BlockForgeActivity extends Activity {
                 .setPositiveButton("GUARDAR PNG", null)
                 .create();
         dialog.setOnShowListener(ignored -> {
-            dialog.getWindow().setLayout(-1, (int)(getResources().getDisplayMetrics().heightPixels * 0.88f));
+            dialog.getWindow().setLayout(-1, -1);
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 try {
                     String name = saveDrawnSprite(drawing.exportBitmap());
