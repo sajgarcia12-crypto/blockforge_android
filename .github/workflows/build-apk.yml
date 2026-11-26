@@ -111,6 +111,12 @@ jobs:
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
           echo "$BLOCKFORGE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/blockforge-release.jks"
           test -s "$RUNNER_TEMP/blockforge-release.jks"
+          # Make the keystore path available to the separate Gradle build step.
+          echo "BLOCKFORGE_KEYSTORE_FILE=$RUNNER_TEMP/blockforge-release.jks" >> "$GITHUB_ENV"
+          # Fail here with a clear message if the keystore/password/alias do not match.
+          keytool -list -keystore "$RUNNER_TEMP/blockforge-release.jks" \
+            -storepass "$BLOCKFORGE_STORE_PASSWORD" \
+            -alias "$BLOCKFORGE_KEY_ALIAS" >/dev/null
           cat >> "$P/app/build.gradle" <<'GRADLE'
 
           // Permanent BlockForge signing identity. Keep this key for every future update.
