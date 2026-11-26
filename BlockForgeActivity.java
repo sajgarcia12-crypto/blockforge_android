@@ -157,12 +157,17 @@ public class BlockForgeActivity extends Activity {
     android.app.Dialog editorPanel(String title, int gravity, int widthPercent) {
         android.app.Dialog dialog = new android.app.Dialog(this);
         LinearLayout panelView = vertical();
+        panelView.setId(0x00bf0011);
         panelView.setPadding(16, 18, 16, 18);
         panelView.setBackground(shape(Color.rgb(17, 25, 39)));
         TextView heading = label(title, 18, white);
         heading.setPadding(0, 0, 0, 14);
         panelView.addView(heading);
-        dialog.setContentView(panelView);
+        ScrollView panelScroll = new ScrollView(this);
+        panelScroll.setFillViewport(true);
+        panelScroll.setVerticalScrollBarEnabled(true);
+        panelScroll.addView(panelView);
+        dialog.setContentView(panelScroll);
         android.view.Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
@@ -181,7 +186,7 @@ public class BlockForgeActivity extends Activity {
     void showSceneTreePanel() {
         if (scenePreview == null) return;
         android.app.Dialog dialog = editorPanel(uiText("ESCENA · ÁRBOL","SCENE · TREE"), Gravity.LEFT, 86);
-        LinearLayout panelView = (LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        LinearLayout panelView = (LinearLayout)dialog.findViewById(0x00bf0011);
         if (panelView == null) return;
         panelView.addView(label("NODOS Y OBJETOS", 11, Color.rgb(135,180,235)));
         panelView.addView(editorButton("＋ BLOQUE", () -> { scenePreview.addBlock(); dialog.dismiss(); }));
@@ -606,22 +611,31 @@ public class BlockForgeActivity extends Activity {
 
     void marketplace() {
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(24, 22, 24, 24);
-        heading("Marketplace", "Recursos y contenido de la comunidad.");
-        LinearLayout empty = vertical();
-        empty.setGravity(Gravity.CENTER);
-        empty.setPadding(20, 36, 20, 36);
-        empty.setBackground(uiPanel(uiSurface));
-        empty.addView(uiLabel("Todavía no hay contenido", 16, uiInk, true));
-        TextView note = uiLabel("El Marketplace aparecerá aquí cuando haya recursos disponibles.",
-                12, uiMuted, false);
-        note.setGravity(Gravity.CENTER);
-        note.setPadding(0, 8, 0, 0);
-        empty.addView(note);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 0, 1);
-        lp.topMargin = 18;
-        content.addView(empty, lp);
+        content.setPadding(18, 18, 18, 24);
+        heading("Marketplace", "Biblioteca de recursos para crear tus juegos.");
+        card("SPRITES Y PIXEL ART", "Personajes, enemigos, espadas, monedas, objetos, animaciones y tilesets. Descarga el recurso y luego impórtalo desde Recursos o desde el editor 2D.");
+        content.addView(uiPrimary("🎨  SPRITECOOK · CREAR Y DESCARGAR", () -> openResourceUrl("https://www.spritecook.ai/es")));
+        content.addView(uiSecondary("KENNEY · ASSETS GRATUITOS", () -> openResourceUrl("https://kenney.nl/assets")));
+        content.addView(uiSecondary("OPEN GAME ART · SPRITES Y TEXTURAS", () -> openResourceUrl("https://opengameart.org/")));
+        content.addView(uiSecondary("ITCH.IO · GAME ASSETS", () -> openResourceUrl("https://itch.io/game-assets")));
+        content.addView(uiSecondary("CRAFTPPIX · PIXEL ART", () -> openResourceUrl("https://craftpix.net/freebies/")));
+        uiSection("CATEGORÍAS", "RECURSOS PARA TU PROYECTO");
+        card("🧍 PERSONAJES Y ENEMIGOS", "Sprites individuales, hojas de animación y personajes para plataformas, RPG y aventuras.");
+        card("⚔️ ARMAS Y OBJETOS", "Espadas, escudos, pociones, monedas, cofres y objetos coleccionables.");
+        card("🌄 FONDOS Y ESCENARIOS", "Fondos PNG/JPG, parallax, tilesets, suelos, paredes y plataformas.");
+        card("✨ EFECTOS Y UI", "Explosiones, partículas, iconos, botones y elementos de interfaz.");
+        card("Cómo instalar un recurso", "1. Abre una biblioteca.  2. Descarga el archivo PNG o ZIP.  3. Vuelve a BlockForge y entra en Recursos → Importar, o usa Añadir Sprite en el editor 2D.  4. Selecciona el archivo descargado.");
+        card("Licencias", "Cada página tiene sus propias licencias. Revisa si permite uso comercial, modificaciones y redistribución antes de publicar tu juego. BlockForge no descarga ni incluye automáticamente archivos de terceros.");
+        content.addView(uiPrimary("＋  IMPORTAR UN SPRITE O FONDO", () -> openSpriteDrawer()));
         content.addView(uiSecondary("←  VOLVER A PROYECTOS", () -> openPage(0)));
+    }
+
+    void openResourceUrl(String url) {
+        try {
+            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+        } catch (Exception ex) {
+            Toast.makeText(this, "No se pudo abrir la página. Comprueba tu conexión.", Toast.LENGTH_LONG).show();
+        }
     }
 
 
@@ -688,9 +702,13 @@ public class BlockForgeActivity extends Activity {
                 sidebar.addView(item, itemLp);
             }
         }
+        ScrollView sidebarScroll = new ScrollView(this);
+        sidebarScroll.setFillViewport(true);
+        sidebarScroll.setVerticalScrollBarEnabled(true);
+        sidebarScroll.addView(sidebar);
         LinearLayout.LayoutParams sideLp = new LinearLayout.LayoutParams(
                 (int)(getResources().getDisplayMetrics().widthPixels * 0.31f), -1);
-        content.addView(sidebar, sideLp);
+        content.addView(sidebarScroll, sideLp);
 
         // Área principal: crear proyectos y acceso único al Marketplace.
         LinearLayout main = vertical();
