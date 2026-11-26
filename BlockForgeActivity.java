@@ -191,13 +191,24 @@ public class BlockForgeActivity extends Activity {
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
             panelView.addView(label(sprite.fileName,17,white));
-            panelView.addView(label("Posición X: "+sprite.x+"\nPosición Y: "+sprite.y+"\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
-            panelView.addView(editorButton("EDITAR POSICIÓN", () -> {
+            panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
+            panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
                 android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194); x.setHint("X"); x.setText(String.valueOf(sprite.x));
                 android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
-                LinearLayout form=vertical();form.addView(x);form.addView(y);
-                new android.app.AlertDialog.Builder(this).setTitle("Transformación").setView(form)
-                    .setPositiveButton("Guardar",(d,w)->{try{sprite.x=Float.parseFloat(x.getText().toString());sprite.y=Float.parseFloat(y.getText().toString());scenePreview.persistSprites();scenePreview.invalidate();dialog.dismiss();}catch(Exception e){Toast.makeText(this,"Coordenadas inválidas",Toast.LENGTH_SHORT).show();}})
+                android.widget.EditText width=new android.widget.EditText(this); width.setInputType(8194); width.setHint("Ancho (0.25–8)"); width.setText(String.valueOf(sprite.width));
+                android.widget.EditText height=new android.widget.EditText(this); height.setInputType(8194); height.setHint("Alto (0.25–8)"); height.setText(String.valueOf(sprite.height));
+                android.widget.EditText rotation=new android.widget.EditText(this); rotation.setInputType(8194); rotation.setHint("Rotación en grados"); rotation.setText(String.valueOf(sprite.rotation));
+                LinearLayout form=vertical();form.addView(x);form.addView(y);form.addView(width);form.addView(height);form.addView(rotation);
+                new android.app.AlertDialog.Builder(this).setTitle("Transformación 2D").setView(form)
+                    .setPositiveButton("Guardar",(d,w)->{try{
+                        float nx=Float.parseFloat(x.getText().toString()),ny=Float.parseFloat(y.getText().toString());
+                        float nw=Float.parseFloat(width.getText().toString()),nh=Float.parseFloat(height.getText().toString());
+                        float nr=Float.parseFloat(rotation.getText().toString());
+                        if(Float.isNaN(nx)||Float.isNaN(ny)||Float.isNaN(nw)||Float.isNaN(nh)||Float.isNaN(nr)||Float.isInfinite(nx)||Float.isInfinite(ny)||Float.isInfinite(nw)||Float.isInfinite(nh)||Float.isInfinite(nr)||nw<0.25f||nw>8f||nh<0.25f||nh>8f||nr<-360f||nr>360f)throw new NumberFormatException();
+                        sprite.x=Math.max(0f,Math.min(scenePreview.mapColumns-nw,nx));sprite.y=Math.max(0f,Math.min(scenePreview.mapRows-nh,ny));
+                        sprite.width=nw;sprite.height=nh;sprite.rotation=nr;
+                        scenePreview.persistSprites();scenePreview.invalidate();dialog.dismiss();
+                    }catch(Exception e){Toast.makeText(this,"Valores inválidos. Tamaño: 0.25–8; giro: −360 a 360°.",Toast.LENGTH_LONG).show();}})
                     .setNegativeButton("Cancelar",null).show();
             }));
             panelView.addView(editorButton(sprite.solid?"HACER TRANSPASABLE":"HACER SÓLIDO", () -> { scenePreview.toggleSelectedSpriteSolid(); dialog.dismiss(); }));
@@ -1477,6 +1488,7 @@ public class BlockForgeActivity extends Activity {
     class SceneSprite {
         String fileName;
         float x, y;
+        float width = 1f, height = 1f, rotation = 0f;
         boolean solid = true;
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
@@ -1562,6 +1574,9 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>8)loaded.animationFps=Math.max(1,Math.min(60,Integer.parseInt(parts[8])));
                     if(parts.length>9)loaded.animationPlaying=Boolean.parseBoolean(parts[9]);
                     if(parts.length>10)loaded.animationLoop=Boolean.parseBoolean(parts[10]);
+                    if(parts.length>11)loaded.width=Math.max(0.25f,Math.min(8f,Float.parseFloat(parts[11])));
+                    if(parts.length>12)loaded.height=Math.max(0.25f,Math.min(8f,Float.parseFloat(parts[12])));
+                    if(parts.length>13)loaded.rotation=Float.parseFloat(parts[13]);
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
@@ -1638,7 +1653,8 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.y).append('|').append(sprite.solid).append('|')
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
-                data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop);
+                data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop)
+                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -1890,6 +1906,9 @@ public class BlockForgeActivity extends Activity {
                     Math.min(mapRows - 1, original.y + 1f), original.solid);
             copy.vx = original.vx;
             copy.vy = original.vy;
+            copy.width = original.width;
+            copy.height = original.height;
+            copy.rotation = original.rotation;
             copy.animationFps = original.animationFps;
             copy.animationLoop = original.animationLoop;
             copy.animationPlaying = original.animationPlaying;
@@ -2142,8 +2161,11 @@ public class BlockForgeActivity extends Activity {
             for (SceneSprite sprite : sprites) {
                 float left = sprite.x * cellW + 2;
                 float top = sprite.y * cellH + 2;
-                float right = left + cellW - 4;
-                float bottom = top + cellH - 4;
+                float right = left + cellW * sprite.width - 4;
+                float bottom = top + cellH * sprite.height - 4;
+                float centerX = (left + right) * 0.5f, centerY = (top + bottom) * 0.5f;
+                canvas.save();
+                canvas.rotate(sprite.rotation, centerX, centerY);
                 Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty()){int frame=Math.max(0,Math.min(sprite.currentFrameIndex,sprite.animationFrames.size()-1));shown=sprite.animationFrames.get(frame);}
                 if(shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
                 } else {
@@ -2157,6 +2179,7 @@ public class BlockForgeActivity extends Activity {
                     canvas.drawRect(left, top, right, bottom, paint);
                     paint.setStyle(Paint.Style.FILL);
                 }
+                canvas.restore();
             }
 
             drawBlockLayer(canvas,2,cellW,cellH);
@@ -2491,7 +2514,7 @@ public class BlockForgeActivity extends Activity {
     org.json.JSONObject buildSceneJson() throws Exception {
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         org.json.JSONObject rootJson=new org.json.JSONObject();
-        rootJson.put("format","BlockForge2D");rootJson.put("version",4);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
+        rootJson.put("format","BlockForge2D");rootJson.put("version",5);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
         org.json.JSONArray blockArray=new org.json.JSONArray();
         for(int i=0;i<target.blocks.size();i++){
             Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
@@ -2505,6 +2528,7 @@ public class BlockForgeActivity extends Activity {
         for(SceneSprite sp:target.sprites){
             org.json.JSONObject item=new org.json.JSONObject();
             item.put("file",sp.fileName);item.put("x",sp.x);item.put("y",sp.y);
+            item.put("width",sp.width);item.put("height",sp.height);item.put("rotation",sp.rotation);
             item.put("solid",sp.solid);item.put("vx",sp.vx);item.put("vy",sp.vy);
             item.put("animationFps",sp.animationFps);item.put("animationLoop",sp.animationLoop);
             item.put("animationPlaying",sp.animationPlaying);item.put("currentFrameIndex",sp.currentFrameIndex);
@@ -2541,7 +2565,7 @@ public class BlockForgeActivity extends Activity {
         }
         org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
         int formatVersion=json.optInt("version",1);
-        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>4))
+        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion<1||formatVersion>5))
             throw new java.io.IOException("Formato o versión no compatible");
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         target.setMapSize(Math.max(5,Math.min(64,json.optInt("mapWidth",10))),Math.max(5,Math.min(64,json.optInt("mapHeight",10))));
@@ -2564,6 +2588,9 @@ public class BlockForgeActivity extends Activity {
             SceneSprite sp=new SceneSprite(importedMain,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
             if(sp.bitmap==null)continue;
             sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
+            sp.width=(float)Math.max(0.25,Math.min(8,item.optDouble("width",1)));
+            sp.height=(float)Math.max(0.25,Math.min(8,item.optDouble("height",1)));
+            sp.rotation=(float)item.optDouble("rotation",0);
             org.json.JSONArray frames=item.optJSONArray("frames"),frameImages=item.optJSONArray("frameImages");
             if(frames!=null)for(int j=0;j<frames.length();j++){
                 String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\"))continue;
