@@ -193,7 +193,7 @@ public class BlockForgeActivity extends Activity {
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
             panelView.addView(label(sprite.fileName,17,white));
-            panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nCapa: "+new String[]{"Fondo","Mundo","Frente"}[Math.max(0,Math.min(2,sprite.layer))+0]+"\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
+            panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nCapa: "+new String[]{"Fondo","Mundo","Frente"}[Math.max(0,Math.min(2,sprite.layer))+0]+"\nSólido: "+(sprite.solid?"Sí":"No")+" · Física: "+(sprite.physicsEnabled?"Activa":"Pausada"),13,gray));
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
                 android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); x.setHint("X"); x.setText(String.valueOf(sprite.x));
                 android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
