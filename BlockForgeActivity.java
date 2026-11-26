@@ -25,6 +25,8 @@ public class BlockForgeActivity extends Activity {
     boolean sceneEraseMode = false;
     boolean sceneGridVisible = true;
     boolean sceneCollisionsEnabled = true;
+    int sceneToolMode = 0; // 0 lápiz, 1 rectángulo, 2 relleno
+
     boolean physicsRunning = false;
     int targetAnimationFps = 30;
     int sceneLayer = 1;
@@ -349,6 +351,11 @@ public class BlockForgeActivity extends Activity {
         actions.addView(button("BORRAR TODO", () -> scenePreview.clearBlocks()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(actions);
+        LinearLayout toolActions=new LinearLayout(this);toolActions.setOrientation(LinearLayout.HORIZONTAL);
+        toolActions.addView(button(sceneToolMode==0?"✎ LÁPIZ":"LÁPIZ",()->{sceneToolMode=0;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        toolActions.addView(button(sceneToolMode==1?"▧ RECTÁNGULO":"RECTÁNGULO",()->{sceneToolMode=1;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        toolActions.addView(button(sceneToolMode==2?"▨ RELLENO":"RELLENO",()->{sceneToolMode=2;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
+        content.addView(toolActions);
         LinearLayout palette = new LinearLayout(this);
         palette.setOrientation(LinearLayout.HORIZONTAL);
         palette.addView(button("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)),
@@ -1220,6 +1227,7 @@ public class BlockForgeActivity extends Activity {
         int draggingSprite = -1;
         int selectedSprite=-1;
         boolean paintingBlocks=false;
+        int gestureStartCol=-1,gestureStartRow=-1;
         int lastPaintedCol=-1,lastPaintedRow=-1;
         float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
         boolean multiTouchGesture=false;
@@ -1550,6 +1558,39 @@ public class BlockForgeActivity extends Activity {
             invalidate();
         }
 
+        void applyRectangle(int x1,int y1,int x2,int y2){
+            rememberState();
+            int left=Math.max(0,Math.min(x1,x2)),right=Math.min(mapColumns-1,Math.max(x1,x2));
+            int top=Math.max(0,Math.min(y1,y2)),bottom=Math.min(mapRows-1,Math.max(y1,y2));
+            for(int y=top;y<=bottom;y++)for(int x=left;x<=right;x++)applyCellDirect(x,y);
+            persist();invalidate();
+        }
+        void applyCellDirect(int col,int row){
+            int found=-1;
+            for(int i=0;i<blocks.size();i++){Point p=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(p.x==col&&p.y==row&&layer==sceneLayer){found=i;break;}}
+            if(sceneEraseMode){if(found>=0){blocks.remove(found);if(found<blockColors.size())blockColors.remove(found);if(found<blockLayers.size())blockLayers.remove(found);}return;}
+            if(found<0){blocks.add(new Point(col,row));blockColors.add(sceneBrushColor);blockLayers.add(sceneLayer);}
+        }
+        void floodFill(int startX,int startY){
+            int targetColor=0;boolean targetExists=false;
+            for(int i=0;i<blocks.size();i++){Point p=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(p.x==startX&&p.y==startY&&layer==sceneLayer){targetExists=true;targetColor=i<blockColors.size()?blockColors.get(i):sceneBrushColor;break;}}
+            if(sceneEraseMode&&!targetExists)return;
+            if(!sceneEraseMode&&targetExists&&targetColor==sceneBrushColor)return;
+            rememberState();
+            java.util.ArrayDeque<Point> queue=new java.util.ArrayDeque<>();java.util.HashSet<Integer> visited=new java.util.HashSet<>();
+            queue.add(new Point(startX,startY));
+            while(!queue.isEmpty()&&visited.size()<mapColumns*mapRows){
+                Point p=queue.removeFirst();if(p.x<0||p.y<0||p.x>=mapColumns||p.y>=mapRows)continue;
+                int key=p.y*mapColumns+p.x;if(!visited.add(key))continue;
+                int found=-1;for(int i=0;i<blocks.size();i++){Point q=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(q.x==p.x&&q.y==p.y&&layer==sceneLayer){found=i;break;}}
+                boolean matches=targetExists?(found>=0&&(found>=blockColors.size()?sceneBrushColor:blockColors.get(found))==targetColor):(found<0);
+                if(!matches)continue;
+                applyCellDirect(p.x,p.y);
+                queue.add(new Point(p.x+1,p.y));queue.add(new Point(p.x-1,p.y));queue.add(new Point(p.x,p.y+1));queue.add(new Point(p.x,p.y-1));
+            }
+            persist();invalidate();
+        }
+
         void paintCell(int col,int row){
             if(col==lastPaintedCol&&row==lastPaintedRow)return;
             lastPaintedCol=col;lastPaintedRow=row;
@@ -1595,6 +1636,8 @@ public class BlockForgeActivity extends Activity {
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                if(sceneToolMode==2){floodFill(col,row);return true;}
+                if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;return true;}
                 draggingSprite = -1;
                 for (int i = sprites.size() - 1; i >= 0; i--) {
                     SceneSprite sprite = sprites.get(i);
@@ -1614,6 +1657,9 @@ public class BlockForgeActivity extends Activity {
                 }
                 if(draggingSprite<0){paintingBlocks=true;lastPaintedCol=-1;lastPaintedRow=-1;rememberState();paintCell(col,row);invalidate();}
                 return true;
+            }
+            if(sceneToolMode==1 && event.getAction()==android.view.MotionEvent.ACTION_UP && gestureStartCol>=0){
+                applyRectangle(gestureStartCol,gestureStartRow,col,row);gestureStartCol=-1;gestureStartRow=-1;performClick();return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && paintingBlocks) {
                 paintCell(col,row);invalidate();return true;
