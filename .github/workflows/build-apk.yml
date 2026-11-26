@@ -1,6 +1,6 @@
 
 name: Build BlockForge APK
-# Validación de compilación del editor, modo juego y Pixel Studio.
+# Validación final del editor 2D, modo juego y Pixel Studio a pantalla completa.
 
 on:
   workflow_dispatch:
