@@ -470,7 +470,7 @@ public class BlockForgeActivity extends Activity {
                         .putFloat("character_x_" + project, 0f)
                         .putFloat("character_z_" + project, 0f)
                         .putInt("character_health_" + project, 100).apply();
-                output.append("Personaje creado: ").append(name).append(" · vida 100\\n");
+                output.append("Personaje creado: ").append(name).append(" · vida 100\n");
                 refreshScenePreview();
                 return true;
             }
@@ -483,7 +483,7 @@ public class BlockForgeActivity extends Activity {
                 float z = prefs.getFloat("character_z_" + project, 0f) + dz;
                 prefs.edit().putFloat("character_x_" + project, x)
                         .putFloat("character_z_" + project, z).apply();
-                output.append("Jugador movido a (").append(x).append(", ").append(z).append(")\\n");
+                output.append("Jugador movido a (").append(x).append(", ").append(z).append(")\n");
                 refreshScenePreview();
                 return true;
             }
@@ -491,13 +491,13 @@ public class BlockForgeActivity extends Activity {
                 float height = Float.parseFloat(line.substring(15, line.length() - 1).trim());
                 if (height <= 0 || height > 100) throw new IllegalArgumentException("La altura debe ser mayor que 0 y hasta 100");
                 prefs.edit().putFloat("character_last_jump_" + project, height).apply();
-                output.append("Salto programado: altura ").append(height).append("\\n");
+                output.append("Salto programado: altura ").append(height).append("\n");
                 return true;
             }
             if (line.startsWith("jugador.girar(") && line.endsWith(")")) {
                 float degrees = Float.parseFloat(line.substring(14, line.length() - 1).trim());
                 prefs.edit().putFloat("character_rotation_" + project, degrees).apply();
-                output.append("Jugador girado: ").append(degrees).append(" grados\\n");
+                output.append("Jugador girado: ").append(degrees).append(" grados\n");
                 refreshScenePreview();
                 return true;
             }
@@ -505,13 +505,13 @@ public class BlockForgeActivity extends Activity {
                 int health = Integer.parseInt(line.substring(13, line.length() - 1).trim());
                 if (health < 0 || health > 1000) throw new IllegalArgumentException("Vida permitida: 0 a 1000");
                 prefs.edit().putInt("character_health_" + project, health).apply();
-                output.append("Vida del jugador: ").append(health).append("\\n");
+                output.append("Vida del jugador: ").append(health).append("\n");
                 return true;
             }
         } catch (Exception ex) {
             output.append("Línea ").append(lineIndex + 1).append(": ")
                     .append(ex.getMessage() == null ? "parámetro inválido" : ex.getMessage())
-                    .append("\\n");
+                    .append("\n");
             return true;
         }
         return false;
