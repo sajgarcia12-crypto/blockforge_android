@@ -2770,39 +2770,108 @@ public class BlockForgeActivity extends Activity {
         startActivityForResult(intent, PICK_SPRITE_REQUEST);
     }
 
+
     void openSpriteDrawer() {
-        SpriteDrawView drawing = new SpriteDrawView();
         LinearLayout wrap = vertical();
-        wrap.setPadding(12, 8, 12, 8);
-        wrap.addView(drawing, new LinearLayout.LayoutParams(-1, 360));
-        android.widget.CheckBox asMobileButton=new android.widget.CheckBox(this);asMobileButton.setText("Crear botón para móviles con este icono");asMobileButton.setTextColor(Color.WHITE);wrap.addView(asMobileButton);
+        wrap.setPadding(14, 12, 14, 12);
+        wrap.setBackgroundColor(Color.rgb(20, 24, 31));
+
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView sizeLabel = uiLabel("TAMAÑO DEL LIENZO", 10, uiMuted, true);
+        top.addView(sizeLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        Spinner sizePicker = new Spinner(this);
+        String[] sizes = {"16 × 16", "32 × 32", "64 × 64"};
+        sizePicker.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, sizes));
+        top.addView(sizePicker, new LinearLayout.LayoutParams(130, 44));
+        wrap.addView(top);
+
+        SpriteDrawView drawing = new SpriteDrawView();
+        LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(-1, 0, 1);
+        canvasParams.topMargin = 10;
+        canvasParams.bottomMargin = 10;
+        wrap.addView(drawing, canvasParams);
+        sizePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                drawing.setSize(position == 0 ? 16 : position == 1 ? 32 : 64);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
+
+        LinearLayout tools = new LinearLayout(this);
+        tools.setGravity(Gravity.CENTER);
+        tools.addView(editorButton("LÁPIZ", () -> drawing.setTool(0)), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("BORRADOR", () -> drawing.setTool(1)), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("RELLENO", () -> drawing.setTool(2)), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("DESHACER", () -> drawing.undo()), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("REHACER", () -> drawing.redo()), new LinearLayout.LayoutParams(0, 44, 1));
+        wrap.addView(tools);
+
+        HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
+        paletteScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout colors = new LinearLayout(this);
-        int[] palette = {Color.BLACK, Color.WHITE, Color.RED, Color.GREEN,
-                Color.BLUE, Color.YELLOW, Color.MAGENTA, Color.CYAN,
-                Color.rgb(130, 80, 40), Color.TRANSPARENT};
-        String[] labels = {"Negro","Blanco","Rojo","Verde","Azul","Amarillo","Rosa","Cian","Marrón","Borrar"};
+        colors.setPadding(0, 9, 0, 9);
+        int[] palette = {Color.BLACK, Color.WHITE, Color.rgb(230,75,75), Color.rgb(70,180,110),
+                Color.rgb(70,130,230), Color.YELLOW, Color.MAGENTA, Color.CYAN,
+                Color.rgb(150,95,55), Color.rgb(120,120,130), Color.rgb(255,150,65)};
+        String[] labels = {"NEGRO","BLANCO","ROJO","VERDE","AZUL","AMARILLO","ROSA","CIAN","TIERRA","GRIS","NARANJA"};
         for (int i = 0; i < palette.length; i++) {
             final int color = palette[i];
-            TextView swatch = button(labels[i], () -> drawing.setColor(color));
-            swatch.setTextSize(9);
-            colors.addView(swatch, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView swatch = editorButton("●", () -> drawing.setColor(color));
+            swatch.setTextColor(color);
+            swatch.setContentDescription(labels[i]);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(48, 42);
+            lp.rightMargin = 5;
+            colors.addView(swatch, lp);
         }
-        wrap.addView(colors);
-        new android.app.AlertDialog.Builder(this)
-                .setTitle("Dibujar sprite · 16×16")
+        paletteScroll.addView(colors);
+        wrap.addView(paletteScroll);
+        LinearLayout lower = new LinearLayout(this);
+        lower.addView(editorButton("COLOR HEX", () -> {
+            EditText hex = new EditText(this);
+            hex.setSingleLine(true);
+            hex.setHint("#RRGGBB");
+            hex.setText("#FFFFFF");
+            new android.app.AlertDialog.Builder(this).setTitle("Color personalizado")
+                .setView(hex).setPositiveButton("APLICAR", (d,w) -> {
+                    try { drawing.setColor(Color.parseColor(hex.getText().toString().trim())); }
+                    catch (Exception e) { Toast.makeText(this, "Color HEX no válido", Toast.LENGTH_SHORT).show(); }
+                }).setNegativeButton("CANCELAR", null).show();
+        }), new LinearLayout.LayoutParams(0, 44, 1));
+        lower.addView(editorButton("LIMPIAR", () -> new android.app.AlertDialog.Builder(this)
+                .setTitle("Limpiar lienzo").setMessage("¿Borrar todos los píxeles?")
+                .setPositiveButton("BORRAR", (d,w) -> drawing.clear()).setNegativeButton("CANCELAR", null).show()),
+                new LinearLayout.LayoutParams(0, 44, 1));
+        wrap.addView(lower);
+
+        android.widget.CheckBox asMobileButton = new android.widget.CheckBox(this);
+        asMobileButton.setText("Usar también como botón móvil");
+        asMobileButton.setTextColor(uiMuted);
+        wrap.addView(asMobileButton);
+
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setTitle("PIXEL STUDIO  /  EDITOR DE SPRITES")
                 .setView(wrap)
-                .setNegativeButton("Cancelar", null)
-                .setPositiveButton("GUARDAR SPRITE", (dialog, which) -> {
-                    try {
-                        String name = saveDrawnSprite(drawing.exportBitmap());
-                        if (scenePreview != null) scenePreview.addSprite(name);
-                        Toast.makeText(this, "Sprite creado", Toast.LENGTH_SHORT).show();
-                        if(asMobileButton.isChecked())createMobileButtonDialog(name);else openPage(2);
-                    } catch (Exception ex) {
-                        Toast.makeText(this, "Error al guardar sprite: " + ex.getMessage(),
-                                Toast.LENGTH_LONG).show();
-                    }
-                }).show();
+                .setNegativeButton("CANCELAR", null)
+                .setPositiveButton("GUARDAR PNG", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            dialog.getWindow().setLayout(-1, (int)(getResources().getDisplayMetrics().heightPixels * 0.88f));
+            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                try {
+                    String name = saveDrawnSprite(drawing.exportBitmap());
+                    if (scenePreview != null) scenePreview.addSprite(name);
+                    if (asMobileButton.isChecked()) createMobileButtonDialog(name);
+                    Toast.makeText(this, "Sprite PNG guardado: " + name, Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                    if (!asMobileButton.isChecked()) openPage(2);
+                } catch (Exception ex) {
+                    Toast.makeText(this, "No se pudo guardar el sprite: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+        dialog.show();
     }
 
     String saveDrawnSprite(Bitmap bitmap) throws java.io.IOException {
@@ -2816,48 +2885,135 @@ public class BlockForgeActivity extends Activity {
         return name;
     }
 
+
     class SpriteDrawView extends View {
-        final int size = 16;
-        final int[] pixels = new int[size * size];
+        int size = 16;
+        int[] pixels = new int[size * size];
         final Paint brush = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int currentColor = Color.BLACK;
+        final java.util.ArrayList<int[]> undo = new java.util.ArrayList<>();
+        final java.util.ArrayList<int[]> redo = new java.util.ArrayList<>();
+        int currentColor = Color.WHITE;
+        int tool = 0;
+        boolean showGrid = true;
+        float cellSize, gridLeft, gridTop;
+
         SpriteDrawView() {
             super(BlockForgeActivity.this);
-            java.util.Arrays.fill(pixels, Color.TRANSPARENT);
-            setBackgroundColor(Color.rgb(25, 32, 45));
+            setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+            setBackgroundColor(Color.rgb(15, 19, 25));
         }
-        void setColor(int color) { currentColor = color; }
+
+        void setSize(int value) {
+            if (value == size) return;
+            size = value;
+            pixels = new int[size * size];
+            undo.clear();
+            redo.clear();
+            invalidate();
+        }
+        void setColor(int color) { currentColor = color; tool = 0; invalidate(); }
+        void setTool(int value) { tool = value; invalidate(); }
+        void snapshot() {
+            undo.add(pixels.clone());
+            if (undo.size() > 40) undo.remove(0);
+            redo.clear();
+        }
+        void undo() {
+            if (undo.isEmpty()) return;
+            redo.add(pixels.clone());
+            pixels = undo.remove(undo.size() - 1);
+            invalidate();
+        }
+        void redo() {
+            if (redo.isEmpty()) return;
+            undo.add(pixels.clone());
+            pixels = redo.remove(redo.size() - 1);
+            invalidate();
+        }
+        void clear() { snapshot(); java.util.Arrays.fill(pixels, Color.TRANSPARENT); invalidate(); }
         Bitmap exportBitmap() {
             Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
             bitmap.setPixels(pixels, 0, size, 0, 0, size, size);
-            return Bitmap.createScaledBitmap(bitmap, 256, 256, false);
+            return bitmap;
+        }
+        int pixelAt(float x, float y) {
+            if (cellSize <= 0 || x < gridLeft || y < gridTop ||
+                    x >= gridLeft + cellSize * size || y >= gridTop + cellSize * size) return -1;
+            int px = (int)((x - gridLeft) / cellSize);
+            int py = (int)((y - gridTop) / cellSize);
+            return py * size + px;
+        }
+        void paintAt(int index) {
+            if (index < 0 || index >= pixels.length) return;
+            if (tool == 2) { floodFill(index, pixels[index], currentColor); return; }
+            pixels[index] = tool == 1 ? Color.TRANSPARENT : currentColor;
+        }
+        void floodFill(int start, int target, int replacement) {
+            if (target == replacement) return;
+            java.util.ArrayList<Integer> queue = new java.util.ArrayList<>();
+            boolean[] seen = new boolean[pixels.length];
+            queue.add(start);
+            seen[start] = true;
+            for (int q = 0; q < queue.size(); q++) {
+                int at = queue.get(q);
+                if (pixels[at] != target) continue;
+                pixels[at] = replacement;
+                int x = at % size, y = at / size;
+                int[] next = {x > 0 ? at - 1 : -1, x < size - 1 ? at + 1 : -1,
+                        y > 0 ? at - size : -1, y < size - 1 ? at + size : -1};
+                for (int n : next) if (n >= 0 && !seen[n] && pixels[n] == target) {
+                    seen[n] = true; queue.add(n);
+                }
+            }
         }
         @Override public boolean onTouchEvent(android.view.MotionEvent event) {
-            float cell = Math.min(getWidth(), getHeight()) / 16f;
-            int x = Math.max(0, Math.min(15, (int)(event.getX() / cell)));
-            int y = Math.max(0, Math.min(15, (int)(event.getY() / cell)));
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN ||
-                    event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                pixels[y * size + x] = currentColor;
+            int index = pixelAt(event.getX(), event.getY());
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                if (index < 0) return false;
+                snapshot();
+                paintAt(index);
                 invalidate();
                 return true;
             }
-            return true;
+            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
+                if (index >= 0 && tool != 2) { paintAt(index); invalidate(); }
+                return true;
+            }
+            return event.getAction() == android.view.MotionEvent.ACTION_UP;
         }
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
-            float cell = Math.min(getWidth(), getHeight()) / 16f;
-            float left = (getWidth() - cell * 16f) / 2f;
-            float top = (getHeight() - cell * 16f) / 2f;
-            for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
-                brush.setColor(((x + y) % 2 == 0) ? Color.rgb(45,52,65) : Color.rgb(35,42,55));
-                canvas.drawRect(left+x*cell, top+y*cell, left+(x+1)*cell, top+(y+1)*cell, brush);
-                if (pixels[y*16+x] != Color.TRANSPARENT) {
-                    brush.setColor(pixels[y*16+x]);
-                    canvas.drawRect(left+x*cell+1, top+y*cell+1,
-                            left+(x+1)*cell-1, top+(y+1)*cell-1, brush);
+            float side = Math.min(getWidth() - 24f, getHeight() - 24f);
+            cellSize = Math.max(1f, side / size);
+            float gridSide = cellSize * size;
+            gridLeft = (getWidth() - gridSide) / 2f;
+            gridTop = (getHeight() - gridSide) / 2f;
+            brush.setStyle(Paint.Style.FILL);
+            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+                brush.setColor(((x + y) & 1) == 0 ? Color.rgb(53, 60, 70) : Color.rgb(39, 46, 56));
+                float l = gridLeft + x * cellSize, t = gridTop + y * cellSize;
+                canvas.drawRect(l, t, l + cellSize, t + cellSize, brush);
+                int color = pixels[y * size + x];
+                if (color != Color.TRANSPARENT) {
+                    brush.setColor(color);
+                    canvas.drawRect(l, t, l + cellSize, t + cellSize, brush);
                 }
             }
+            if (showGrid && cellSize >= 5f) {
+                brush.setColor(Color.argb(65, 5, 9, 14));
+                brush.setStrokeWidth(1f);
+                for (int i = 0; i <= size; i++) {
+                    float p = gridLeft + i * cellSize;
+                    canvas.drawLine(p, gridTop, p, gridTop + gridSide, brush);
+                    p = gridTop + i * cellSize;
+                    canvas.drawLine(gridLeft, p, gridLeft + gridSide, p, brush);
+                }
+            }
+            brush.setStyle(Paint.Style.STROKE);
+            brush.setStrokeWidth(2f);
+            brush.setColor(Color.rgb(93, 151, 213));
+            canvas.drawRect(gridLeft, gridTop, gridLeft + gridSide, gridTop + gridSide, brush);
+            brush.setStyle(Paint.Style.FILL);
         }
     }
 
