@@ -144,6 +144,5 @@ jobs:
         with:
           name: BlockForge-APK
           path: project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found
-          : error
+          if-no-files-found: error
           retention-days: 7
