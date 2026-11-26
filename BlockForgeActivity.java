@@ -1632,7 +1632,25 @@ public class BlockForgeActivity extends Activity {
                     if(hit>=0){activeMobileButtonPointer=hit;runMobileButton(mobileButtons.get(hit));return true;}
                     for(int i=sprites.size()-1;i>=0;i--){SceneSprite sp=sprites.get(i);if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}}
                 }
-                if(event.getAction()==android.view.MotionEvent.ACTION_UP)activeMobileButtonPointer=-1;
+                if(event.getAction()==android.view.MotionEvent.ACTION_MOVE && activeMobileButtonPointer>=0 && activeMobileButtonPointer<mobileButtons.size()){
+                    MobileButton held=mobileButtons.get(activeMobileButtonPointer);
+                    if(selectedSprite>=0&&selectedSprite<sprites.size()){
+                        SceneSprite controlled=sprites.get(selectedSprite);
+                        if("left".equals(held.action))controlled.vx=-5f;
+                        else if("right".equals(held.action))controlled.vx=5f;
+                        else if("up".equals(held.action))controlled.vy=-5f;
+                        else if("down".equals(held.action))controlled.vy=5f;
+                    }
+                }
+                if(event.getAction()==android.view.MotionEvent.ACTION_UP){
+                    if(activeMobileButtonPointer>=0&&activeMobileButtonPointer<mobileButtons.size()&&selectedSprite>=0&&selectedSprite<sprites.size()){
+                        String action=mobileButtons.get(activeMobileButtonPointer).action;
+                        SceneSprite controlled=sprites.get(selectedSprite);
+                        if("left".equals(action)||"right".equals(action))controlled.vx=0f;
+                        if("up".equals(action)||"down".equals(action))controlled.vy=0f;
+                    }
+                    activeMobileButtonPointer=-1;
+                }
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
