@@ -908,7 +908,8 @@ public class BlockForgeActivity extends Activity {
         inspector.addView(editorButton("Tamaño del mapa",()->showMapSizeDialog()));
         inspector.addView(editorButton("Exportar escena",()->exportScenePicker()));
         workspace.addView(inspector,new LinearLayout.LayoutParams(sideWidth,-1));
-        content.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
+        int workspaceHeight=Math.max(420,(int)(getResources().getDisplayMetrics().heightPixels*0.58f));
+        content.addView(workspace,new LinearLayout.LayoutParams(-1,workspaceHeight));
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
