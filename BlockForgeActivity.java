@@ -383,6 +383,10 @@ public class BlockForgeActivity extends Activity {
             "crear_personaje Jugador\n"+
             "jugador.mover(2, 1)\n"+
             "mostrar_mensaje \"¡Jugador listo!\"\n"+
+            "funcion saludar {\n"+
+            "    mostrar_mensaje \"Hola desde una función\"\n"+
+            "}\n"+
+            "llamar saludar\n"+
             "ver_bloques\n"
         ));
 
