@@ -1930,7 +1930,7 @@ public class BlockForgeActivity extends Activity {
             int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/cellW))),row=Math.max(0,Math.min(mapRows-1,(int)(wy/cellH)));
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                 if(sceneToolMode==2){floodFill(col,row);return true;}
-                if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;return true;}
+                if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;paintingBlocks=false;draggingSprite=-1;return true;}
                 draggingSprite = -1;
                 for (int i = sprites.size() - 1; i >= 0; i--) {
                     SceneSprite sprite = sprites.get(i);
