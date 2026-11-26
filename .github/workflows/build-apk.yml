@@ -3,6 +3,9 @@ name: Build BlockForge APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - blockforge/dev-hub-foundation
 
 permissions:
   contents: read
