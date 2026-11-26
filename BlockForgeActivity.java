@@ -1965,7 +1965,8 @@ public class BlockForgeActivity extends Activity {
         boolean paintingBlocks=false;
         int gestureStartCol=-1,gestureStartRow=-1;
         int lastPaintedCol=-1,lastPaintedRow=-1;
-        float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;\n        String heldMobileAction="";
+        float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
+        String heldMobileAction="";
         boolean multiTouchGesture=false;
         android.view.ScaleGestureDetector scaleDetector;
 
