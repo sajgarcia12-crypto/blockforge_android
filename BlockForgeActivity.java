@@ -1245,6 +1245,7 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<SceneSprite> sprites = new java.util.ArrayList<>();
         java.util.ArrayList<MobileButton> mobileButtons = new java.util.ArrayList<>();
         int activeMobileButtonPointer=-1;
+        int activeMobileTouchId=-1;
         int mapColumns=10,mapRows=10;
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
@@ -1325,7 +1326,19 @@ public class BlockForgeActivity extends Activity {
                 if(output.length()>0)Toast.makeText(BlockForgeActivity.this,output.toString().trim(),Toast.LENGTH_LONG).show();
                 refreshScenePreview();persistSprites();invalidate();return;
             }
-            if("event".equals(b.action)){Toast.makeText(BlockForgeActivity.this,"Evento activado: "+b.title,Toast.LENGTH_SHORT).show();return;}
+            if("event".equals(b.action)){
+                if(!b.script.trim().isEmpty()){
+                    StringBuilder output=new StringBuilder();
+                    executeGrafisriptBlock(b.script.split("\\r?\\n"),new int[]{0},
+                            new java.util.HashMap<String,Double>(),
+                            new java.util.HashMap<String,String[]>(),output,0);
+                    if(output.length()>0)Toast.makeText(BlockForgeActivity.this,output.toString().trim(),Toast.LENGTH_LONG).show();
+                    refreshScenePreview();persistSprites();invalidate();
+                }else{
+                    Toast.makeText(BlockForgeActivity.this,"Evento activado: "+b.title,Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
             if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite para controlar",Toast.LENGTH_SHORT).show();return;}
             SceneSprite sp=sprites.get(selectedSprite);
             switch(b.action){
@@ -1648,41 +1661,69 @@ public class BlockForgeActivity extends Activity {
         }
 
         @Override
+        void releaseHeldMobileButton(){
+            if(activeMobileButtonPointer>=0&&activeMobileButtonPointer<mobileButtons.size()
+                    &&selectedSprite>=0&&selectedSprite<sprites.size()){
+                String action=mobileButtons.get(activeMobileButtonPointer).action;
+                SceneSprite controlled=sprites.get(selectedSprite);
+                if("left".equals(action)||"right".equals(action))controlled.vx=0f;
+                if("up".equals(action)||"down".equals(action))controlled.vy=0f;
+                persistSprites();
+            }
+            activeMobileButtonPointer=-1;
+            activeMobileTouchId=-1;
+            invalidate();
+        }
+
+        @Override
         public boolean onTouchEvent(android.view.MotionEvent event){
             scaleDetector.onTouchEvent(event);
+            int action=event.getActionMasked();
+            if(scenePlayMode){
+                if(action==android.view.MotionEvent.ACTION_DOWN){
+                    int hit=hitMobileButton(event.getX(0),event.getY(0));
+                    if(hit>=0){
+                        activeMobileButtonPointer=hit;
+                        activeMobileTouchId=event.getPointerId(0);
+                        runMobileButton(mobileButtons.get(hit));
+                        return true;
+                    }
+                    float wx=(event.getX(0)-cameraOffsetX)/cameraZoom;
+                    float wy=(event.getY(0)-cameraOffsetY)/cameraZoom;
+                    int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/Math.max(1f,getWidth()/(float)mapColumns))));
+                    int row=Math.max(0,Math.min(mapRows-1,(int)(wy/Math.max(1f,getHeight()/(float)mapRows))));
+                    for(int i=sprites.size()-1;i>=0;i--){
+                        SceneSprite sp=sprites.get(i);
+                        if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}
+                    }
+                    return true;
+                }
+                if(action==android.view.MotionEvent.ACTION_POINTER_UP
+                        &&event.getPointerId(event.getActionIndex())==activeMobileTouchId){
+                    releaseHeldMobileButton();
+                    return true;
+                }
+                if(action==android.view.MotionEvent.ACTION_UP||action==android.view.MotionEvent.ACTION_CANCEL){
+                    releaseHeldMobileButton();
+                    return true;
+                }
+                if(action==android.view.MotionEvent.ACTION_MOVE && activeMobileTouchId>=0
+                        && event.findPointerIndex(activeMobileTouchId)<0){
+                    releaseHeldMobileButton();
+                    return true;
+                }
+                if(event.getPointerCount()>1||scaleDetector.isInProgress()){
+                    multiTouchGesture=true;
+                    return true;
+                }
+                return true;
+            }
             if(event.getPointerCount()>1 || scaleDetector.isInProgress()){multiTouchGesture=true;return true;}
-            if(event.getAction()==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
+            if(action==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
             if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
             float cellW=Math.max(1f,getWidth()/(float)mapColumns),cellH=Math.max(1f,getHeight()/(float)mapRows);
             int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/cellW))),row=Math.max(0,Math.min(mapRows-1,(int)(wy/cellH)));
-            if(scenePlayMode){
-                if(event.getAction()==android.view.MotionEvent.ACTION_DOWN){
-                    int hit=hitMobileButton(event.getX(),event.getY());
-                    if(hit>=0){activeMobileButtonPointer=hit;runMobileButton(mobileButtons.get(hit));return true;}
-                    for(int i=sprites.size()-1;i>=0;i--){SceneSprite sp=sprites.get(i);if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}}
-                }
-                if(event.getAction()==android.view.MotionEvent.ACTION_MOVE && activeMobileButtonPointer>=0 && activeMobileButtonPointer<mobileButtons.size()){
-                    MobileButton held=mobileButtons.get(activeMobileButtonPointer);
-                    if(selectedSprite>=0&&selectedSprite<sprites.size()){
-                        SceneSprite controlled=sprites.get(selectedSprite);
-                        if("left".equals(held.action))controlled.vx=-5f;
-                        else if("right".equals(held.action))controlled.vx=5f;
-                        else if("up".equals(held.action))controlled.vy=-5f;
-                        else if("down".equals(held.action))controlled.vy=5f;
-                    }
-                }
-                if(event.getAction()==android.view.MotionEvent.ACTION_UP){
-                    if(activeMobileButtonPointer>=0&&activeMobileButtonPointer<mobileButtons.size()&&selectedSprite>=0&&selectedSprite<sprites.size()){
-                        String action=mobileButtons.get(activeMobileButtonPointer).action;
-                        SceneSprite controlled=sprites.get(selectedSprite);
-                        if("left".equals(action)||"right".equals(action))controlled.vx=0f;
-                        if("up".equals(action)||"down".equals(action))controlled.vy=0f;
-                    }
-                    activeMobileButtonPointer=-1;
-                }
-                return true;
-            }
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                 if(sceneToolMode==2){floodFill(col,row);return true;}
                 if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;return true;}
