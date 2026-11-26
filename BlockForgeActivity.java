@@ -2234,7 +2234,7 @@ public class BlockForgeActivity extends Activity {
             item.put("frames",frames);item.put("frameImages",frameImages);spriteArray.put(item);
         }
         rootJson.put("sprites",spriteArray);
-        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);item.put("script",b.script);buttons.put(item);}rootJson.put("mobileButtons",buttons);
+        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);item.put("iconBase64",b.iconFile==null||b.iconFile.isEmpty()?"":encodeSceneSpriteFile(b.iconFile));item.put("script",b.script);buttons.put(item);}rootJson.put("mobileButtons",buttons);
         org.json.JSONObject camera=new org.json.JSONObject();
         camera.put("zoom",target.cameraZoom);camera.put("x",target.cameraOffsetX);camera.put("y",target.cameraOffsetY);
         rootJson.put("camera",camera);
@@ -2275,7 +2275,7 @@ public class BlockForgeActivity extends Activity {
         }
         for(SceneSprite old:target.sprites){if(old.bitmap!=null)old.bitmap.recycle();for(Bitmap frame:old.animationFrames)if(frame!=null)frame.recycle();}
         target.sprites.clear();target.selectedSprite=-1;
-        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left"),b.optString("iconFile",""),b.optString("script","")));}target.persistMobileButtons();
+        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);String iconName=b.optString("iconFile","");String iconData=b.optString("iconBase64","");if(!iconData.isEmpty())iconName=importSceneSpriteFile(iconData,iconName.isEmpty()?"mobile_icon.png":iconName,50000+i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left"),iconName,b.optString("script","")));}target.persistMobileButtons();
         org.json.JSONArray spriteArray=json.optJSONArray("sprites");
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
