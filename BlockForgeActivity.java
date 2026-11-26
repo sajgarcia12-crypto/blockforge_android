@@ -45,6 +45,7 @@ public class BlockForgeActivity extends Activity {
         super.onCreate(saved);
         getWindow().setStatusBarColor(background);
         getWindow().setNavigationBarColor(background);
+        applyUiTheme();
         targetAnimationFps = getPreferences(MODE_PRIVATE).getInt("sprite_fps", 30);
         physicsGravity=getPreferences(MODE_PRIVATE).getFloat("physics_gravity",24f);
         physicsBounce=getPreferences(MODE_PRIVATE).getFloat("physics_bounce",0.15f);
@@ -74,7 +75,7 @@ public class BlockForgeActivity extends Activity {
         if (scenePreview != null && physicsRunning) scenePreview.startPhysics();
     }
 
-    GradientDrawable shape(int color) {
+    void applyUiTheme() {\n        boolean light = getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme", false);\n        if (light) {\n            background = Color.rgb(242, 244, 247); panel = Color.WHITE; white = Color.rgb(28, 32, 38); gray = Color.rgb(92, 101, 113);\n            uiInk = Color.rgb(28, 32, 38); uiMuted = Color.rgb(94, 103, 115); uiSurface = Color.WHITE; uiSurfaceRaised = Color.rgb(235, 238, 242); uiLine = Color.rgb(211, 216, 223);\n        } else {\n            background = Color.rgb(12,16,26); panel = Color.rgb(24,32,47); white = Color.WHITE; gray = Color.rgb(160,175,195);\n            uiInk = Color.rgb(232,236,242); uiMuted = Color.rgb(151,161,174); uiSurface = Color.rgb(29,34,42); uiSurfaceRaised = Color.rgb(36,42,51); uiLine = Color.rgb(53,61,72);\n        }\n    }\n\n    GradientDrawable shape(int color) {
         GradientDrawable d = new GradientDrawable();
         d.setColor(color);
         d.setCornerRadius(18);
@@ -3136,15 +3137,119 @@ public class BlockForgeActivity extends Activity {
         }
     }
 
+    long folderBytes(java.io.File folder) {
+        if (folder == null || !folder.exists()) return 0L;
+        if (folder.isFile()) return folder.length();
+        long total = 0L;
+        java.io.File[] children = folder.listFiles();
+        if (children != null) for (java.io.File child : children) total += folderBytes(child);
+        return total;
+    }
+
+    String readableBytes(long bytes) {
+        if (bytes < 1024L) return bytes + " B";
+        if (bytes < 1024L * 1024L) return String.format(java.util.Locale.US, "%.1f KB", bytes / 1024.0);
+        if (bytes < 1024L * 1024L * 1024L) return String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
+        return String.format(java.util.Locale.US, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
+    }
+
+    void showMemorySettings() {
+        final int[] choices = {128, 256, 384, 512, 768};
+        String[] labels = {"128 MB", "256 MB", "384 MB", "512 MB", "768 MB"};
+        int current = getPreferences(MODE_PRIVATE).getInt("memory_budget_mb", 256);
+        int selected = 1;
+        for (int i=0;i<choices.length;i++) if (choices[i] == current) selected = i;
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(uiText("Presupuesto de memoria","Memory budget"))
+            .setMessage(uiText("Preferencia para limitar cachés y recursos temporales. Android sigue administrando la RAM total del proceso; esto no fija un límite real del sistema.","Preference for cache and temporary resources. Android still manages total process RAM; this does not set a system-enforced limit."))
+            .setSingleChoiceItems(labels, selected, (d, which) -> {
+                getPreferences(MODE_PRIVATE).edit().putInt("memory_budget_mb", choices[which]).apply();
+                d.dismiss(); settings();
+            }).setNegativeButton(uiText("Cerrar","Close"), null).show();
+    }
+
+    void showStorageManager(java.io.File folder) {
+        if (folder == null || !folder.getCanonicalPath().startsWith(getFilesDir().getCanonicalPath())) {
+            Toast.makeText(this, uiText("Carpeta no permitida","Folder not allowed"), Toast.LENGTH_SHORT).show(); return;
+        }
+        java.io.File[] entries = folder.listFiles();
+        java.util.Arrays.sort(entries == null ? new java.io.File[0] : entries, (a,b) -> {
+            if (a.isDirectory() != b.isDirectory()) return a.isDirectory() ? -1 : 1;
+            return a.getName().compareToIgnoreCase(b.getName());
+        });
+        java.util.ArrayList<java.io.File> files = new java.util.ArrayList<>();
+        if (!folder.equals(getFilesDir())) files.add(folder.getParentFile());
+        if (entries != null) for (java.io.File entry : entries) files.add(entry);
+        java.util.ArrayList<String> names = new java.util.ArrayList<>();
+        for (java.io.File entry : files) names.add(entry == folder.getParentFile() && !folder.equals(getFilesDir()) ? "⬆  .." :
+            (entry.isDirectory() ? "📁  " : "📄  ") + entry.getName() + (entry.isDirectory() ? "" : "  ·  " + readableBytes(entry.length())));
+        String path = folder.getAbsolutePath().replace(getFilesDir().getAbsolutePath(), "BlockForge");
+        new android.app.AlertDialog.Builder(this).setTitle(uiText("Archivos · ","Files · ") + path)
+            .setItems(names.toArray(new String[0]), (d, which) -> {
+                java.io.File chosen = files.get(which);
+                if (chosen.isDirectory()) showStorageManager(chosen);
+                else new android.app.AlertDialog.Builder(this).setTitle(chosen.getName())
+                    .setMessage(readableBytes(chosen.length()))
+                    .setPositiveButton(uiText("Eliminar","Delete"), (dd,ww) -> {
+                        if (chosen.delete()) Toast.makeText(this,uiText("Archivo eliminado","File deleted"),Toast.LENGTH_SHORT).show();
+                        else Toast.makeText(this,uiText("No se pudo eliminar","Could not delete file"),Toast.LENGTH_SHORT).show();
+                        showStorageManager(folder);
+                    }).setNegativeButton(uiText("Cerrar","Close"),null).show();
+            })
+            .setNeutralButton(uiText("Nueva carpeta","New folder"), (d,w) -> {
+                EditText name = new EditText(this); name.setSingleLine(true);
+                new android.app.AlertDialog.Builder(this).setTitle(uiText("Nombre de carpeta","Folder name")).setView(name)
+                    .setPositiveButton(uiText("Crear","Create"),(dd,ww)->{
+                        String value=name.getText().toString().trim();
+                        if (!value.isEmpty() && value.matches("[a-zA-Z0-9 _-]{1,48}")) {
+                            java.io.File created=new java.io.File(folder,value);
+                            if(created.mkdir()) Toast.makeText(this,uiText("Carpeta creada","Folder created"),Toast.LENGTH_SHORT).show();
+                        } else Toast.makeText(this,uiText("Nombre no válido","Invalid name"),Toast.LENGTH_SHORT).show();
+                        showStorageManager(folder);
+                    }).setNegativeButton(uiText("Cancelar","Cancel"),null).show();
+            }).setNegativeButton(uiText("Cerrar","Close"),null).show();
+    }
+
     void settings() {
-        heading(uiText("Configuración","Settings"), uiText("Preferencias de BlockForge Studio.","BlockForge Studio preferences."));
-        content.addView(editorButton(uiText("🌐  CAMBIAR IDIOMA","🌐  CHANGE LANGUAGE"), () -> showLanguagePicker()));
+        content.setPadding(20, 20, 20, 24);
+        content.setOrientation(LinearLayout.VERTICAL);
+        heading(uiText("Configuración","Settings"), uiText("Personaliza BlockForge Studio.","Customize BlockForge Studio."));
+        uiSection(uiText("APLICACIÓN","APP"), uiText("PREFERENCIAS","PREFERENCES"));
+        content.addView(uiSecondary(uiText("🌐  Idioma · Español / English","🌐  Language · Spanish / English"), () -> showLanguagePicker()));
         String lang=getPreferences(MODE_PRIVATE).getString("ui_language","es");
         card(uiText("Idioma activo","Active language"),"en".equals(lang)?"English":"Español");
-        card(uiText("Apariencia","Appearance"),uiText("Tema oscuro de BlockForge.","BlockForge dark theme."));
+        content.addView(uiSecondary(uiText("🎨  Cambiar tema claro / oscuro","🎨  Switch light / dark theme"), () -> {
+            boolean light=getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false);
+            getPreferences(MODE_PRIVATE).edit().putBoolean("ui_light_theme",!light).apply();
+            applyUiTheme(); buildInterface(); openPage(5);
+        }));
+        card(uiText("Tema actual","Current theme"),getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false)?uiText("Claro","Light"):uiText("Oscuro","Dark"));
+
+        uiSection(uiText("RENDIMIENTO","PERFORMANCE"), uiText("MEMORIA","MEMORY"));
+        android.app.ActivityManager am=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+        android.app.ActivityManager.MemoryInfo memoryInfo=new android.app.ActivityManager.MemoryInfo();
+        am.getMemoryInfo(memoryInfo);
+        long usedHeap=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();
+        long maxHeap=Runtime.getRuntime().maxMemory();
+        int budget=getPreferences(MODE_PRIVATE).getInt("memory_budget_mb",256);
+        card(uiText("RAM de la app","App RAM"),uiText("Montón usado: ","Heap used: ")+readableBytes(usedHeap)+" · "+uiText("máximo Java: ","Java max: ")+readableBytes(maxHeap));
+        card(uiText("RAM del dispositivo","Device memory"),uiText("Disponible: ","Available: ")+readableBytes(memoryInfo.availMem)+" · "+uiText("presupuesto elegido: ","Selected budget: ")+budget+" MB");
+        content.addView(uiSecondary(uiText("Ajustar presupuesto de caché","Adjust cache budget"), () -> showMemorySettings()));
+
+        uiSection(uiText("ALMACENAMIENTO","STORAGE"), uiText("DATOS LOCALES","LOCAL DATA"));
+        long appBytes=folderBytes(getFilesDir())+folderBytes(getCacheDir());
+        java.io.File storageRoot=getFilesDir();
+        card(uiText("Espacio usado por BlockForge","BlockForge storage used"),readableBytes(appBytes));
+        card(uiText("Almacenamiento del dispositivo","Device storage"),uiText("Libre: ","Free: ")+readableBytes(storageRoot.getUsableSpace())+" · "+uiText("Total: ","Total: ")+readableBytes(storageRoot.getTotalSpace()));
+        content.addView(uiPrimary(uiText("📁  ADMINISTRAR CARPETAS","📁  MANAGE FOLDERS"), () -> showStorageManager(getFilesDir())));
+
+        uiSection(uiText("ACERCA DE","ABOUT"), uiText("DETALLES","DETAILS"));
         card(uiText("Lenguaje de programación","Programming language"),"El Grafisript");
         card(uiText("Motor gráfico","Graphics engine"),"C++ / SDL2 · OpenGL ES");
-        card(uiText("Información","About"),"BlockForge Studio Mobile · Experimental");
+        String version="Experimental";
+        try { version=getPackageManager().getPackageInfo(getPackageName(),0).versionName; } catch(Exception ignored) { }
+        card(uiText("Aplicación","Application"),"BlockForge Studio Mobile · "+version);
+        card(uiText("Directorio privado","Private app folder"),getFilesDir().getAbsolutePath());
     }
 
 }
