@@ -296,7 +296,7 @@ public class BlockForgeActivity extends Activity {
         if (codeEditor == null || runtimeOutput == null) return;
 
         StringBuilder output = new StringBuilder();
-        String[] lines = codeEditor.getText().toString().split("\\r?\\n");
+        String[] lines = codeEditor.getText().toString().split("\\r?\n");
         int executed = 0;
 
         for (int i = 0; i < lines.length; i++) {
@@ -312,7 +312,7 @@ public class BlockForgeActivity extends Activity {
                     runtimeWorldName = unquote(args);
                     if (runtimeWorldName.isEmpty()) runtimeWorldName = "Mundo Grafisript";
                     runtimeBlockCount = 0;
-                    output.append("Mundo creado: ").append(runtimeWorldName).append('\\n');
+                    output.append("Mundo creado: ").append(runtimeWorldName).append('\n');
                     executed++;
                     break;
 
@@ -320,7 +320,7 @@ public class BlockForgeActivity extends Activity {
                     String[] parts = args.split("\\s+");
                     if (parts.length != 4) {
                         output.append("Línea ").append(i + 1)
-                              .append(": uso: crear_bloque tipo x y z\\n");
+                              .append(": uso: crear_bloque tipo x y z\n");
                         break;
                     }
                     try {
@@ -330,51 +330,51 @@ public class BlockForgeActivity extends Activity {
                         runtimeBlockCount++;
                         output.append("Bloque ").append(parts[0])
                               .append(" agregado en (").append(parts[1]).append(", ")
-                              .append(parts[2]).append(", ").append(parts[3]).append(")\\n");
+                              .append(parts[2]).append(", ").append(parts[3]).append(")\n");
                         executed++;
                     } catch (NumberFormatException ex) {
                         output.append("Línea ").append(i + 1)
-                              .append(": las coordenadas deben ser números enteros\\n");
+                              .append(": las coordenadas deben ser números enteros\n");
                     }
                     break;
                 }
 
                 case "mostrar_mensaje":
-                    output.append(unquote(args)).append('\\n');
+                    output.append(unquote(args)).append('\n');
                     executed++;
                     break;
 
                 case "limpiar_mundo":
                     runtimeBlockCount = 0;
-                    output.append("Mundo limpiado\\n");
+                    output.append("Mundo limpiado\n");
                     executed++;
                     break;
 
                 case "ver_bloques":
-                    output.append("Bloques registrados: ").append(runtimeBlockCount).append('\\n');
+                    output.append("Bloques registrados: ").append(runtimeBlockCount).append('\n');
                     executed++;
                     break;
 
                 case "ayuda":
                     output.append("Comandos: crear_mundo, crear_bloque, mostrar_mensaje, ")
-                          .append("limpiar_mundo, ver_bloques, ayuda\\n");
+                          .append("limpiar_mundo, ver_bloques, ayuda\n");
                     executed++;
                     break;
 
                 default:
                     output.append("Línea ").append(i + 1)
-                          .append(": comando desconocido: ").append(command).append('\\n');
+                          .append(": comando desconocido: ").append(command).append('\n');
                     break;
             }
         }
 
-        output.append("\\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
+        output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
         runtimeOutput.setText(output.toString());
     }
 
     String unquote(String value) {
         String result = value.trim();
-        if (result.length() >= 2 && result.startsWith("\\"") && result.endsWith("\\"")) {
+        if (result.length() >= 2 && result.charAt(0) == '"' && result.charAt(result.length() - 1) == '"') {
             return result.substring(1, result.length() - 1);
         }
         return result;
