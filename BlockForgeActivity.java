@@ -586,6 +586,7 @@ public class BlockForgeActivity extends Activity {
         palette.addView(editorButton("🟦", () -> setSceneBrush(Color.rgb(55,115,210), false)), new LinearLayout.LayoutParams(0, 44, 1));
         palette.addView(editorButton("🟥", () -> setSceneBrush(Color.rgb(205,75,75), false)), new LinearLayout.LayoutParams(0, 44, 1));
         palette.addView(editorButton("⌫", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("HEX", () -> showSceneColorDialog()), new LinearLayout.LayoutParams(0, 44, 1));
         palette.addView(editorButton("▦", () -> { sceneGridVisible=!sceneGridVisible; scenePreview.invalidate(); }), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(palette);
 
@@ -690,6 +691,26 @@ public class BlockForgeActivity extends Activity {
     @Override protected void onDestroy(){
         if(sceneAudioPlayer!=null){try{sceneAudioPlayer.stop();}catch(Exception ignored){}try{sceneAudioPlayer.release();}catch(Exception ignored){}sceneAudioPlayer=null;}
         sceneAudioPrepared=false;super.onDestroy();
+    }
+
+    void showSceneColorDialog() {
+        EditText hex = new EditText(this);
+        hex.setSingleLine(true);
+        hex.setHint("#RRGGBB o #AARRGGBB");
+        hex.setText(String.format(java.util.Locale.ROOT, "#%06X", 0xFFFFFF & sceneBrushColor));
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Color personalizado del bloque")
+                .setView(hex)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("APLICAR", (dialog, which) -> {
+                    try {
+                        int color = Color.parseColor(hex.getText().toString().trim());
+                        setSceneBrush(color, false);
+                        openPage(2);
+                    } catch (Exception ex) {
+                        Toast.makeText(this, "Color inválido. Usa #RRGGBB.", Toast.LENGTH_LONG).show();
+                    }
+                }).show();
     }
 
     void setSceneBrush(int color, boolean erase) {
