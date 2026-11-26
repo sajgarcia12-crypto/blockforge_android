@@ -460,18 +460,18 @@ public class BlockForgeActivity extends Activity {
             if (line.startsWith("funcion ") && line.endsWith("{")) {
                 String name = line.substring(8, line.length() - 1).trim();
                 if (!name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
-                    output.append("Línea ").append(lineNumber).append(": nombre de función inválido.\\n");
+                    output.append("Línea ").append(lineNumber).append(": nombre de función inválido.\n");
                     continue;
                 }
                 int bodyStart = cursor[0];
                 int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
                 if (bodyEnd < 0) {
-                    output.append("Línea ").append(lineNumber).append(": falta cerrar la función.\\n");
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar la función.\n");
                     return executed;
                 }
                 functions.put(name, java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd));
                 cursor[0] = bodyEnd + 1;
-                output.append("Función definida: ").append(name).append('\\n');
+                output.append("Función definida: ").append(name).append('\n');
                 continue;
             }
 
@@ -480,7 +480,7 @@ public class BlockForgeActivity extends Activity {
                 String[] body = functions.get(name);
                 if (body == null) {
                     output.append("Línea ").append(lineNumber).append(": función no definida: ")
-                            .append(name).append('\\n');
+                            .append(name).append('\n');
                 } else {
                     int[] functionCursor = new int[]{0};
                     executed += executeGrafisriptBlock(body, functionCursor, variables,
@@ -655,7 +655,7 @@ public class BlockForgeActivity extends Activity {
         int nesting = 1;
         for (int i = start; i < lines.length; i++) {
             String line = lines[i].trim();
-            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
+            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.startsWith("funcion ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
             if (line.equals("}") || line.equals("fin")) {
                 nesting--;
                 if (nesting == 0) return i;
