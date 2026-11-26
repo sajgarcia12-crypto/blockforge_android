@@ -1,6 +1,6 @@
 
 name: Build BlockForge APK
-# Build de Android para la versión actual de BlockForge 2D y Pixel Studio.
+# Build de Android para la versión actual de BlockForge 2D y Pixel Studio. Java source newline fix included.
 
 on:
   workflow_dispatch:
