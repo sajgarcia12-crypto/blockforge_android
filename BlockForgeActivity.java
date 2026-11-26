@@ -103,6 +103,142 @@ public class BlockForgeActivity extends Activity {
         return b;
     }
 
+    String uiText(String spanish, String english) {
+        String lang = getPreferences(MODE_PRIVATE).getString("ui_language", "es");
+        return "en".equals(lang) ? english : spanish;
+    }
+
+    void showLanguagePicker() {
+        String[] labels = {"Español", "English"};
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Idioma / Language")
+            .setSingleChoiceItems(labels, "en".equals(getPreferences(MODE_PRIVATE).getString("ui_language","es")) ? 1 : 0,
+                (dialog, which) -> {
+                    getPreferences(MODE_PRIVATE).edit().putString("ui_language", which == 1 ? "en" : "es").apply();
+                    dialog.dismiss();
+                    buildInterface();
+                    openPage(5);
+                }).setNegativeButton("Cancelar", null).show();
+    }
+
+    android.app.Dialog editorPanel(String title, int gravity, int widthPercent) {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        LinearLayout panelView = vertical();
+        panelView.setPadding(16, 18, 16, 18);
+        panelView.setBackground(shape(Color.rgb(17, 25, 39)));
+        TextView heading = label(title, 18, white);
+        heading.setPadding(0, 0, 0, 14);
+        panelView.addView(heading);
+        dialog.setContentView(panelView);
+        android.view.Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+            window.setLayout(Math.max(260, getResources().getDisplayMetrics().widthPixels * widthPercent / 100), -1);
+            window.setGravity(gravity);
+        }
+        dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+            dialog.getWindow().setLayout(Math.max(260, getResources().getDisplayMetrics().widthPixels * widthPercent / 100), -1);
+            dialog.getWindow().setGravity(gravity);
+        }
+        return dialog;
+    }
+
+    void showSceneTreePanel() {
+        if (scenePreview == null) return;
+        android.app.Dialog dialog = editorPanel(uiText("ESCENA · ÁRBOL","SCENE · TREE"), Gravity.LEFT, 86);
+        LinearLayout panelView = (LinearLayout) dialog.findViewById(android.R.id.content);
+        if (panelView == null) return;
+        panelView.addView(label("NODOS Y OBJETOS", 11, Color.rgb(135,180,235)));
+        panelView.addView(editorButton("＋ BLOQUE", () -> { scenePreview.addBlock(); dialog.dismiss(); }));
+        panelView.addView(editorButton("＋ SPRITE", () -> { dialog.dismiss(); openSpriteDrawer(); }));
+        panelView.addView(label("Bloques: " + scenePreview.blocks.size(), 13, gray));
+        panelView.addView(label("Sprites: " + scenePreview.sprites.size(), 13, gray));
+        for (int i=0;i<scenePreview.sprites.size();i++) {
+            final int index=i;
+            SceneSprite sprite=scenePreview.sprites.get(i);
+            TextView item=editorButton((scenePreview.selectedSprite==i?"● ":"○ ") + sprite.name, () -> {
+                scenePreview.selectedSprite=index;
+                scenePreview.invalidate();
+                dialog.dismiss();
+                showInspectorPanel();
+            });
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+            lp.bottomMargin=6;
+            panelView.addView(item,lp);
+        }
+        panelView.addView(editorButton("CERRAR", dialog::dismiss));
+    }
+
+    void showInspectorPanel() {
+        if (scenePreview == null) return;
+        android.app.Dialog dialog = editorPanel(uiText("INSPECTOR","INSPECTOR"), Gravity.RIGHT, 88);
+        LinearLayout panelView = (LinearLayout) dialog.findViewById(android.R.id.content);
+        if (panelView == null) return;
+        SceneSprite sprite=scenePreview.selectedSpriteObject();
+        if(sprite==null) {
+            panelView.addView(label("Selecciona un sprite desde el árbol o tocándolo en el lienzo.",13,gray));
+        } else {
+            panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
+            panelView.addView(label(sprite.name,17,white));
+            panelView.addView(label("Posición X: "+sprite.x+"\nPosición Y: "+sprite.y+"\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
+            panelView.addView(editorButton("EDITAR POSICIÓN", () -> {
+                android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194); x.setHint("X"); x.setText(String.valueOf(sprite.x));
+                android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
+                LinearLayout form=vertical();form.addView(x);form.addView(y);
+                new android.app.AlertDialog.Builder(this).setTitle("Transformación").setView(form)
+                    .setPositiveButton("Guardar",(d,w)->{try{sprite.x=Float.parseFloat(x.getText().toString());sprite.y=Float.parseFloat(y.getText().toString());scenePreview.persistSprites();scenePreview.invalidate();dialog.dismiss();}catch(Exception e){Toast.makeText(this,"Coordenadas inválidas",Toast.LENGTH_SHORT).show();}})
+                    .setNegativeButton("Cancelar",null).show();
+            }));
+            panelView.addView(editorButton(sprite.solid?"HACER TRANSPASABLE":"HACER SÓLIDO", () -> { scenePreview.toggleSelectedSpriteSolid(); dialog.dismiss(); }));
+            panelView.addView(editorButton("ELIMINAR OBJETO", () -> { scenePreview.deleteSelectedSprite(); dialog.dismiss(); }));
+            panelView.addView(editorButton("EDITAR CÓDIGO", () -> { dialog.dismiss(); showCodePanel(); }));
+        }
+        panelView.addView(editorButton("CERRAR", dialog::dismiss));
+    }
+
+    void showCodePanel() {
+        String project=activeProjectName();
+        android.app.Dialog dialog=editorPanel("EL GRAFISRIPT",Gravity.BOTTOM,96);
+        if(dialog.getWindow()!=null) dialog.getWindow().setLayout(-1,Math.max(420,getResources().getDisplayMetrics().heightPixels*72/100));
+        LinearLayout panelView=(LinearLayout)dialog.findViewById(android.R.id.content);
+        if(panelView==null)return;
+        panelView.addView(label("Código del proyecto · se guarda en el editor principal",12,gray));
+        EditText editor=new EditText(this);
+        editor.setTextColor(Color.rgb(180,220,255));editor.setTypeface(Typeface.MONOSPACE);editor.setTextSize(13);
+        editor.setGravity(Gravity.TOP);editor.setMinLines(10);editor.setBackground(shape(Color.rgb(5,10,18)));
+        editor.setText(getPreferences(MODE_PRIVATE).getString("grafisript_"+project,"# Escribe aquí tu código de El Grafisript\nmostrar_mensaje \"Hola, BlockForge\"\n"));
+        panelView.addView(editor,new LinearLayout.LayoutParams(-1,0,1));
+        panelView.addView(editorButton("GUARDAR CÓDIGO",()->{
+            getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
+            Toast.makeText(this,"Código guardado",Toast.LENGTH_SHORT).show();
+        }));
+        panelView.addView(editorButton("ABRIR EDITOR Y EJECUTAR",()->{
+            getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
+            dialog.dismiss();openPage(3);
+        }));
+        panelView.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
+    void showTimelinePanel() {
+        if(scenePreview==null)return;
+        android.app.Dialog dialog=editorPanel("ANIMACIÓN · TIMELINE",Gravity.BOTTOM,96);
+        if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(320,getResources().getDisplayMetrics().heightPixels*55/100));
+        LinearLayout panelView=(LinearLayout)dialog.findViewById(android.R.id.content);
+        if(panelView==null)return;
+        panelView.addView(label(scenePreview.animationStatus(),13,gray));
+        LinearLayout row=new LinearLayout(this);
+        row.addView(editorButton("＋ FRAME",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,48,1));
+        row.addView(editorButton("◀",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,48,1));
+        row.addView(editorButton("▶",()->scenePreview.selectAnimationFrame(1)),new LinearLayout.LayoutParams(0,48,1));
+        row.addView(editorButton("PLAY",()->scenePreview.toggleAnimationPlayback()),new LinearLayout.LayoutParams(0,48,1));
+        panelView.addView(row);
+        panelView.addView(editorButton("FPS Y BUCLE",()->showAnimationFpsDialog()));
+        panelView.addView(editorButton("ELIMINAR FRAME",()->scenePreview.deleteAnimationFrame()));
+        panelView.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
     void buildInterface() {
         root = vertical();
         root.setBackgroundColor(background);
