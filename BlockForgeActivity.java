@@ -416,7 +416,7 @@ public class BlockForgeActivity extends Activity {
                             .putString("active_project", name).apply();
                     Toast.makeText(this, "Proyecto activo: " + name,
                             Toast.LENGTH_SHORT).show();
-                    openPage(3);
+                    openPage(2);
                 }));
             }
         }
@@ -460,7 +460,7 @@ public class BlockForgeActivity extends Activity {
                         .apply();
                 Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
                         Toast.LENGTH_LONG).show();
-                openPage(3);
+                openPage(2);
             })
             .setNegativeButton("Cancelar", null)
             .show();
