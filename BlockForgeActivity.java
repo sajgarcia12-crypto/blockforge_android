@@ -518,6 +518,16 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    // Una misma vista Android no puede estar conectada a dos contenedores.
+    // La movemos explícitamente entre el editor y el modo de juego.
+    void detachScenePreviewFromParent() {
+        if (scenePreview == null) return;
+        android.view.ViewParent parent = scenePreview.getParent();
+        if (parent instanceof android.view.ViewGroup) {
+            ((android.view.ViewGroup) parent).removeView(scenePreview);
+        }
+    }
+
     void openPage(int page) {
         saveCurrentScript();
         if (scene3DView != null) {
@@ -827,6 +837,7 @@ public class BlockForgeActivity extends Activity {
             gameBar.addView(editorButton("■ EDITOR",()->stopSceneGame()),new LinearLayout.LayoutParams(90,42));
             content.addView(gameBar,new LinearLayout.LayoutParams(-1,50));
             if(scenePreview==null)scenePreview=new ScenePreview();
+            detachScenePreviewFromParent();
             scenePreview.setBackgroundColor(Color.rgb(24,31,43));
             if(scenePreview.sprites.size()>0 && (scenePreview.selectedSprite<0||scenePreview.selectedSprite>=scenePreview.sprites.size()))scenePreview.selectedSprite=0;
             content.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
@@ -904,7 +915,8 @@ public class BlockForgeActivity extends Activity {
         viewportBar.addView(uiLabel("VISTA 2D",10,uiInk,true),new LinearLayout.LayoutParams(0,30,1));
         viewportBar.addView(uiLabel(scenePreviewStatus(),9,uiMuted,false));
         center.addView(viewportBar);
-        scenePreview = new ScenePreview();
+        if (scenePreview == null) scenePreview = new ScenePreview();
+        detachScenePreviewFromParent();
         String savedSceneAudio=getPreferences(MODE_PRIVATE).getString("scene_audio_"+project,"");
         if(!savedSceneAudio.isEmpty()&&sceneAudioPlayer==null)playSceneAudio(savedSceneAudio);
         center.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
