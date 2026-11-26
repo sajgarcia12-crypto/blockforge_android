@@ -228,29 +228,46 @@ public class BlockForgeActivity extends Activity {
     }
 
     void newProject() {
-        EditText input=new EditText(this);
+        LinearLayout form = vertical();
+        form.setPadding(20, 8, 20, 0);
+        EditText input = new EditText(this);
         input.setHint("Nombre del proyecto");
+        form.addView(input);
+
+        TextView typeLabel = label("Tipo de proyecto", 13, gray);
+        typeLabel.setPadding(0, 12, 0, 6);
+        form.addView(typeLabel);
+        Spinner type = new Spinner(this);
+        String[] types = {"2D", "3D"};
+        type.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, types));
+        form.addView(type);
+
         new android.app.AlertDialog.Builder(this)
             .setTitle("Nuevo proyecto")
-            .setView(input)
-            .setPositiveButton("Crear",(d,w)->{
+            .setView(form)
+            .setPositiveButton("Crear", (d, w) -> {
                 String name = input.getText().toString().trim();
                 if (name.isEmpty()) {
                     Toast.makeText(this, "Escribe un nombre para el proyecto",
                             Toast.LENGTH_SHORT).show();
                     return;
                 }
+                String projectType = type.getSelectedItem().toString();
                 android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
                 java.util.Set<String> names = new java.util.HashSet<>(
                         prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
                 names.add(name);
-                prefs.edit().putStringSet("blockforge_projects", names)
-                        .putString("active_project", name).apply();
-                Toast.makeText(this, "Proyecto guardado: " + name,
+                prefs.edit()
+                        .putStringSet("blockforge_projects", names)
+                        .putString("project_type_" + name, projectType)
+                        .putString("active_project", name)
+                        .apply();
+                Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
                         Toast.LENGTH_LONG).show();
                 openPage(3);
             })
-            .setNegativeButton("Cancelar",null)
+            .setNegativeButton("Cancelar", null)
             .show();
     }
 
@@ -431,7 +448,8 @@ public class BlockForgeActivity extends Activity {
         ScenePreview() {
             super(BlockForgeActivity.this);
             setBackground(shape(Color.rgb(7,13,23)));
-            String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks", "");
+            String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
+            String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks_" + active, "");
             if (!saved.isEmpty()) {
                 for (String pair : saved.split(";")) {
                     String[] xy = pair.split(",");
@@ -450,7 +468,8 @@ public class BlockForgeActivity extends Activity {
                 if (data.length() > 0) data.append(';');
                 data.append(p.x).append(',').append(p.y);
             }
-            getPreferences(MODE_PRIVATE).edit().putString("scene_blocks", data.toString()).apply();
+            String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
+            getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + active, data.toString()).apply();
         }
 
         void addBlock() {
