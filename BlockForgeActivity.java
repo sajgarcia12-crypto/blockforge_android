@@ -193,11 +193,11 @@ public class BlockForgeActivity extends Activity {
             panelView.addView(label(sprite.fileName,17,white));
             panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
-                android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194); x.setHint("X"); x.setText(String.valueOf(sprite.x));
-                android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
-                android.widget.EditText width=new android.widget.EditText(this); width.setInputType(8194); width.setHint("Ancho (0.25–8)"); width.setText(String.valueOf(sprite.width));
-                android.widget.EditText height=new android.widget.EditText(this); height.setInputType(8194); height.setHint("Alto (0.25–8)"); height.setText(String.valueOf(sprite.height));
-                android.widget.EditText rotation=new android.widget.EditText(this); rotation.setInputType(8194); rotation.setHint("Rotación en grados"); rotation.setText(String.valueOf(sprite.rotation));
+                android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); x.setHint("X"); x.setText(String.valueOf(sprite.x));
+                android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
+                android.widget.EditText width=new android.widget.EditText(this); width.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); width.setHint("Ancho (0.25–8)"); width.setText(String.valueOf(sprite.width));
+                android.widget.EditText height=new android.widget.EditText(this); height.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); height.setHint("Alto (0.25–8)"); height.setText(String.valueOf(sprite.height));
+                android.widget.EditText rotation=new android.widget.EditText(this); rotation.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); rotation.setHint("Rotación en grados"); rotation.setText(String.valueOf(sprite.rotation));
                 LinearLayout form=vertical();form.addView(x);form.addView(y);form.addView(width);form.addView(height);form.addView(rotation);
                 new android.app.AlertDialog.Builder(this).setTitle("Transformación 2D").setView(form)
                     .setPositiveButton("Guardar",(d,w)->{try{
