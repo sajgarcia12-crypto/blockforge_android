@@ -1123,7 +1123,11 @@ public class BlockForgeActivity extends Activity {
         {"Centrar cámara","cam_center","0"},
         {"Activar física","fisica_on","0"},
         {"Pausar física","fisica_off","0"},
-        {"Mostrar mensaje","mensaje","0"}
+        {"Mostrar mensaje","mensaje","0"},
+        {"Crear enemigo","obj_enemy","1"},
+        {"Crear espada","obj_sword","1"},
+        {"Crear moneda","obj_coin","1"},
+        {"Crear piedra","obj_stone","1"}
     };
 
     String graphNodeTitle(String type){
@@ -1175,6 +1179,10 @@ public class BlockForgeActivity extends Activity {
             else if("fisica_on".equals(t))b.append("fisica.activar()\\n");
             else if("fisica_off".equals(t))b.append("fisica.pausar()\\n");
             else if("mensaje".equals(t))b.append("mostrar_mensaje \"Hola desde BlockForge\"\\n");
+            else if("obj_enemy".equals(t))b.append("crear_objeto2d enemy ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
+            else if("obj_sword".equals(t))b.append("crear_objeto2d sword ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
+            else if("obj_coin".equals(t))b.append("crear_objeto2d coin ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
+            else if("obj_stone".equals(t))b.append("crear_objeto2d stone ").append(Math.max(0,Math.round(n.value))).append(" 1\\n");
         }
         return b.toString();
     }
@@ -1924,9 +1932,58 @@ public class BlockForgeActivity extends Activity {
         return getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
     }
 
+    String ensureBuiltinObjectSprite(String type) throws java.io.IOException {
+        String safe=type.toLowerCase(java.util.Locale.ROOT);
+        String fileName="blockforge_"+safe+".png";
+        java.io.File folder=new java.io.File(getFilesDir(),"sprites");
+        if(!folder.exists()&&!folder.mkdirs())throw new java.io.IOException("No se pudo crear la carpeta de sprites");
+        java.io.File file=new java.io.File(folder,fileName);
+        if(file.exists()&&file.length()>0)return fileName;
+        Bitmap bitmap=Bitmap.createBitmap(16,16,Bitmap.Config.ARGB_8888);
+        Canvas canvas=new Canvas(bitmap);
+        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        if("coin".equals(safe)){
+            p.setColor(Color.rgb(255,205,45));canvas.drawCircle(8,8,6.5f,p);
+            p.setColor(Color.rgb(255,244,150));canvas.drawCircle(8,8,3.5f,p);
+        }else if("sword".equals(safe)){
+            p.setColor(Color.rgb(210,225,240));canvas.drawRect(7,1,10,11,p);
+            canvas.drawRect(5,3,12,5,p);p.setColor(Color.rgb(145,85,48));canvas.drawRect(7,11,10,15,p);
+        }else if("stone".equals(safe)){
+            p.setColor(Color.rgb(115,126,140));canvas.drawRect(3,5,13,12,p);
+            canvas.drawRect(5,3,11,5,p);p.setColor(Color.rgb(80,91,105));canvas.drawRect(5,9,8,11,p);
+        }else{
+            p.setColor(Color.rgb(180,65,65));canvas.drawRect(4,4,12,14,p);
+            canvas.drawRect(5,2,11,4,p);p.setColor(Color.WHITE);
+            canvas.drawRect(6,6,7,8,p);canvas.drawRect(10,6,11,8,p);
+        }
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){
+            if(!bitmap.compress(Bitmap.CompressFormat.PNG,100,out))throw new java.io.IOException("No se pudo guardar el sprite");
+        }finally{bitmap.recycle();}
+        return fileName;
+    }
+
     boolean execute2DCommand(String line, StringBuilder output, int lineIndex) {
         try {
             ScenePreview target = scenePreview != null ? scenePreview : new ScenePreview();
+            if(line.startsWith("crear_objeto2d ")){
+                String[] v=line.substring(15).trim().split("\\s+");
+                if(v.length!=3)throw new IllegalArgumentException("Uso: crear_objeto2d enemy|sword|coin|stone x y");
+                String type=v[0].toLowerCase(java.util.Locale.ROOT);
+                if(!"enemy".equals(type)&&!"sword".equals(type)&&!"coin".equals(type)&&!"stone".equals(type))
+                    throw new IllegalArgumentException("Tipo de objeto no compatible");
+                int x=Integer.parseInt(v[1]),y=Integer.parseInt(v[2]);
+                if(x<0||x>=target.mapColumns||y<0||y>=target.mapRows)throw new IllegalArgumentException("Posición fuera del mapa");
+                String fileName=ensureBuiltinObjectSprite(type);
+                target.addSprite(fileName);
+                SceneSprite created=target.selectedSpriteObject();
+                if(created!=null){
+                    created.x=x;created.y=y;created.width=1f;created.height=1f;
+                    if("enemy".equals(type))created.isPlayer=false;
+                    target.persistSprites();target.invalidate();
+                }
+                output.append("Objeto ").append(type).append(" creado en (").append(x).append(", ").append(y).append(")\\n");
+                return true;
+            }
             if (line.startsWith("crear_bloque2d ")) {
                 String[] v = line.substring(15).trim().split("\\s+");
                 if (v.length < 2 || v.length > 3) throw new IllegalArgumentException("Uso: crear_bloque2d x y [capa]");
