@@ -1,6 +1,5 @@
-
 name: Build BlockForge APK
-# Build de Android para la versión actual de BlockForge 2D y Pixel Studio. Java source newline fix included.
+# Build de Android para BlockForge con firma persistente de actualizaciones.
 
 on:
   workflow_dispatch:
@@ -37,7 +36,6 @@ jobs:
 
   build:
     runs-on: ubuntu-24.04
-
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
@@ -90,17 +88,49 @@ jobs:
           test -f BlockForge_Android_Proyecto.zip
           mkdir -p project
           unzip -q BlockForge_Android_Proyecto.zip -d project
-
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
-
           test -f "$P/settings.gradle"
           test -f "$P/app/build.gradle"
           test -f "$P/app/src/main/cpp/CMakeLists.txt"
-
-          # Keep the same Android package and increment the install version.
-          sed -i "s/versionCode 1/versionCode 2/; s/versionName '0.1.0'/versionName '0.2.0'/" "$P/app/build.gradle"
+          sed -i "s/versionCode 1/versionCode 3/; s/versionName '0.1.0'/versionName '0.3.0'/" "$P/app/build.gradle"
           grep -q "applicationId 'com.blockforge.studio'" "$P/app/build.gradle"
-          grep -q "versionCode 2" "$P/app/build.gradle"
+          grep -q "versionCode 3" "$P/app/build.gradle"
+
+      - name: Configurar firma permanente de BlockForge
+        env:
+          BLOCKFORGE_KEYSTORE_BASE64: ${{ secrets.BLOCKFORGE_KEYSTORE_BASE64 }}
+          BLOCKFORGE_STORE_PASSWORD: ${{ secrets.BLOCKFORGE_STORE_PASSWORD }}
+          BLOCKFORGE_KEY_ALIAS: ${{ secrets.BLOCKFORGE_KEY_ALIAS }}
+          BLOCKFORGE_KEY_PASSWORD: ${{ secrets.BLOCKFORGE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${BLOCKFORGE_KEYSTORE_BASE64:?Falta el secreto BLOCKFORGE_KEYSTORE_BASE64}"
+          : "${BLOCKFORGE_STORE_PASSWORD:?Falta el secreto BLOCKFORGE_STORE_PASSWORD}"
+          : "${BLOCKFORGE_KEY_ALIAS:?Falta el secreto BLOCKFORGE_KEY_ALIAS}"
+          : "${BLOCKFORGE_KEY_PASSWORD:?Falta el secreto BLOCKFORGE_KEY_PASSWORD}"
+          P="$GITHUB_WORKSPACE/project/BlockForge_Android"
+          echo "$BLOCKFORGE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/blockforge-release.jks"
+          test -s "$RUNNER_TEMP/blockforge-release.jks"
+          cat >> "$P/app/build.gradle" <<'GRADLE'
+
+          // Permanent BlockForge signing identity. Keep this key for every future update.
+          android {
+              signingConfigs {
+                  debug {
+                      storeFile file(System.getenv("BLOCKFORGE_KEYSTORE_FILE"))
+                      storePassword System.getenv("BLOCKFORGE_STORE_PASSWORD")
+                      keyAlias System.getenv("BLOCKFORGE_KEY_ALIAS")
+                      keyPassword System.getenv("BLOCKFORGE_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  debug {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+          GRADLE
+        shell: bash
 
       - name: Crear icono original de BlockForge
         run: |
@@ -121,7 +151,6 @@ jobs:
               r=size*.39
               pts=[(cx+math.cos(math.radians(60*i-30))*r,cy+math.sin(math.radians(60*i-30))*r) for i in range(6)]
               d.polygon(pts,fill=(31,105,190,255),outline=(92,205,255,255),width=max(1,size//28))
-              # Pixel-like forge mark: bright angular F inside the hexagon.
               unit=size/12
               blocks=[(4,3,8,4),(4,4,5,9),(5,5,8,6),(6,7,8,8)]
               for x1,y1,x2,y2 in blocks:
@@ -143,22 +172,16 @@ jobs:
           set -e
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
           SOURCE="$GITHUB_WORKSPACE/BlockForgeActivity.java"
-
           test -f "$SOURCE"
-
           PACKAGE=$(sed -n 's/^package[[:space:]]\+\([^;]*\);.*/\1/p' "$SOURCE" | head -n 1)
-
           if [ -z "$PACKAGE" ]; then
             echo "ERROR: No se encontró el package de BlockForgeActivity.java"
             exit 1
           fi
-
           PACKAGE_PATH=$(echo "$PACKAGE" | tr '.' '/')
           DEST="$P/app/src/main/java/$PACKAGE_PATH/BlockForgeActivity.java"
-
           mkdir -p "$(dirname "$DEST")"
           cp "$SOURCE" "$DEST"
-
           echo "Interfaz copiada a: $DEST"
           test -f "$DEST"
 
@@ -166,34 +189,25 @@ jobs:
         run: |
           set -e
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
-
           mkdir -p "$P/app/src/main/cpp"
-
-          curl -fL \
-            https://www.libsdl.org/release/SDL2-2.32.10.tar.gz \
-            -o /tmp/sdl.tar.gz
-
+          curl -fL https://www.libsdl.org/release/SDL2-2.32.10.tar.gz -o /tmp/sdl.tar.gz
           tar -xzf /tmp/sdl.tar.gz -C /tmp
-
           rm -rf "$P/app/src/main/cpp/SDL"
           mv /tmp/SDL2-2.32.10 "$P/app/src/main/cpp/SDL"
-
           SDL_JAVA="$P/app/src/main/cpp/SDL/android-project/app/src/main/java/org/libsdl/app"
-
           test -d "$SDL_JAVA"
-
           mkdir -p "$P/app/src/main/java/org/libsdl/app"
-
-          cp -R "$SDL_JAVA/." \
-            "$P/app/src/main/java/org/libsdl/app/"
-
-          sed -i 's/SDL2 SDL2main/SDL2/g' \
-            "$P/app/src/main/cpp/CMakeLists.txt"
-
+          cp -R "$SDL_JAVA/." "$P/app/src/main/java/org/libsdl/app/"
+          sed -i 's/SDL2 SDL2main/SDL2/g' "$P/app/src/main/cpp/CMakeLists.txt"
           test -f "$P/app/src/main/java/org/libsdl/app/SDLActivity.java"
 
-      - name: Compilar BlockForge APK
+      - name: Compilar BlockForge APK firmado
         working-directory: project/BlockForge_Android
+        env:
+          BLOCKFORGE_KEYSTORE_FILE: ${{ runner.temp }}/blockforge-release.jks
+          BLOCKFORGE_STORE_PASSWORD: ${{ secrets.BLOCKFORGE_STORE_PASSWORD }}
+          BLOCKFORGE_KEY_ALIAS: ${{ secrets.BLOCKFORGE_KEY_ALIAS }}
+          BLOCKFORGE_KEY_PASSWORD: ${{ secrets.BLOCKFORGE_KEY_PASSWORD }}
         run: |
           set -e
           for attempt in 1 2 3; do
@@ -208,11 +222,12 @@ jobs:
           echo "La compilación falló después de 3 intentos"
           exit 1
 
-      - name: Verificar APK
+      - name: Verificar APK y firma
         run: |
           set -e
           APK="project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk"
           test -f "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           ls -lh "$APK"
 
       - name: Guardar APK
