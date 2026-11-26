@@ -460,7 +460,10 @@ public class BlockForgeActivity extends Activity {
         getPreferences(MODE_PRIVATE).edit().remove("scene_audio_"+activeProjectName()).apply();
     }
 
-    @Override protected void onDestroy(){stopSceneAudio();super.onDestroy();}
+    @Override protected void onDestroy(){
+        if(sceneAudioPlayer!=null){try{sceneAudioPlayer.stop();}catch(Exception ignored){}try{sceneAudioPlayer.release();}catch(Exception ignored){}sceneAudioPlayer=null;}
+        sceneAudioPrepared=false;super.onDestroy();
+    }
 
     void setSceneBrush(int color, boolean erase) {
         sceneBrushColor = color;
