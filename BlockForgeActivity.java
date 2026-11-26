@@ -292,6 +292,8 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("CONFIGURAR FÍSICA",()->showPhysicsSettingsDialog()));
         panelView.addView(editorButton("CAPAS, CÁMARA Y PACKS",()->showEditorExtrasDialog()));
         panelView.addView(editorButton("AÑADIR BOTÓN MÓVIL",()->createMobileButtonDialog()));
+        panelView.addView(label("RECURSOS EXTERNOS · SPRITECOOK",11,Color.rgb(135,180,235)));
+        panelView.addView(editorButton("ABRIR SPRITECOOK · DESCARGAR SPRITES",()->showSpriteCookPanel()));
         panelView.addView(editorButton("ADMINISTRAR BOTONES",()->manageMobileButtons()));
         panelView.addView(editorButton("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();dialog.dismiss();}));
         panelView.addView(label("AUDIO Y ARCHIVOS",11,Color.rgb(135,180,235)));
@@ -1224,6 +1226,18 @@ public class BlockForgeActivity extends Activity {
         new android.app.AlertDialog.Builder(this).setTitle("Salida · BlockForge")
             .setMessage("Grafisript · "+grafisriptNodes.size()+" nodos visuales\nEscena: "+scenePreviewStatus()+"\nFísica: "+(physicsRunning?"activa":"en pausa"))
             .setPositiveButton("Aceptar",null).show();
+    }
+
+    void showSpriteCookPanel() {
+        LinearLayout box=vertical();box.setPadding(18,12,18,12);
+        box.addView(label("Descarga personajes, enemigos, espadas, monedas, fondos o tilesets en PNG desde SpriteCook. Después vuelve aquí e impórtalos a tu proyecto.",14,gray));
+        box.addView(editorButton("1 · ABRIR SPRITECOOK",()->{
+            try{startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,android.net.Uri.parse("https://www.spritecook.ai/es")));}
+            catch(Exception ex){Toast.makeText(this,"No se pudo abrir el navegador",Toast.LENGTH_SHORT).show();}
+        }));
+        box.addView(editorButton("2 · IMPORTAR LO DESCARGADO",()->openSpriteDrawer()));
+        box.addView(label("Consejo: descarga PNG con fondo transparente para personajes y objetos. Para fondos, usa PNG o JPG.",12,gray));
+        new android.app.AlertDialog.Builder(this).setTitle("SpriteCook · Recursos para tu juego").setView(box).setNegativeButton("Cerrar",null).show();
     }
 
     void showSceneAudioPicker() {
@@ -2690,23 +2704,22 @@ public class BlockForgeActivity extends Activity {
             scaleDetector.onTouchEvent(event);
             int action=event.getActionMasked();
             if(scenePlayMode){
-                if(action==android.view.MotionEvent.ACTION_DOWN){
-                    int hit=hitMobileButton(event.getX(0),event.getY(0));
+                if(action==android.view.MotionEvent.ACTION_DOWN || action==android.view.MotionEvent.ACTION_POINTER_DOWN){
+                    int pointerIndex=action==android.view.MotionEvent.ACTION_DOWN?0:event.getActionIndex();
+                    int hit=hitMobileButton(event.getX(pointerIndex),event.getY(pointerIndex));
                     if(hit>=0){
-                        activeMobileButtonPointer=hit;
-                        activeMobileTouchId=event.getPointerId(0);
-                        runMobileButton(mobileButtons.get(hit));
+                        MobileButton pressed=mobileButtons.get(hit);
+                        // Segundo dedo: permite saltar mientras el primero mantiene correr.
+                        if("jump".equals(pressed.action) && activeMobileTouchId>=0){runMobileButton(pressed);return true;}
+                        if(activeMobileTouchId<0 || action==android.view.MotionEvent.ACTION_DOWN){
+                            activeMobileButtonPointer=hit;activeMobileTouchId=event.getPointerId(pointerIndex);runMobileButton(pressed);
+                        } else if("jump".equals(pressed.action)){runMobileButton(pressed);}
                         return true;
                     }
-                    // En juego los toques sobre el escenario no cambian el personaje activo.
-                    // Solo los controles táctiles mueven al personaje designado.
                     return true;
                 }
                 if(action==android.view.MotionEvent.ACTION_POINTER_UP
-                        &&event.getPointerId(event.getActionIndex())==activeMobileTouchId){
-                    releaseHeldMobileButton();
-                    return true;
-                }
+                        &&event.getPointerId(event.getActionIndex())==activeMobileTouchId){releaseHeldMobileButton();return true;}
                 if(action==android.view.MotionEvent.ACTION_UP||action==android.view.MotionEvent.ACTION_CANCEL){
                     releaseHeldMobileButton();
                     multiTouchGesture=false;
