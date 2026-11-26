@@ -416,6 +416,9 @@ public class BlockForgeActivity extends Activity {
         LinearLayout audioActions=new LinearLayout(this);audioActions.setOrientation(LinearLayout.HORIZONTAL);
         audioActions.addView(button("♫ ELEGIR AUDIO",()->showSceneAudioPicker()),new LinearLayout.LayoutParams(0,-2,1));
         audioActions.addView(button("DETENER AUDIO",()->stopSceneAudio()),new LinearLayout.LayoutParams(0,-2,1));content.addView(audioActions);
+        LinearLayout transferActions=new LinearLayout(this);transferActions.setOrientation(LinearLayout.HORIZONTAL);
+        transferActions.addView(button("EXPORTAR NIVEL",()->exportScenePicker()),new LinearLayout.LayoutParams(0,-2,1));
+        transferActions.addView(button("IMPORTAR NIVEL",()->importScenePicker()),new LinearLayout.LayoutParams(0,-2,1));content.addView(transferActions);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
@@ -1685,6 +1688,8 @@ public class BlockForgeActivity extends Activity {
     static final int PICK_RESOURCE_REQUEST = 7421;
     static final int PICK_SPRITE_REQUEST = 7422;
     static final int PICK_ANIMATION_FRAME_REQUEST = 7423;
+    static final int EXPORT_2D_SCENE_REQUEST = 7424;
+    static final int IMPORT_2D_SCENE_REQUEST = 7425;
 
     void resources() {
         heading("Biblioteca de recursos",
@@ -1713,6 +1718,16 @@ public class BlockForgeActivity extends Activity {
                                     android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == EXPORT_2D_SCENE_REQUEST) {
+            try { writeSceneJson(data.getData()); Toast.makeText(this,"Nivel 2D exportado",Toast.LENGTH_LONG).show(); }
+            catch(Exception ex){Toast.makeText(this,"Error al exportar: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
+            return;
+        }
+        if (requestCode == IMPORT_2D_SCENE_REQUEST) {
+            try { readSceneJson(data.getData()); Toast.makeText(this,"Nivel 2D importado",Toast.LENGTH_LONG).show(); openPage(2); }
+            catch(Exception ex){Toast.makeText(this,"Archivo de nivel inválido: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
+            return;
+        }
         if (requestCode == PICK_ANIMATION_FRAME_REQUEST) {
             try { String name=copyUriToFolder(data.getData(),"sprites","frame"); if(scenePreview!=null)scenePreview.addAnimationFrame(name); Toast.makeText(this,"Fotograma añadido",Toast.LENGTH_LONG).show(); openPage(2); }
             catch(Exception ex){Toast.makeText(this,"No se pudo añadir: "+ex.getMessage(),Toast.LENGTH_LONG).show();} return;
@@ -1758,6 +1773,102 @@ public class BlockForgeActivity extends Activity {
             while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
         }
         return destination.getName();
+    }
+
+    void exportScenePicker() {
+        android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("application/json");
+        intent.putExtra(android.content.Intent.EXTRA_TITLE,"BlockForge-Scene.json");
+        startActivityForResult(intent,EXPORT_2D_SCENE_REQUEST);
+    }
+
+    void importScenePicker() {
+        android.content.Intent intent=new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);intent.setType("application/json");
+        startActivityForResult(intent,IMPORT_2D_SCENE_REQUEST);
+    }
+
+    org.json.JSONObject buildSceneJson() throws org.json.JSONException {
+        ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
+        org.json.JSONObject rootJson=new org.json.JSONObject();
+        rootJson.put("format","BlockForge2D");rootJson.put("version",1);
+        org.json.JSONArray blockArray=new org.json.JSONArray();
+        for(int i=0;i<target.blocks.size();i++){
+            Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
+            item.put("x",p.x);item.put("y",p.y);
+            item.put("color",i<target.blockColors.size()?target.blockColors.get(i):sceneBrushColor);
+            item.put("layer",i<target.blockLayers.size()?target.blockLayers.get(i):1);
+            blockArray.put(item);
+        }
+        rootJson.put("blocks",blockArray);
+        org.json.JSONArray spriteArray=new org.json.JSONArray();
+        for(SceneSprite sp:target.sprites){
+            org.json.JSONObject item=new org.json.JSONObject();
+            item.put("file",sp.fileName);item.put("x",sp.x);item.put("y",sp.y);
+            item.put("solid",sp.solid);item.put("vx",sp.vx);item.put("vy",sp.vy);
+            org.json.JSONArray frames=new org.json.JSONArray();
+            for(String frame:sp.animationFrameNames)frames.put(frame);
+            item.put("frames",frames);spriteArray.put(item);
+        }
+        rootJson.put("sprites",spriteArray);
+        org.json.JSONObject camera=new org.json.JSONObject();
+        camera.put("zoom",target.cameraZoom);camera.put("x",target.cameraOffsetX);camera.put("y",target.cameraOffsetY);
+        rootJson.put("camera",camera);
+        rootJson.put("audio",getPreferences(MODE_PRIVATE).getString("scene_audio_"+activeProjectName(),""));
+        return rootJson;
+    }
+
+    void writeSceneJson(android.net.Uri uri) throws Exception {
+        org.json.JSONObject json=buildSceneJson();
+        try(java.io.OutputStream out=getContentResolver().openOutputStream(uri)){
+            if(out==null)throw new java.io.IOException("No se pudo crear el archivo");
+            out.write(json.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
+    void readSceneJson(android.net.Uri uri) throws Exception {
+        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
+        try(java.io.InputStream in=getContentResolver().openInputStream(uri)){
+            if(in==null)throw new java.io.IOException("No se pudo abrir el archivo");
+            byte[] buffer=new byte[8192];int n,total=0;
+            while((n=in.read(buffer))!=-1){total+=n;if(total>3*1024*1024)throw new java.io.IOException("El nivel supera 3 MB");bytes.write(buffer,0,n);}
+        }
+        org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
+        if(!"BlockForge2D".equals(json.optString("format"))||json.optInt("version")!=1)
+            throw new java.io.IOException("Formato o versión no compatible");
+        ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
+        target.blocks.clear();target.blockColors.clear();target.blockLayers.clear();
+        org.json.JSONArray blockArray=json.optJSONArray("blocks");
+        if(blockArray!=null)for(int i=0;i<blockArray.length();i++){
+            org.json.JSONObject item=blockArray.getJSONObject(i);
+            int x=item.getInt("x"),y=item.getInt("y"),layer=item.optInt("layer",1);
+            if(x<0||x>9||y<0||y>9||layer<0||layer>2)continue;
+            target.blocks.add(new Point(x,y));target.blockColors.add(item.optInt("color",sceneBrushColor));target.blockLayers.add(layer);
+        }
+        for(SceneSprite old:target.sprites){if(old.bitmap!=null)old.bitmap.recycle();for(Bitmap frame:old.animationFrames)if(frame!=null)frame.recycle();}
+        target.sprites.clear();target.selectedSprite=-1;
+        org.json.JSONArray spriteArray=json.optJSONArray("sprites");
+        if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
+            org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
+            if(name.isEmpty()||name.contains("/")||name.contains("\\\\"))continue;
+            SceneSprite sp=new SceneSprite(name,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
+            if(sp.bitmap==null)continue;
+            sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
+            org.json.JSONArray frames=item.optJSONArray("frames");
+            if(frames!=null)for(int j=0;j<frames.length();j++){
+                String fn=frames.optString(j,"");if(fn.isEmpty()||fn.contains("/")||fn.contains("\\\\"))continue;
+                java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"sprites"),fn);
+                Bitmap frame=BitmapFactory.decodeFile(file.getAbsolutePath());
+                if(frame!=null){sp.animationFrames.add(frame);sp.animationFrameNames.add(fn);}
+            }
+            target.sprites.add(sp);
+        }
+        org.json.JSONObject camera=json.optJSONObject("camera");
+        if(camera!=null){target.cameraZoom=(float)Math.max(.65,Math.min(2.5,camera.optDouble("zoom",1)));target.cameraOffsetX=(float)camera.optDouble("x",0);target.cameraOffsetY=(float)camera.optDouble("y",0);}
+        String audio=json.optString("audio","");
+        if(audio.isEmpty())getPreferences(MODE_PRIVATE).edit().remove("scene_audio_"+activeProjectName()).apply();
+        else getPreferences(MODE_PRIVATE).edit().putString("scene_audio_"+activeProjectName(),audio).apply();
+        target.persist();target.persistSprites();target.saveCamera();target.invalidate();target.startAnimationTicker();
     }
 
     void pickAnimationFrame() {
