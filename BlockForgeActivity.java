@@ -488,14 +488,14 @@ public class BlockForgeActivity extends Activity {
                 return true;
             }
             if (line.startsWith("jugador.saltar(") && line.endsWith(")")) {
-                float height = Float.parseFloat(line.substring(14, line.length() - 1).trim());
+                float height = Float.parseFloat(line.substring(15, line.length() - 1).trim());
                 if (height <= 0 || height > 100) throw new IllegalArgumentException("La altura debe ser mayor que 0 y hasta 100");
                 prefs.edit().putFloat("character_last_jump_" + project, height).apply();
                 output.append("Salto programado: altura ").append(height).append("\\n");
                 return true;
             }
             if (line.startsWith("jugador.girar(") && line.endsWith(")")) {
-                float degrees = Float.parseFloat(line.substring(13, line.length() - 1).trim());
+                float degrees = Float.parseFloat(line.substring(14, line.length() - 1).trim());
                 prefs.edit().putFloat("character_rotation_" + project, degrees).apply();
                 output.append("Jugador girado: ").append(degrees).append(" grados\\n");
                 refreshScenePreview();
