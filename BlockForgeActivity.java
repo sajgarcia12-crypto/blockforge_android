@@ -1676,7 +1676,7 @@ public class BlockForgeActivity extends Activity {
         void toggleAnimationLoop(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationLoop=!sp.animationLoop;persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,sp.animationLoop?"Animación en bucle":"Animación de una sola pasada",Toast.LENGTH_SHORT).show();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
         String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS · "+(sp.animationLoop?"BUCLE":"UNA PASADA");}
-        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(mapColumns-1,sp.x+dx));sp.y=Math.max(0,Math.min(mapRows-1,sp.y+dy));persistSprites();invalidate();}
+        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(mapColumns-sp.width,sp.x+dx));sp.y=Math.max(0,Math.min(mapRows-sp.height,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
         void saveCamera(){String project=activeProjectName();getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom_"+project,cameraZoom).putFloat("scene_camera_x_"+project,cameraOffsetX).putFloat("scene_camera_y_"+project,cameraOffsetY).apply();}
         void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);saveCamera();invalidate();}
@@ -1902,8 +1902,8 @@ public class BlockForgeActivity extends Activity {
                 return;
             }
             SceneSprite copy = new SceneSprite(original.fileName,
-                    Math.min(mapColumns - 1, original.x + 1f),
-                    Math.min(mapRows - 1, original.y + 1f), original.solid);
+                    Math.min(mapColumns - original.width, original.x + 1f),
+                    Math.min(mapRows - original.height, original.y + 1f), original.solid);
             copy.vx = original.vx;
             copy.vy = original.vy;
             copy.width = original.width;
@@ -2028,7 +2028,7 @@ public class BlockForgeActivity extends Activity {
                     int row=Math.max(0,Math.min(mapRows-1,(int)(wy/Math.max(1f,getHeight()/(float)mapRows))));
                     for(int i=sprites.size()-1;i>=0;i--){
                         SceneSprite sp=sprites.get(i);
-                        if(Math.abs(sp.x-col)<=1&&Math.abs(sp.y-row)<=1){selectedSprite=i;invalidate();break;}
+                        if(col>=sp.x-0.25f&&col<=sp.x+sp.width+0.25f&&row>=sp.y-0.25f&&row<=sp.y+sp.height+0.25f){selectedSprite=i;invalidate();break;}
                     }
                     return true;
                 }
@@ -2065,7 +2065,8 @@ public class BlockForgeActivity extends Activity {
                 draggingSprite = -1;
                 for (int i = sprites.size() - 1; i >= 0; i--) {
                     SceneSprite sprite = sprites.get(i);
-                    if (Math.abs(sprite.x - col) <= 1 && Math.abs(sprite.y - row) <= 1) {
+                    if (col >= sprite.x - 0.25f && col <= sprite.x + sprite.width + 0.25f &&
+                            row >= sprite.y - 0.25f && row <= sprite.y + sprite.height + 0.25f) {
                         if (sceneEraseMode) {
                             if (sprite.bitmap != null) sprite.bitmap.recycle();
                             for (Bitmap frame : sprite.animationFrames) if (frame != null) frame.recycle();
@@ -2090,7 +2091,8 @@ public class BlockForgeActivity extends Activity {
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
                 SceneSprite sprite = sprites.get(draggingSprite);
-                sprite.x = col; sprite.y = row;
+                sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col));
+                sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row));
                 invalidate();
                 return true;
             }
@@ -2098,7 +2100,8 @@ public class BlockForgeActivity extends Activity {
                 if(paintingBlocks){paintingBlocks=false;lastPaintedCol=-1;lastPaintedRow=-1;persist();invalidate();performClick();return true;}
                 if (draggingSprite >= 0) {
                     SceneSprite sprite = sprites.get(draggingSprite);
-                    sprite.x = col; sprite.y = row;
+                    sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col));
+                    sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row));
                     draggingSprite = -1;
                     persistSprites();
                 } else {
