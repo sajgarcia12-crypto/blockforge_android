@@ -1203,7 +1203,7 @@ public class BlockForgeActivity extends Activity {
         for(int i=0;i<keys.length;i++)if(keys[i].equals(existing.action)){action.setSelection(i);break;}
         form.addView(action);
         TextView codeLabel=label("Código de El Grafisript (para evento o script)",12,gray);codeLabel.setPadding(0,10,0,4);form.addView(codeLabel);
-        EditText script=new EditText(this);script.setText(existing.script);script.setHint("mostrar_mensaje \\"¡Botón pulsado!\\"");script.setMinLines(3);script.setGravity(Gravity.TOP|Gravity.START);script.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);form.addView(script);
+        EditText script=new EditText(this);script.setText(existing.script);script.setHint("Escribe instrucciones de El Grafisript aquí");script.setMinLines(3);script.setGravity(Gravity.TOP|Gravity.START);script.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);form.addView(script);
         new android.app.AlertDialog.Builder(this).setTitle("Editar botón móvil")
             .setView(form).setNegativeButton("Cancelar",null)
             .setPositiveButton("GUARDAR",(d,w)->{
