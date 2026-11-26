@@ -1148,42 +1148,57 @@ public class BlockForgeActivity extends Activity {
         }
 
         void physicsStep(float dt) {
-            if (!sceneCollisionsEnabled) {
-                for (SceneSprite sprite : sprites) {
-                    sprite.vy += physicsGravity * dt;
-                    sprite.y += sprite.vy * dt;
-                }
-                return;
-            }
             for (SceneSprite sprite : sprites) {
+                float oldX = sprite.x;
                 float oldY = sprite.y;
-                sprite.vy = Math.min(32f, sprite.vy + physicsGravity * dt);
-                float nextY = sprite.y + sprite.vy * dt;
-                float maxY = 9f;
+                sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
+                sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
+
+                float nextX = Math.max(0f, Math.min(9f, oldX + sprite.vx * dt));
+                if (sceneCollisionsEnabled && sprite.solid) {
+                    boolean horizontalHit = false;
+                    for (int i = 0; i < blocks.size(); i++) {
+                        int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
+                        if (layer == 0) continue;
+                        Point block = blocks.get(i);
+                        if (Math.abs(nextX - block.x) < 0.72f &&
+                                Math.abs(oldY - block.y) < 0.72f) {
+                            horizontalHit = true;
+                            break;
+                        }
+                    }
+                    if (horizontalHit) sprite.vx = 0f;
+                    else sprite.x = nextX;
+                } else sprite.x = nextX;
+
+                float nextY = oldY + sprite.vy * dt;
                 boolean landed = false;
-                if (sprite.solid) {
-                    for (Point block : blocks) {
-                        if (Math.abs(sprite.x - block.x) < 0.85f &&
-                                oldY <= block.y && nextY >= block.y - 0.85f) {
-                            nextY = block.y - 0.85f;
+                if (sceneCollisionsEnabled && sprite.solid) {
+                    for (int i = 0; i < blocks.size(); i++) {
+                        int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
+                        if (layer == 0) continue;
+                        Point block = blocks.get(i);
+                        if (Math.abs(sprite.x - block.x) < 0.78f &&
+                                oldY <= block.y && nextY >= block.y - 0.82f) {
+                            nextY = block.y - 0.82f;
                             landed = true;
                         }
                     }
                     for (SceneSprite other : sprites) {
                         if (other != sprite && other.solid &&
-                                Math.abs(sprite.x - other.x) < 0.85f &&
-                                oldY <= other.y && nextY >= other.y - 0.85f) {
-                            nextY = other.y - 0.85f;
+                                Math.abs(sprite.x - other.x) < 0.78f &&
+                                oldY <= other.y && nextY >= other.y - 0.82f) {
+                            nextY = other.y - 0.82f;
                             landed = true;
                         }
                     }
-                    if (nextY >= maxY) {
-                        nextY = maxY;
-                        landed = true;
-                    }
+                    if (nextY >= 9f) { nextY = 9f; landed = true; }
+                    if (nextY <= 0f) { nextY = 0f; if (sprite.vy < 0f) sprite.vy = 0f; }
                 }
-                sprite.y = Math.max(0f, Math.min(maxY, nextY));
+                sprite.y = Math.max(0f, Math.min(9f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
+                sprite.vx *= 0.88f;
+                if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
             }
         }
 
@@ -1274,6 +1289,7 @@ public class BlockForgeActivity extends Activity {
                     if (Math.abs(sprite.x - col) <= 1 && Math.abs(sprite.y - row) <= 1) {
                         if (sceneEraseMode) {
                             if (sprite.bitmap != null) sprite.bitmap.recycle();
+                            for (Bitmap frame : sprite.animationFrames) if (frame != null) frame.recycle();
                             sprites.remove(i);
                             selectedSprite = -1;
                             persistSprites();
