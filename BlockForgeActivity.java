@@ -2663,6 +2663,7 @@ public class BlockForgeActivity extends Activity {
 
     static final int PICK_RESOURCE_REQUEST = 7421;
     static final int PICK_SPRITE_REQUEST = 7422;
+    static final int PICK_SPRITE_EDIT_REQUEST = 7426;
     static final int PICK_ANIMATION_FRAME_REQUEST = 7423;
     static final int EXPORT_2D_SCENE_REQUEST = 7424;
     static final int IMPORT_2D_SCENE_REQUEST = 7425;
@@ -2702,6 +2703,22 @@ public class BlockForgeActivity extends Activity {
         if (requestCode == IMPORT_2D_SCENE_REQUEST) {
             try { readSceneJson(data.getData()); Toast.makeText(this,"Nivel 2D importado",Toast.LENGTH_LONG).show(); openPage(2); }
             catch(Exception ex){Toast.makeText(this,"Archivo de nivel inválido: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
+            return;
+        }
+        if (requestCode == PICK_SPRITE_EDIT_REQUEST) {
+            try {
+                android.graphics.Bitmap imported;
+                try (java.io.InputStream in = getContentResolver().openInputStream(data.getData())) {
+                    imported = BitmapFactory.decodeStream(in);
+                }
+                if (imported == null) throw new java.io.IOException("El archivo no es una imagen válida");
+                String name = saveDrawnSprite(imported, "importado_editable");
+                if (scenePreview != null) scenePreview.addSprite(name);
+                Toast.makeText(this, "PNG importado y añadido a la escena", Toast.LENGTH_LONG).show();
+                openPage(2);
+            } catch (Exception ex) {
+                Toast.makeText(this, "No se pudo importar la imagen: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
             return;
         }
         if (requestCode == PICK_ANIMATION_FRAME_REQUEST) {
@@ -2962,8 +2979,8 @@ public class BlockForgeActivity extends Activity {
         tools.addView(editorButton("LÁPIZ", () -> drawing.setTool(0)), new LinearLayout.LayoutParams(0, 44, 1));
         tools.addView(editorButton("BORRADOR", () -> drawing.setTool(1)), new LinearLayout.LayoutParams(0, 44, 1));
         tools.addView(editorButton("RELLENO", () -> drawing.setTool(2)), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("DESHACER", () -> drawing.undo()), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("REHACER", () -> drawing.redo()), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("LÍNEA", () -> drawing.setTool(3)), new LinearLayout.LayoutParams(0, 44, 1));
+        tools.addView(editorButton("COLOR", () -> drawing.setTool(4)), new LinearLayout.LayoutParams(0, 44, 1));
         wrap.addView(tools);
 
         HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
@@ -3002,6 +3019,16 @@ public class BlockForgeActivity extends Activity {
                 .setPositiveButton("BORRAR", (d,w) -> drawing.clear()).setNegativeButton("CANCELAR", null).show()),
                 new LinearLayout.LayoutParams(0, 44, 1));
         wrap.addView(lower);
+        LinearLayout pixelActions = new LinearLayout(this);
+        pixelActions.addView(editorButton("CUADRÍCULA", () -> { drawing.showGrid = !drawing.showGrid; drawing.invalidate(); }),
+                new LinearLayout.LayoutParams(0, 42, 1));
+        pixelActions.addView(editorButton("ABRIR PNG", () -> {
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            intent.setType("image/*");
+            startActivityForResult(intent, PICK_SPRITE_EDIT_REQUEST);
+        }), new LinearLayout.LayoutParams(0, 42, 1));
+        wrap.addView(pixelActions);
 
         android.widget.CheckBox asMobileButton = new android.widget.CheckBox(this);
         asMobileButton.setText("Usar también como botón móvil");
@@ -3018,24 +3045,50 @@ public class BlockForgeActivity extends Activity {
             dialog.getWindow().setLayout(-1, (int)(getResources().getDisplayMetrics().heightPixels * 0.88f));
             dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 try {
-                    String name = saveDrawnSprite(drawing.exportBitmap());
-                    if (scenePreview != null) scenePreview.addSprite(name);
+                    EditText spriteName = new EditText(this);
+                    spriteName.setSingleLine(true);
+                    spriteName.setHint("Nombre del sprite");
+                    spriteName.setText("mi_sprite");
+                    new android.app.AlertDialog.Builder(this).setTitle("Guardar sprite")
+                        .setMessage("Se exportará como PNG con transparencia.")
+                        .setView(spriteName)
+                        .setNegativeButton("CANCELAR", null)
+                        .setPositiveButton("EXPORTAR PNG", (sd, sw) -> {
+                            try {
+                                String name = saveDrawnSprite(drawing.exportBitmap(), spriteName.getText().toString());
+                                if (scenePreview != null) scenePreview.addSprite(name);
+                                if (asMobileButton.isChecked()) createMobileButtonDialog(name);
+                                Toast.makeText(this, "Sprite PNG exportado: " + name, Toast.LENGTH_SHORT).show();
+                                dialog.dismiss();
+                                if (!asMobileButton.isChecked()) openPage(2);
+                            } catch (Exception ex) {
+                                Toast.makeText(this, "No se pudo guardar: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                            }
+                        }).show();
+                } catch (Exception ex) {
+                    Toast.makeText(this, "No se pudo preparar el PNG: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+                }
+                /*
                     if (asMobileButton.isChecked()) createMobileButtonDialog(name);
                     Toast.makeText(this, "Sprite PNG guardado: " + name, Toast.LENGTH_SHORT).show();
                     dialog.dismiss();
                     if (!asMobileButton.isChecked()) openPage(2);
-                } catch (Exception ex) {
-                    Toast.makeText(this, "No se pudo guardar el sprite: " + ex.getMessage(), Toast.LENGTH_LONG).show();
-                }
+                */
             });
         });
         dialog.show();
     }
 
     String saveDrawnSprite(Bitmap bitmap) throws java.io.IOException {
+        return saveDrawnSprite(bitmap, "sprite");
+    }
+
+    String saveDrawnSprite(Bitmap bitmap, String requestedName) throws java.io.IOException {
         java.io.File folder = new java.io.File(getFilesDir(), "sprites");
         if (!folder.exists()) folder.mkdirs();
-        String name = "dibujado_" + System.currentTimeMillis() + ".png";
+        String safe = requestedName == null ? "sprite" : requestedName.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
+        if (safe.isEmpty()) safe = "sprite";
+        String name = safe + "_" + System.currentTimeMillis() + ".png";
         java.io.File file = new java.io.File(folder, name);
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
@@ -3055,6 +3108,7 @@ public class BlockForgeActivity extends Activity {
         int currentColor = Color.WHITE;
         int tool = 0;
         boolean showGrid = true;
+        int lineStart = -1;
         float cellSize, gridLeft, gridTop;
 
         SpriteDrawView() {
@@ -3106,7 +3160,24 @@ public class BlockForgeActivity extends Activity {
         void paintAt(int index) {
             if (index < 0 || index >= pixels.length) return;
             if (tool == 2) { floodFill(index, pixels[index], currentColor); return; }
+            if (tool == 4) { currentColor = pixels[index] == Color.TRANSPARENT ? Color.WHITE : pixels[index]; tool = 0; return; }
             pixels[index] = tool == 1 ? Color.TRANSPARENT : currentColor;
+        }
+        void drawLine(int from, int to) {
+            if (from < 0 || to < 0) return;
+            int x0=from%size,y0=from/size,x1=to%size,y1=to/size;
+            int dx=Math.abs(x1-x0),sx=x0<x1?1:-1,dy=-Math.abs(y1-y0),sy=y0<y1?1:-1,err=dx+dy;
+            while(true){int at=y0*size+x0;if(at>=0&&at<pixels.length)pixels[at]=currentColor;
+                if(x0==x1&&y0==y1)break;int e2=2*err;if(e2>=dy){err+=dy;x0+=sx;}if(e2<=dx){err+=dx;y0+=sy;}}
+        }
+        void loadBitmap(Bitmap source) {
+            if(source==null)return;
+            snapshot();
+            Bitmap scaled=Bitmap.createScaledBitmap(source,size,size,false);
+            scaled.getPixels(pixels,0,size,0,0,size,size);
+            if(scaled!=source)scaled.recycle();
+            if(!source.isRecycled())source.recycle();
+            invalidate();
         }
         void floodFill(int start, int target, int replacement) {
             if (target == replacement) return;
@@ -3131,15 +3202,21 @@ public class BlockForgeActivity extends Activity {
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                 if (index < 0) return false;
                 snapshot();
-                paintAt(index);
+                lineStart = index;
+                if (tool != 3) paintAt(index);
                 invalidate();
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                if (index >= 0 && tool != 2) { paintAt(index); invalidate(); }
+                if (index >= 0 && tool != 2 && tool != 3 && tool != 4) { paintAt(index); invalidate(); }
                 return true;
             }
-            return event.getAction() == android.view.MotionEvent.ACTION_UP;
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                if (tool == 3 && index >= 0) { drawLine(lineStart,index); invalidate(); }
+                lineStart = -1;
+                return true;
+            }
+            return event.getAction() == android.view.MotionEvent.ACTION_CANCEL;
         }
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
