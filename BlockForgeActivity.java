@@ -221,6 +221,25 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
     }
 
+    void showToolsPanel() {
+        android.app.Dialog dialog=editorPanel("HERRAMIENTAS DE ESCENA",Gravity.RIGHT,88);
+        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        if(panelView==null)return;
+        panelView.addView(label("FÍSICA Y COLISIONES",11,Color.rgb(135,180,235)));
+        panelView.addView(editorButton("CONFIGURAR FÍSICA",()->showPhysicsSettingsDialog()));
+        panelView.addView(editorButton("CAPAS, CÁMARA Y PACKS",()->showEditorExtrasDialog()));
+        panelView.addView(editorButton("AÑADIR BOTÓN MÓVIL",()->createMobileButtonDialog()));
+        panelView.addView(editorButton("ADMINISTRAR BOTONES",()->manageMobileButtons()));
+        panelView.addView(editorButton("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();dialog.dismiss();}));
+        panelView.addView(label("AUDIO Y ARCHIVOS",11,Color.rgb(135,180,235)));
+        panelView.addView(editorButton("ELEGIR AUDIO",()->showSceneAudioPicker()));
+        panelView.addView(editorButton("DETENER AUDIO",()->stopSceneAudio()));
+        panelView.addView(editorButton("EXPORTAR NIVEL",()->exportScenePicker()));
+        panelView.addView(editorButton("IMPORTAR NIVEL",()->importScenePicker()));
+        panelView.addView(editorButton("GUARDAR ESCENA",()->{scenePreview.persist();Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show();}));
+        panelView.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
     void showTimelinePanel() {
         if(scenePreview==null)return;
         android.app.Dialog dialog=editorPanel("ANIMACIÓN · TIMELINE",Gravity.BOTTOM,96);
@@ -527,6 +546,7 @@ public class BlockForgeActivity extends Activity {
         panels.addView(editorButton("▤ INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0,44,1));
         panels.addView(editorButton("{ } CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0,44,1));
         panels.addView(editorButton("▥ TIMELINE", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0,44,1));
+        panels.addView(editorButton("⋯ MÁS", () -> showToolsPanel()), new LinearLayout.LayoutParams(0,44,1));
         content.addView(panels);
 
         LinearLayout toolbar = new LinearLayout(this);
@@ -610,21 +630,7 @@ public class BlockForgeActivity extends Activity {
         }), new LinearLayout.LayoutParams(0, 48, 1));
         content.addView(runtime);
 
-        content.addView(editorButton("⚙  FÍSICA Y COLISIONES", () -> showPhysicsSettingsDialog()));
-        content.addView(editorButton("☷  CAPAS, CÁMARA Y CONTROLES MÓVILES", () -> showEditorExtrasDialog()));
-        content.addView(editorButton("＋  CREAR BOTÓN MÓVIL", () -> createMobileButtonDialog()));
-        content.addView(editorButton("ADMINISTRAR BOTONES MÓVILES", () -> manageMobileButtons()));
-        content.addView(editorButton("BOTONES PREDETERMINADOS", () -> { scenePreview.installDefaultMobileButtons(); openPage(2); }));
-        content.addView(editorButton("♫  AUDIO DE ESCENA", () -> showSceneAudioPicker()));
-        content.addView(editorButton("DETENER AUDIO", () -> stopSceneAudio()));
-        LinearLayout transfer = new LinearLayout(this);
-        transfer.addView(editorButton("EXPORTAR NIVEL", () -> exportScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
-        transfer.addView(editorButton("IMPORTAR NIVEL", () -> importScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(transfer);
-        content.addView(editorButton("GUARDAR ESCENA", () -> {
-            scenePreview.persist();
-            Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
-        }));
+));
     }
 
     void showSceneAudioPicker() {
