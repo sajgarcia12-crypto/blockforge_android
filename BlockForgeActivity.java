@@ -194,6 +194,7 @@ public class BlockForgeActivity extends Activity {
             }));
             panelView.addView(editorButton(sprite.solid?"HACER TRANSPASABLE":"HACER SÓLIDO", () -> { scenePreview.toggleSelectedSpriteSolid(); dialog.dismiss(); }));
             panelView.addView(editorButton("ELIMINAR OBJETO", () -> { scenePreview.deleteSelectedSprite(); dialog.dismiss(); }));
+            panelView.addView(editorButton("DUPLICAR OBJETO", () -> { scenePreview.duplicateSelectedSprite(); dialog.dismiss(); }));
             panelView.addView(editorButton("EDITAR CÓDIGO", () -> { dialog.dismiss(); showCodePanel(); }));
         }
         panelView.addView(editorButton("CERRAR", dialog::dismiss));
@@ -562,6 +563,7 @@ public class BlockForgeActivity extends Activity {
         toolbar.addView(editorButton(sceneToolMode == 1 ? "▧" : "Rect.", () -> { sceneToolMode=1; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
         toolbar.addView(editorButton(sceneToolMode == 2 ? "▨" : "Relleno", () -> { sceneToolMode=2; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
         toolbar.addView(editorButton("↶", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton("↷", () -> scenePreview.redo()), new LinearLayout.LayoutParams(0, 46, 1));
         toolbar.addView(editorButton("＋", () -> scenePreview.addBlock()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(toolbar);
 
@@ -1462,6 +1464,7 @@ public class BlockForgeActivity extends Activity {
         int activeMobileTouchId=-1;
         int mapColumns=10,mapRows=10;
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
+        java.util.ArrayList<String> redoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
         int selectedSprite=-1;
         boolean paintingBlocks=false;
@@ -1786,6 +1789,25 @@ public class BlockForgeActivity extends Activity {
         void rememberState() {
             undoHistory.add(captureState());
             if (undoHistory.size() > 30) undoHistory.remove(0);
+            redoHistory.clear();
+        }
+
+        void restoreBlockState(String state) {
+            blocks.clear();
+            blockColors.clear();
+            blockLayers.clear();
+            if (!state.isEmpty()) {
+                for (String entry : state.split(";")) {
+                    String[] values = entry.split(",");
+                    try {
+                        blocks.add(new Point(Integer.parseInt(values[0]), Integer.parseInt(values[1])));
+                        blockColors.add(values.length > 2 ? Integer.parseInt(values[2]) : sceneBrushColor);
+                        blockLayers.add(values.length > 3 ? Math.max(0, Math.min(2, Integer.parseInt(values[3]))) : 1);
+                    } catch (Exception ignored) { }
+                }
+            }
+            persist();
+            invalidate();
         }
 
         void undo() {
@@ -1793,21 +1815,50 @@ public class BlockForgeActivity extends Activity {
                 Toast.makeText(BlockForgeActivity.this, "No hay cambios para deshacer", Toast.LENGTH_SHORT).show();
                 return;
             }
+            redoHistory.add(captureState());
             String previous = undoHistory.remove(undoHistory.size() - 1);
-            blocks.clear();
-            blockColors.clear();blockLayers.clear();
-            if (!previous.isEmpty()) {
-                for (String entry : previous.split(";")) {
-                    String[] values = entry.split(",");
-                    try {
-                        blocks.add(new Point(Integer.parseInt(values[0]), Integer.parseInt(values[1])));
-                        blockColors.add(values.length>2?Integer.parseInt(values[2]):sceneBrushColor);
-                        blockLayers.add(values.length>3?Math.max(0,Math.min(2,Integer.parseInt(values[3]))):1);
-                    } catch (Exception ignored) { }
+            restoreBlockState(previous);
+        }
+
+        void redo() {
+            if (redoHistory.isEmpty()) {
+                Toast.makeText(BlockForgeActivity.this, "No hay cambios para rehacer", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            undoHistory.add(captureState());
+            String next = redoHistory.remove(redoHistory.size() - 1);
+            restoreBlockState(next);
+        }
+
+        void duplicateSelectedSprite() {
+            SceneSprite original = selectedSpriteObject();
+            if (original == null) {
+                Toast.makeText(BlockForgeActivity.this, "Selecciona un sprite primero", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            SceneSprite copy = new SceneSprite(original.fileName,
+                    Math.min(mapColumns - 1, original.x + 1f),
+                    Math.min(mapRows - 1, original.y + 1f), original.solid);
+            copy.vx = original.vx;
+            copy.vy = original.vy;
+            copy.animationFps = original.animationFps;
+            copy.animationLoop = original.animationLoop;
+            copy.animationPlaying = original.animationPlaying;
+            for (String frameName : original.animationFrameNames) {
+                java.io.File frameFile = new java.io.File(new java.io.File(getFilesDir(), "sprites"), frameName);
+                Bitmap frame = BitmapFactory.decodeFile(frameFile.getAbsolutePath());
+                if (frame != null) {
+                    copy.animationFrames.add(frame);
+                    copy.animationFrameNames.add(frameName);
                 }
             }
-            persist();
+            copy.currentFrameIndex = copy.animationFrames.isEmpty() ? 0 :
+                    Math.min(original.currentFrameIndex, copy.animationFrames.size() - 1);
+            sprites.add(copy);
+            selectedSprite = sprites.size() - 1;
+            persistSprites();
             invalidate();
+            Toast.makeText(BlockForgeActivity.this, "Sprite duplicado", Toast.LENGTH_SHORT).show();
         }
 
         void applyRectangle(int x1,int y1,int x2,int y2){
