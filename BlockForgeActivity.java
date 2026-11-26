@@ -365,6 +365,13 @@ public class BlockForgeActivity extends Activity {
             openPage(2);
         }), new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(physicsActions);
+        LinearLayout spriteTools = new LinearLayout(this);
+        spriteTools.setOrientation(LinearLayout.HORIZONTAL);
+        spriteTools.addView(button("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        spriteTools.addView(button("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(spriteTools);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
@@ -955,7 +962,15 @@ public class BlockForgeActivity extends Activity {
         SceneSprite(String name, float px, float py, boolean isSolid) {
             fileName = name; x = px; y = py; solid = isSolid;
             java.io.File file = new java.io.File(new java.io.File(getFilesDir(), "sprites"), name);
-            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+            int sample = 1;
+            while (options.outWidth / sample > 256 || options.outHeight / sample > 256)
+                sample *= 2;
+            options.inJustDecodeBounds = false;
+            options.inSampleSize = sample;
+            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
         }
     }
 
@@ -966,6 +981,7 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<SceneSprite> sprites = new java.util.ArrayList<>();
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
+        int selectedSprite = -1;
 
         ScenePreview() {
             super(BlockForgeActivity.this);
@@ -1008,6 +1024,36 @@ public class BlockForgeActivity extends Activity {
 
         void addSprite(String name) {
             sprites.add(new SceneSprite(name, 4, 4, true));
+            selectedSprite = sprites.size() - 1;
+            persistSprites();
+            invalidate();
+        }
+
+        void toggleSelectedSpriteSolid() {
+            if (selectedSprite < 0 || selectedSprite >= sprites.size()) {
+                Toast.makeText(BlockForgeActivity.this, "Primero toca un sprite para seleccionarlo",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            SceneSprite sprite = sprites.get(selectedSprite);
+            sprite.solid = !sprite.solid;
+            persistSprites();
+            invalidate();
+            Toast.makeText(BlockForgeActivity.this,
+                    sprite.solid ? "Sprite sólido: bloquea colisiones" : "Sprite atravesable",
+                    Toast.LENGTH_SHORT).show();
+        }
+
+        void deleteSelectedSprite() {
+            if (selectedSprite < 0 || selectedSprite >= sprites.size()) {
+                Toast.makeText(BlockForgeActivity.this, "No hay ningún sprite seleccionado",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            SceneSprite removed = sprites.remove(selectedSprite);
+            if (removed.bitmap != null) removed.bitmap.recycle();
+            selectedSprite = -1;
+            draggingSprite = -1;
             persistSprites();
             invalidate();
         }
@@ -1113,7 +1159,15 @@ public class BlockForgeActivity extends Activity {
                 for (int i = sprites.size() - 1; i >= 0; i--) {
                     SceneSprite sprite = sprites.get(i);
                     if (Math.abs(sprite.x - col) <= 1 && Math.abs(sprite.y - row) <= 1) {
-                        draggingSprite = i;
+                        if (sceneEraseMode) {
+                            if (sprite.bitmap != null) sprite.bitmap.recycle();
+                            sprites.remove(i);
+                            selectedSprite = -1;
+                            persistSprites();
+                        } else {
+                            draggingSprite = i;
+                            selectedSprite = i;
+                        }
                         break;
                     }
                 }
