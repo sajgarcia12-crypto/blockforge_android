@@ -3097,8 +3097,8 @@ public class BlockForgeActivity extends Activity {
     }
 
     void createBuiltinSpritePicker(){
-        final String[] names={"Personaje aventurero","Slime","Moneda","Plataforma","Árbol","Corazón","Caja"};
-        new android.app.AlertDialog.Builder(this).setTitle("SPRITES PREDETERMINADOS")
+        final String[] names={"Personaje aventurero","Slime","Moneda","Plataforma","Árbol","Corazón","Caja","Robot","Murciélago","Esqueleto","Gema","Estrella","Poción","Cofre","Portal","Flor"};
+        new android.app.AlertDialog.Builder(this).setTitle("BIBLIOTECA DE SPRITES · 16 ELEMENTOS")
             .setItems(names,(d,which)->{
                 try{String file=createBuiltinSprite(which);if(scenePreview==null)scenePreview=new ScenePreview();scenePreview.addSprite(file);Toast.makeText(this,"Sprite añadido: "+names[which],Toast.LENGTH_SHORT).show();openPage(2);}
                 catch(Exception e){Toast.makeText(this,"No se pudo crear el sprite",Toast.LENGTH_LONG).show();}
@@ -3106,14 +3106,22 @@ public class BlockForgeActivity extends Activity {
     }
 
     String createBuiltinSprite(int kind) throws java.io.IOException {
-        int n=32;Bitmap bitmap=Bitmap.createBitmap(n,n,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(bitmap);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        p.setColor(Color.TRANSPARENT);c.drawColor(Color.TRANSPARENT,android.graphics.PorterDuff.Mode.CLEAR);
-        int main=new int[]{Color.rgb(65,145,255),Color.rgb(80,205,125),Color.rgb(255,205,45),Color.rgb(105,115,135),Color.rgb(55,155,75),Color.rgb(235,65,85),Color.rgb(175,115,65)}[Math.max(0,Math.min(6,kind))];
+        int n=32;Bitmap bitmap=Bitmap.createBitmap(n,n,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(bitmap);Paint p=new Paint();
+        c.drawColor(Color.TRANSPARENT,android.graphics.PorterDuff.Mode.CLEAR);
+        int[] palette={Color.rgb(65,145,255),Color.rgb(80,205,125),Color.rgb(255,205,45),Color.rgb(105,115,135),Color.rgb(55,155,75),Color.rgb(235,65,85),Color.rgb(175,115,65),Color.rgb(45,190,205),Color.rgb(105,65,170),Color.rgb(220,220,225),Color.rgb(55,210,220),Color.rgb(255,190,45),Color.rgb(180,70,210),Color.rgb(180,110,55),Color.rgb(85,75,220),Color.rgb(245,110,160)};
+        int main=palette[Math.max(0,Math.min(palette.length-1,kind))];
         p.setColor(main);
         if(kind==2){c.drawCircle(16,16,12,p);p.setColor(Color.rgb(255,245,160));c.drawCircle(16,16,8,p);}
         else if(kind==5){c.drawCircle(10,12,7,p);c.drawCircle(22,12,7,p);c.drawRect(4,12,28,25,p);}
-        else if(kind==3||kind==6){c.drawRect(2,8,30,30,p);p.setColor(Color.rgb(35,45,58));c.drawRect(5,11,27,27,p);p.setColor(main);c.drawRect(8,14,24,24,p);}
-        else if(kind==4){c.drawRect(13,17,19,31,p);c.drawCircle(16,11,11,p);}
+        else if(kind==3||kind==6||kind==13){c.drawRect(2,8,30,30,p);p.setColor(Color.rgb(35,45,58));c.drawRect(5,11,27,27,p);p.setColor(main);c.drawRect(8,14,24,24,p);if(kind==13){p.setColor(Color.rgb(255,210,80));c.drawRect(13,14,19,23,p);}}
+        else if(kind==4||kind==15){if(kind==4){c.drawRect(13,17,19,31,p);c.drawCircle(16,11,11,p);}else{c.drawRect(14,12,18,31,p);c.drawCircle(16,9,7,p);c.drawCircle(8,17,6,p);c.drawCircle(24,17,6,p);}}
+        else if(kind==8){c.drawOval(new RectF(5,8,27,25),p);p.setColor(Color.WHITE);c.drawCircle(12,15,2,p);c.drawCircle(21,15,2,p);p.setColor(main);c.drawRect(2,4,9,12,p);c.drawRect(23,4,30,12,p);}
+        else if(kind==9){c.drawRect(7,5,25,29,p);p.setColor(Color.WHITE);c.drawRect(10,11,13,14,p);c.drawRect(19,11,22,14,p);c.drawRect(12,22,20,24,p);}
+        else if(kind==10){Path path=new Path();path.moveTo(16,2);path.lineTo(29,16);path.lineTo(16,30);path.lineTo(3,16);path.close();c.drawPath(path,p);p.setColor(Color.WHITE);c.drawLine(16,5,16,27,p);c.drawLine(5,16,27,16,p);}
+        else if(kind==11){Path star=new Path();for(int i=0;i<10;i++){double angle=-Math.PI/2+i*Math.PI/5;float radius=i%2==0?14:6;float x=16+(float)Math.cos(angle)*radius,y=16+(float)Math.sin(angle)*radius;if(i==0)star.moveTo(x,y);else star.lineTo(x,y);}star.close();c.drawPath(star,p);}
+        else if(kind==12){c.drawRoundRect(new RectF(10,8,22,29),4,4,p);p.setColor(Color.rgb(245,235,255));c.drawRect(12,4,20,9,p);p.setColor(Color.WHITE);c.drawRect(13,17,19,22,p);}
+        else if(kind==14){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(5);c.drawCircle(16,16,11,p);p.setStyle(Paint.Style.FILL);p.setColor(Color.WHITE);c.drawCircle(16,16,4,p);}
+        else if(kind==7){c.drawRoundRect(new RectF(5,5,27,27),4,4,p);p.setColor(Color.WHITE);c.drawRect(9,11,13,15,p);c.drawRect(19,11,23,15,p);p.setColor(Color.DKGRAY);c.drawRect(12,21,20,23,p);}
         else {c.drawRoundRect(new RectF(5,4,27,30),5,5,p);p.setColor(Color.WHITE);c.drawRect(10,12,13,15,p);c.drawRect(20,12,23,15,p);p.setColor(Color.rgb(35,35,45));c.drawRect(12,22,20,24,p);}
         java.io.File folder=new java.io.File(getFilesDir(),"sprites");if(!folder.exists())folder.mkdirs();
         String file="builtin_"+kind+"_"+System.currentTimeMillis()+".png";
