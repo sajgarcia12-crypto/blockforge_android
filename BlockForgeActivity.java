@@ -1174,15 +1174,47 @@ public class BlockForgeActivity extends Activity {
             .setItems(names,(dialog,which)->{
                 MobileButton selected=scenePreview.mobileButtons.get(which);
                 new android.app.AlertDialog.Builder(this).setTitle(selected.title)
-                    .setMessage("¿Quieres eliminar este botón del proyecto?")
-                    .setNegativeButton("Cancelar",null)
-                    .setPositiveButton("ELIMINAR",(d,w)->{
-                        MobileButton removed=scenePreview.mobileButtons.remove(which);
-                        if(removed.iconBitmap!=null&&!removed.iconBitmap.isRecycled())removed.iconBitmap.recycle();
-                        scenePreview.persistMobileButtons();scenePreview.invalidate();openPage(2);
-                        Toast.makeText(this,"Botón eliminado",Toast.LENGTH_SHORT).show();
-                    }).show();
+                    .setItems(new String[]{"EDITAR","ELIMINAR"},(d,choice)->{
+                        if(choice==0){editMobileButtonDialog(which);return;}
+                        new android.app.AlertDialog.Builder(this).setTitle("Eliminar botón")
+                            .setMessage("¿Quieres eliminar \""+selected.title+"\" del proyecto?")
+                            .setNegativeButton("Cancelar",null)
+                            .setPositiveButton("ELIMINAR",(confirm,w)->{
+                                MobileButton removed=scenePreview.mobileButtons.remove(which);
+                                if(removed.iconBitmap!=null&&!removed.iconBitmap.isRecycled())removed.iconBitmap.recycle();
+                                scenePreview.persistMobileButtons();scenePreview.invalidate();openPage(2);
+                                Toast.makeText(this,"Botón eliminado",Toast.LENGTH_SHORT).show();
+                            }).show();
+                    }).setNegativeButton("Cancelar",null).show();
             }).setNegativeButton("Cerrar",null).show();
+    }
+
+    void editMobileButtonDialog(int index){
+        if(scenePreview==null||index<0||index>=scenePreview.mobileButtons.size())return;
+        MobileButton existing=scenePreview.mobileButtons.get(index);
+        LinearLayout form=vertical();form.setPadding(16,8,16,0);
+        EditText title=new EditText(this);title.setHint("Nombre del botón");title.setText(existing.title);form.addView(title);
+        EditText icon=new EditText(this);icon.setHint("Icono o emoji");icon.setText(existing.icon);form.addView(icon);
+        Spinner action=new Spinner(this);
+        String[] actions={"Mover izquierda","Mover derecha","Mover arriba","Mover abajo","Saltar","Acción: activar evento","Programar con El Grafisript"};
+        String[] keys={"left","right","up","down","jump","event","script"};
+        action.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,actions));
+        for(int i=0;i<keys.length;i++)if(keys[i].equals(existing.action)){action.setSelection(i);break;}
+        form.addView(action);
+        TextView codeLabel=label("Código de El Grafisript (para evento o script)",12,gray);codeLabel.setPadding(0,10,0,4);form.addView(codeLabel);
+        EditText script=new EditText(this);script.setText(existing.script);script.setHint("mostrar_mensaje \\"¡Botón pulsado!\\"");script.setMinLines(3);script.setGravity(Gravity.TOP|Gravity.START);script.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);form.addView(script);
+        new android.app.AlertDialog.Builder(this).setTitle("Editar botón móvil")
+            .setView(form).setNegativeButton("Cancelar",null)
+            .setPositiveButton("GUARDAR",(d,w)->{
+                String n=title.getText().toString().trim();String ic=icon.getText().toString().trim();
+                if(n.isEmpty())n="Botón personalizado";if(ic.isEmpty())ic=n.substring(0,1).toUpperCase(java.util.Locale.ROOT);
+                String code=script.getText().toString().trim();
+                if(code.length()>4000){Toast.makeText(this,"El código no puede superar 4000 caracteres",Toast.LENGTH_LONG).show();return;}
+                if(action.getSelectedItemPosition()==6&&code.isEmpty()){Toast.makeText(this,"Escribe el código de El Grafisript",Toast.LENGTH_LONG).show();return;}
+                existing.title=n;existing.icon=ic;existing.action=keys[Math.max(0,Math.min(keys.length-1,action.getSelectedItemPosition()))];existing.script=code;
+                scenePreview.persistMobileButtons();scenePreview.invalidate();openPage(2);
+                Toast.makeText(this,"Botón actualizado",Toast.LENGTH_SHORT).show();
+            }).show();
     }
 
     void createMobileButtonDialog() { createMobileButtonDialog(""); }
