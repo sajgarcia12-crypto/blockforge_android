@@ -423,14 +423,90 @@ public class BlockForgeActivity extends Activity {
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
         navigation = new LinearLayout(this);
-        navigation.setGravity(Gravity.CENTER);
-        navigation.setPadding(12, 8, 12, 8);
+        navigation.setGravity(Gravity.CENTER_VERTICAL);
+        navigation.setPadding(6, 6, 6, 6);
         navigation.setBackgroundColor(getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false) ? Color.rgb(225,229,235) : Color.rgb(37, 40, 46));
-        TextView marketplaceButton = uiSecondary("▦   MARKETPLACE", () -> openPage(6));
-        navigation.addView(marketplaceButton,
-                new LinearLayout.LayoutParams(-1, -2));
+
+        HorizontalScrollView menuScroll = new HorizontalScrollView(this);
+        menuScroll.setHorizontalScrollBarEnabled(false);
+        menuScroll.setFillViewport(false);
+        LinearLayout menuItems = new LinearLayout(this);
+        menuItems.setGravity(Gravity.CENTER_VERTICAL);
+        addMenuItem(menuItems, "⌂  INICIO", () -> openPage(0));
+        addMenuItem(menuItems, "▣  PROYECTOS", () -> openPage(1));
+        addMenuItem(menuItems, "2D  EDITOR", () -> open2DWorkspace());
+        addMenuItem(menuItems, "{ }  GRAFISRIPT", () -> openPage(3));
+        addMenuItem(menuItems, "▤  RECURSOS", () -> openPage(4));
+        addMenuItem(menuItems, "⚙  AJUSTES", () -> openPage(5));
+        addMenuItem(menuItems, "▦  MARKET", () -> openPage(6));
+        menuScroll.addView(menuItems);
+        navigation.addView(menuScroll, new LinearLayout.LayoutParams(-1, -2));
         root.addView(navigation);
         setContentView(root);
+    }
+
+    void addMenuItem(LinearLayout menu, String title, Runnable action) {
+        TextView item = uiSecondary(title, action);
+        item.setSingleLine(true);
+        item.setPadding(12, 10, 12, 10);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
+        lp.setMargins(3, 0, 3, 0);
+        menu.addView(item, lp);
+    }
+
+    void open2DWorkspace() {
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        String active = prefs.getString("active_project", "");
+        if (!active.isEmpty() && "2D".equals(prefs.getString("project_type_" + active, "2D"))) {
+            openProject(active);
+            return;
+        }
+
+        java.util.Set<String> saved = prefs.getStringSet("blockforge_projects", new java.util.HashSet<>());
+        for (String name : saved) {
+            if ("2D".equals(prefs.getString("project_type_" + name, "2D"))) {
+                openProject(name);
+                return;
+            }
+        }
+        create2DProject();
+    }
+
+    void create2DProject() {
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setHint("Nombre del juego 2D");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Nuevo proyecto 2D")
+            .setMessage("Crea tu juego y entra directamente al editor de escenas 2D.")
+            .setView(input)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("CREAR Y ABRIR", (dialog, which) -> {
+                String name = input.getText().toString().trim();
+                String safeName = name.replaceAll("[^a-zA-Z0-9._ -]", "_").trim();
+                if (safeName.isEmpty() || ".".equals(safeName) || "..".equals(safeName)) {
+                    Toast.makeText(this, "Escribe un nombre válido para el juego.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+                java.util.Set<String> names = new java.util.HashSet<>(prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
+                if (names.contains(name)) {
+                    Toast.makeText(this, "Ya existe un proyecto con ese nombre.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                java.io.File projectsRoot = new java.io.File(getFilesDir(), "BlockForgeProjects");
+                java.io.File folder = new java.io.File(projectsRoot, safeName);
+                if ((!projectsRoot.exists() && !projectsRoot.mkdirs()) || (!folder.exists() && !folder.mkdirs())) {
+                    Toast.makeText(this, "No se pudo crear la carpeta del proyecto.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                names.add(name);
+                prefs.edit().putStringSet("blockforge_projects", names)
+                    .putString("project_type_" + name, "2D")
+                    .putString("project_folder_" + name, folder.getAbsolutePath())
+                    .putString("active_project", name).apply();
+                openPage(2);
+            }).show();
     }
 
     void openPage(int page) {
