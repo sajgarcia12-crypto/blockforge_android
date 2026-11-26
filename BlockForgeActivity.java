@@ -816,6 +816,23 @@ public class BlockForgeActivity extends Activity {
         content.setPadding(0, 0, 0, 0);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setBackgroundColor(Color.rgb(30, 32, 36));
+        if (scenePlayMode) {
+            content.setPadding(0,0,0,0);
+            LinearLayout gameBar = new LinearLayout(this);
+            gameBar.setGravity(Gravity.CENTER_VERTICAL);
+            gameBar.setPadding(10,4,10,4);
+            gameBar.setBackgroundColor(Color.rgb(16,19,25));
+            gameBar.addView(uiLabel("▶  JUEGO · "+project,12,uiInk,true),new LinearLayout.LayoutParams(0,44,1));
+            gameBar.addView(editorButton("Ⅱ PAUSAR",()->{ if(physicsRunning){physicsRunning=false;if(scenePreview!=null)scenePreview.stopPhysics();}else{physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();} }),new LinearLayout.LayoutParams(90,42));
+            gameBar.addView(editorButton("■ EDITOR",()->stopSceneGame()),new LinearLayout.LayoutParams(90,42));
+            content.addView(gameBar,new LinearLayout.LayoutParams(-1,50));
+            if(scenePreview==null)scenePreview=new ScenePreview();
+            scenePreview.setBackgroundColor(Color.rgb(24,31,43));
+            if(scenePreview.sprites.size()>0 && (scenePreview.selectedSprite<0||scenePreview.selectedSprite>=scenePreview.sprites.size()))scenePreview.selectedSprite=0;
+            content.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
+            if(physicsRunning)scenePreview.startPhysics();
+            return;
+        }
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -834,16 +851,12 @@ public class BlockForgeActivity extends Activity {
         workspaceTabs.setGravity(Gravity.CENTER_VERTICAL);
         addWorkspaceTab(workspaceTabs, "2D", true, () -> openPage(2));
         addWorkspaceTab(workspaceTabs, "SCRIPT", false, () -> openPage(3));
-        addWorkspaceTab(workspaceTabs, "JUEGO", false, () -> { scenePlayMode=true; physicsRunning=true; if(scenePreview!=null)scenePreview.startPhysics(); Toast.makeText(this,"Ejecutando escena 2D",Toast.LENGTH_SHORT).show(); });
+        addWorkspaceTab(workspaceTabs, "JUEGO", false, () -> { startSceneGame(); });
         addWorkspaceTab(workspaceTabs, "ASSETS", false, () -> openPage(4));
         addWorkspaceTab(workspaceTabs, "AJUSTES", false, () -> openPage(5));
         workspaceNav.addView(workspaceTabs);
         top.addView(workspaceNav, new LinearLayout.LayoutParams(0, 46, 1));
-        top.addView(editorButton(scenePlayMode ? "■" : "▶", () -> {
-            scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
-            if(scenePreview!=null){if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();}
-            openPage(2);
-        }), new LinearLayout.LayoutParams(42,42));
+        top.addView(editorButton("▶", () -> startSceneGame()), new LinearLayout.LayoutParams(42,42));
         top.addView(editorButton("💾", () -> { if(scenePreview!=null){scenePreview.persist();scenePreview.persistSprites();} Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show(); }), new LinearLayout.LayoutParams(42,42));
         content.addView(top, new LinearLayout.LayoutParams(-1, 48));
 
@@ -3039,7 +3052,69 @@ public class BlockForgeActivity extends Activity {
     }
 
 
+    void startSceneGame() {
+        if(scenePreview==null)scenePreview=new ScenePreview();
+        if(scenePreview.sprites.isEmpty() && scenePreview.blocks.isEmpty()){
+            Toast.makeText(this,"Añade al menos un sprite u objeto antes de ejecutar la escena",Toast.LENGTH_LONG).show();
+            return;
+        }
+        scenePlayMode=true;
+        if(scenePreview.selectedSprite<0&&!scenePreview.sprites.isEmpty())scenePreview.selectedSprite=0;
+        if(scenePreview.mobileButtons.isEmpty())scenePreview.installDefaultMobileButtons();
+        physicsRunning=true;
+        scenePreview.startPhysics();
+        openPage(2);
+    }
+
+    void stopSceneGame() {
+        scenePlayMode=false;
+        physicsRunning=false;
+        if(scenePreview!=null){scenePreview.stopPhysics();scenePreview.persistSprites();}
+        openPage(2);
+    }
+
     void openSpriteDrawer() {
+        LinearLayout chooser=vertical();
+        chooser.setPadding(18,16,18,16);
+        chooser.setBackgroundColor(Color.rgb(20,24,31));
+        TextView intro=uiLabel("Crea un sprite para tu juego. Elige cómo quieres empezar.",14,uiInk,true);
+        intro.setPadding(4,8,4,18);chooser.addView(intro);
+        chooser.addView(editorButton("🎮  SPRITES PREDETERMINADOS",()->{createBuiltinSpritePicker();}));
+        chooser.addView(editorButton("🎨  DIBUJAR MI SPRITE",()->{openSpritePixelEditor();}));
+        chooser.addView(editorButton("📁  IMPORTAR DESDE ARCHIVOS",()->{pickSpriteImage();}));
+        chooser.addView(editorButton("✕  CERRAR",()->{}));
+        android.app.AlertDialog chooserDialog=new android.app.AlertDialog.Builder(this).setTitle("CREAR SPRITE").setView(chooser).setNegativeButton("CERRAR",null).create();
+        chooserDialog.setOnShowListener(v->{if(chooserDialog.getWindow()!=null){chooserDialog.getWindow().setLayout(-1,-1);chooserDialog.getWindow().setBackgroundDrawableResource(android.R.color.black);}});
+        chooserDialog.show();
+        chooser.findViewWithTag("unused");
+    }
+
+    void createBuiltinSpritePicker(){
+        final String[] names={"Personaje aventurero","Slime","Moneda","Plataforma","Árbol","Corazón","Caja"};
+        new android.app.AlertDialog.Builder(this).setTitle("SPRITES PREDETERMINADOS")
+            .setItems(names,(d,which)->{
+                try{String file=createBuiltinSprite(which);if(scenePreview==null)scenePreview=new ScenePreview();scenePreview.addSprite(file);Toast.makeText(this,"Sprite añadido: "+names[which],Toast.LENGTH_SHORT).show();openPage(2);}
+                catch(Exception e){Toast.makeText(this,"No se pudo crear el sprite",Toast.LENGTH_LONG).show();}
+            }).setNegativeButton("VOLVER",null).show();
+    }
+
+    String createBuiltinSprite(int kind) throws java.io.IOException {
+        int n=32;Bitmap bitmap=Bitmap.createBitmap(n,n,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(bitmap);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(Color.TRANSPARENT);c.drawColor(Color.TRANSPARENT,android.graphics.PorterDuff.Mode.CLEAR);
+        int main=new int[]{Color.rgb(65,145,255),Color.rgb(80,205,125),Color.rgb(255,205,45),Color.rgb(105,115,135),Color.rgb(55,155,75),Color.rgb(235,65,85),Color.rgb(175,115,65)}[Math.max(0,Math.min(6,kind))];
+        p.setColor(main);
+        if(kind==2){c.drawCircle(16,16,12,p);p.setColor(Color.rgb(255,245,160));c.drawCircle(16,16,8,p);}
+        else if(kind==5){c.drawCircle(10,12,7,p);c.drawCircle(22,12,7,p);c.drawRect(4,12,28,25,p);}
+        else if(kind==3||kind==6){c.drawRect(2,8,30,30,p);p.setColor(Color.rgb(35,45,58));c.drawRect(5,11,27,27,p);p.setColor(main);c.drawRect(8,14,24,24,p);}
+        else if(kind==4){c.drawRect(13,17,19,31,p);c.drawCircle(16,11,11,p);}
+        else {c.drawRoundRect(new RectF(5,4,27,30),5,5,p);p.setColor(Color.WHITE);c.drawRect(10,12,13,15,p);c.drawRect(20,12,23,15,p);p.setColor(Color.rgb(35,35,45));c.drawRect(12,22,20,24,p);}
+        java.io.File folder=new java.io.File(getFilesDir(),"sprites");if(!folder.exists())folder.mkdirs();
+        String file="builtin_"+kind+"_"+System.currentTimeMillis()+".png";
+        try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(folder,file))){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}
+        return file;
+    }
+
+    void openSpritePixelEditor() {
         LinearLayout wrap = vertical();
         wrap.setPadding(14, 12, 14, 12);
         wrap.setBackgroundColor(Color.rgb(20, 24, 31));
@@ -3049,7 +3124,7 @@ public class BlockForgeActivity extends Activity {
         TextView sizeLabel = uiLabel("TAMAÑO DEL LIENZO", 10, uiMuted, true);
         top.addView(sizeLabel, new LinearLayout.LayoutParams(0, -2, 1));
         Spinner sizePicker = new Spinner(this);
-        String[] sizes = {"16 × 16", "32 × 32", "64 × 64"};
+        String[] sizes = {"16 × 16", "32 × 32", "64 × 64", "128 × 128"};
         sizePicker.setAdapter(new ArrayAdapter<String>(this,
                 android.R.layout.simple_spinner_dropdown_item, sizes));
         top.addView(sizePicker, new LinearLayout.LayoutParams(130, 44));
@@ -3062,7 +3137,7 @@ public class BlockForgeActivity extends Activity {
         wrap.addView(drawing, new LinearLayout.LayoutParams(-1, (int)(getResources().getDisplayMetrics().density * 340)));
         sizePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                drawing.setSize(position == 0 ? 16 : position == 1 ? 32 : 64);
+                drawing.setSize(position == 0 ? 16 : position == 1 ? 32 : position == 2 ? 64 : 128);
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
@@ -3080,10 +3155,8 @@ public class BlockForgeActivity extends Activity {
         paletteScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout colors = new LinearLayout(this);
         colors.setPadding(0, 9, 0, 9);
-        int[] palette = {Color.BLACK, Color.WHITE, Color.rgb(230,75,75), Color.rgb(70,180,110),
-                Color.rgb(70,130,230), Color.YELLOW, Color.MAGENTA, Color.CYAN,
-                Color.rgb(150,95,55), Color.rgb(120,120,130), Color.rgb(255,150,65)};
-        String[] labels = {"NEGRO","BLANCO","ROJO","VERDE","AZUL","AMARILLO","ROSA","CIAN","TIERRA","GRIS","NARANJA"};
+        int[] palette = {Color.BLACK,Color.WHITE,Color.RED,Color.rgb(255,110,110),Color.rgb(145,25,45),Color.rgb(255,125,35),Color.rgb(255,195,45),Color.YELLOW,Color.rgb(155,210,55),Color.GREEN,Color.rgb(40,175,130),Color.CYAN,Color.rgb(50,145,220),Color.BLUE,Color.rgb(90,80,190),Color.MAGENTA,Color.rgb(225,125,190),Color.rgb(150,95,55),Color.rgb(90,55,35),Color.LTGRAY,Color.GRAY,Color.DKGRAY};
+        String[] labels = {"NEGRO","BLANCO","ROJO","CORAL","VINO","NARANJA","AMBAR","AMARILLO","LIMA","VERDE","MENTA","CIAN","CELESTE","AZUL","VIOLETA","MAGENTA","ROSA","TIERRA","MARRON","PLATA","GRIS","CARBON"};
         for (int i = 0; i < palette.length; i++) {
             final int color = palette[i];
             TextView swatch = editorButton("●", () -> drawing.setColor(color));
