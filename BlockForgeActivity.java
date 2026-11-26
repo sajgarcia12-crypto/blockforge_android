@@ -982,13 +982,27 @@ public class BlockForgeActivity extends Activity {
                 "crear_personaje Jugador\n"+
                 "jugador.mover(2, 1)\n"+
                 "mostrar_mensaje \"Listo\"");
+        card("Comandos del editor 2D",
+                "crear_bloque2d 4 3 1\n"+
+                "capa 2\n"+
+                "mover_sprite(1, 0)\n"+
+                "saltar_sprite(8)\n"+
+                "girar_sprite(45)\n"+
+                "escalar_sprite(2, 2)\n"+
+                "sprite.fps(12)\n"+
+                "animacion.play()\n"+
+                "animacion.bucle(true)\n"+
+                "fisica.gravedad(24)\n"+
+                "fisica.rebote(0.2)\n"+
+                "colisiones.activar()");
     }
 
     void showGrafisriptCreator() {
         final String[] names = {
             "Crear mundo", "Crear bloque", "Crear personaje",
             "Mover personaje", "Hacer saltar", "Configurar vida",
-            "Aplicar daño", "Mostrar mensaje", "Repetir acciones"
+            "Aplicar daño", "Mostrar mensaje", "Repetir acciones",
+            "Crear bloque 2D", "Mover sprite 2D", "Saltar sprite", "Cambiar FPS", "Reproducir animación"
         };
         final String[] snippets = {
             "crear_mundo \"Mi mundo\"",
@@ -999,7 +1013,12 @@ public class BlockForgeActivity extends Activity {
             "jugador.vida(100)",
             "jugador.recibir_danio(10)",
             "mostrar_mensaje \"¡Hola, mundo!\"",
-            "repetir 3 {\n    crear_bloque piedra 4 0 4\n}"
+            "repetir 3 {\n    crear_bloque piedra 4 0 4\n}",
+            "crear_bloque2d 4 3 1",
+            "mover_sprite(1, 0)",
+            "saltar_sprite(8)",
+            "sprite.fps(12)",
+            "animacion.play()"
         };
         LinearLayout creator = vertical();
         creator.setPadding(18, 8, 18, 0);
