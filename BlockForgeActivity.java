@@ -671,8 +671,8 @@ public class BlockForgeActivity extends Activity {
                         .apply();
                 Toast.makeText(this, "Proyecto " + projectType + " creado: " + name,
                         Toast.LENGTH_LONG).show();
-                // Permanecer en el gestor: el proyecto aparece en la lista lateral.
-                openPage(0);
+                // Abrir directamente el editor correspondiente al tipo elegido.
+                openProject(name);
             })
             .setNegativeButton("Cancelar", null)
             .show();
