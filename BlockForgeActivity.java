@@ -1842,6 +1842,9 @@ public class BlockForgeActivity extends Activity {
         int lastPaintedCol=-1,lastPaintedRow=-1;
         float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
         boolean multiTouchGesture=false;
+        long fpsWindowStart=0L;
+        int fpsFrameCount=0;
+        float measuredFps=0f;
         android.view.ScaleGestureDetector scaleDetector;
 
         ScenePreview() {
@@ -2533,8 +2536,18 @@ public class BlockForgeActivity extends Activity {
                 canvas.drawText(character, centerX - 18, centerY - 12, paint);
             }
 
-            canvas.drawText("ESCENA · "+blocks.size()+" BLOQUES · CAPA "+(sceneLayer+1)+" · "+Math.round(cameraZoom*100)+"%",12,20,paint);
-            if(selectedSprite>=0&&selectedSprite<sprites.size())canvas.drawText("SELECCIONADO · "+sprites.get(selectedSprite).fileName,12,38,paint);
+            long fpsNow=System.nanoTime();
+            if(fpsWindowStart==0L)fpsWindowStart=fpsNow;
+            fpsFrameCount++;
+            long fpsElapsed=fpsNow-fpsWindowStart;
+            if(fpsElapsed>=1_000_000_000L){
+                measuredFps=fpsFrameCount*1_000_000_000f/fpsElapsed;
+                fpsFrameCount=0;
+                fpsWindowStart=fpsNow;
+            }
+            canvas.drawText("FPS "+Math.round(measuredFps)+" / "+targetAnimationFps+"  ·  "+blocks.size()+" BLOQUES  ·  "+Math.round(cameraZoom*100)+"%",12,20,paint);
+            canvas.drawText("CAPA ACTIVA · "+(sceneLayer+1)+"  ·  "+(sceneCollisionsEnabled?"COLISIONES ON":"COLISIONES OFF"),12,38,paint);
+            if(selectedSprite>=0&&selectedSprite<sprites.size())canvas.drawText("SELECCIONADO · "+sprites.get(selectedSprite).fileName,12,56,paint);
             canvas.restore();
             drawMobileButtons(canvas);
         }
