@@ -21,6 +21,8 @@ public class BlockForgeActivity extends Activity {
     EditText codeEditor;
     TextView runtimeOutput;
     int runtimeBlockCount = 0;
+    int sceneBrushColor = Color.rgb(55, 135, 90);
+    boolean sceneEraseMode = false;
     String runtimeWorldName = "Mi mundo";
 
     @Override
@@ -323,12 +325,31 @@ public class BlockForgeActivity extends Activity {
         actions.addView(button("BORRAR TODO", () -> scenePreview.clearBlocks()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(actions);
+        LinearLayout palette = new LinearLayout(this);
+        palette.setOrientation(LinearLayout.HORIZONTAL);
+        palette.addView(button("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        palette.addView(button("AZUL", () -> setSceneBrush(Color.rgb(55, 115, 210), false)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        palette.addView(button("ROJO", () -> setSceneBrush(Color.rgb(205, 75, 75), false)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        palette.addView(button("BORRAR", () -> setSceneBrush(sceneBrushColor, true)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(palette);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
         }));
         card("Cómo usar", "Toca cualquier celda de la cuadrícula para colocar un bloque. Los cambios se guardan automáticamente.");
         card("Estado", "Editor 2D por cuadrícula. El modo 3D usa un renderizador OpenGL ES independiente.");
+    }
+
+    void setSceneBrush(int color, boolean erase) {
+        sceneBrushColor = color;
+        sceneEraseMode = erase;
+        if (scenePreview != null) scenePreview.invalidate();
+        Toast.makeText(this, erase ? "Modo borrador activado" : "Pincel seleccionado",
+                Toast.LENGTH_SHORT).show();
     }
 
     void grafisript() {
@@ -592,7 +613,7 @@ public class BlockForgeActivity extends Activity {
         int nesting = 1;
         for (int i = start; i < lines.length; i++) {
             String line = lines[i].trim();
-            if ((line.startsWith("si ") || line.startsWith("repetir ")) && line.endsWith("{")) nesting++;
+            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
             if (line.equals("}") || line.equals("fin")) {
                 nesting--;
                 if (nesting == 0) return i;
@@ -840,7 +861,17 @@ public class BlockForgeActivity extends Activity {
                 float cellH = Math.max(1f, getHeight() / 10f);
                 int col = Math.max(0, Math.min(9, (int)(event.getX() / cellW)));
                 int row = Math.max(0, Math.min(9, (int)(event.getY() / cellH)));
-                blocks.add(new Point(col, row));
+                if (sceneEraseMode) {
+                    for (int i = blocks.size() - 1; i >= 0; i--) {
+                        Point block = blocks.get(i);
+                        if (block.x == col && block.y == row) {
+                            blocks.remove(i);
+                            break;
+                        }
+                    }
+                } else {
+                    blocks.add(new Point(col, row));
+                }
                 persist();
                 invalidate();
                 performClick();
@@ -873,11 +904,11 @@ public class BlockForgeActivity extends Activity {
                 float top = p.y * cellH + 3;
                 float right = left + cellW - 6;
                 float bottom = top + cellH - 6;
-                paint.setColor(Color.rgb(55,135,90));
+                paint.setColor(sceneBrushColor);
                 canvas.drawRect(left, top, right, bottom, paint);
-                paint.setColor(Color.rgb(115,210,145));
+                paint.setColor(Color.rgb(175, 220, 255));
                 canvas.drawRect(left, top, right, top + 5, paint);
-                paint.setColor(Color.rgb(25,75,50));
+                paint.setColor(Color.rgb(20, 35, 55));
                 canvas.drawRect(left, bottom - 5, right, bottom, paint);
             }
 
