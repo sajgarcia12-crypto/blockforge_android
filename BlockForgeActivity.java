@@ -158,7 +158,7 @@ public class BlockForgeActivity extends Activity {
         for (int i=0;i<scenePreview.sprites.size();i++) {
             final int index=i;
             SceneSprite sprite=scenePreview.sprites.get(i);
-            TextView item=editorButton((scenePreview.selectedSprite==i?"● ":"○ ") + sprite.name, () -> {
+            TextView item=editorButton((scenePreview.selectedSprite==i?"● ":"○ ") + sprite.fileName, () -> {
                 scenePreview.selectedSprite=index;
                 scenePreview.invalidate();
                 dialog.dismiss();
