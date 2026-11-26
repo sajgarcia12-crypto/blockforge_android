@@ -1740,6 +1740,7 @@ public class BlockForgeActivity extends Activity {
                 }
                 if(action==android.view.MotionEvent.ACTION_UP||action==android.view.MotionEvent.ACTION_CANCEL){
                     releaseHeldMobileButton();
+                    multiTouchGesture=false;
                     return true;
                 }
                 if(action==android.view.MotionEvent.ACTION_MOVE && activeMobileTouchId>=0
