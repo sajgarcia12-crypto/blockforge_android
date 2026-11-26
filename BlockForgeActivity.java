@@ -1965,7 +1965,7 @@ public class BlockForgeActivity extends Activity {
         boolean paintingBlocks=false;
         int gestureStartCol=-1,gestureStartRow=-1;
         int lastPaintedCol=-1,lastPaintedRow=-1;
-        float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
+        float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;\n        String heldMobileAction="";
         boolean multiTouchGesture=false;
         android.view.ScaleGestureDetector scaleDetector;
 
@@ -2066,17 +2066,26 @@ public class BlockForgeActivity extends Activity {
             }
             persistSprites();invalidate();
         }
+        float[] mobileButtonCenter(int index,float size){
+            MobileButton b=mobileButtons.get(index);float gap=12f,bottom=getHeight()-Math.max(24f,size*.55f);
+            boolean leftSide="left".equals(b.action)||"right".equals(b.action)||"up".equals(b.action)||"down".equals(b.action);
+            int slot=0;for(int i=0;i<index;i++){String a=mobileButtons.get(i).action;if(("left".equals(a)||"right".equals(a)||"up".equals(a)||"down".equals(a))==leftSide)slot++;}
+            float cx=leftSide?Math.max(size*.65f+12f,getWidth()*.12f+(slot%2)*(size+gap)):getWidth()-Math.max(size*.65f+12f,getWidth()*.12f)-(slot%2)*(size+gap);
+            float cy=bottom-(slot/2)*(size+gap);
+            if(!leftSide&&"jump".equals(b.action))cy=bottom;
+            return new float[]{cx,cy};
+        }
         void drawMobileButtons(Canvas canvas){
-            if(!scenePlayMode)return;float size=Math.max(48f,Math.min(68f,getWidth()*0.14f));float gap=10f;
-            float right=getWidth()-18f, bottom=getHeight()-18f;
-            for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;
-                paint.setColor(Color.argb(175,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
+            if(!scenePlayMode)return;float size=Math.max(54f,Math.min(76f,getWidth()*0.12f));
+            for(int i=0;i<mobileButtons.size();i++){MobileButton b=mobileButtons.get(i);float[] pt=mobileButtonCenter(i,size);float cx=pt[0],cy=pt[1];
+                paint.setColor(Color.argb(190,25,45,72));canvas.drawCircle(cx,cy,size/2f,paint);
+                paint.setColor(Color.argb(220,210,225,245));paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(2f);canvas.drawCircle(cx,cy,size/2f,paint);paint.setStyle(Paint.Style.FILL);
                 if(b.iconBitmap!=null&&!b.iconBitmap.isRecycled()){paint.setColor(Color.WHITE);canvas.drawBitmap(b.iconBitmap,null,new RectF(cx-size*.32f,cy-size*.32f,cx+size*.32f,cy+size*.32f),paint);}else{paint.setColor(Color.WHITE);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(size*.42f);canvas.drawText(b.icon,cx,cy+size*.14f,paint);}
             }
         }
         int hitMobileButton(float x,float y){
-            float size=Math.max(48f,Math.min(68f,getWidth()*0.14f));float gap=10f,right=getWidth()-18f,bottom=getHeight()-18f;
-            for(int i=0;i<mobileButtons.size();i++){float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;if(Math.hypot(x-cx,y-cy)<=size/2f)return i;}return -1;
+            float size=Math.max(54f,Math.min(76f,getWidth()*0.12f));
+            for(int i=0;i<mobileButtons.size();i++){float[] pt=mobileButtonCenter(i,size);if(Math.hypot(x-pt[0],y-pt[1])<=size/2f)return i;}return -1;
         }
 
         void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.width=Math.min(sp.width,mapColumns);sp.height=Math.min(sp.height,mapRows);sp.x=Math.max(0,Math.min(mapColumns-sp.width,sp.x));sp.y=Math.max(0,Math.min(mapRows-sp.height,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
@@ -2558,7 +2567,7 @@ public class BlockForgeActivity extends Activity {
             float visibleTop=-cameraOffsetY/(cameraZoom*worldUnit);
             float visibleRight=visibleLeft+getWidth()/(cameraZoom*worldUnit);
             float visibleBottom=visibleTop+getHeight()/(cameraZoom*worldUnit);
-            if(sceneGridVisible){
+            if(sceneGridVisible&&!scenePlayMode){
                 paint.setColor(Color.rgb(31,43,60));paint.setStrokeWidth(1f);
                 int startX=(int)Math.floor(visibleLeft),endX=(int)Math.ceil(visibleRight);
                 int startY=(int)Math.floor(visibleTop),endY=(int)Math.ceil(visibleBottom);
@@ -2581,7 +2590,7 @@ public class BlockForgeActivity extends Activity {
                     paint.setColor(Color.MAGENTA);
                     canvas.drawRect(left, top, right, bottom, paint);
                 }
-                if (sprites.indexOf(sprite)==selectedSprite) {paint.setColor(Color.YELLOW);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3f);canvas.drawRect(left-2,top-2,right+2,bottom+2,paint);paint.setStyle(Paint.Style.FILL);}
+                if (!scenePlayMode && sprites.indexOf(sprite)==selectedSprite) {paint.setColor(Color.YELLOW);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3f);canvas.drawRect(left-2,top-2,right+2,bottom+2,paint);paint.setStyle(Paint.Style.FILL);}
                 if (sprite.solid) {
                     paint.setColor(Color.WHITE);
                     paint.setStyle(Paint.Style.STROKE);
@@ -3074,19 +3083,17 @@ public class BlockForgeActivity extends Activity {
     }
 
     void openSpriteDrawer() {
-        LinearLayout chooser=vertical();
-        chooser.setPadding(18,16,18,16);
-        chooser.setBackgroundColor(Color.rgb(20,24,31));
-        TextView intro=uiLabel("Crea un sprite para tu juego. Elige cómo quieres empezar.",14,uiInk,true);
-        intro.setPadding(4,8,4,18);chooser.addView(intro);
-        chooser.addView(editorButton("🎮  SPRITES PREDETERMINADOS",()->{createBuiltinSpritePicker();}));
-        chooser.addView(editorButton("🎨  DIBUJAR MI SPRITE",()->{openSpritePixelEditor();}));
-        chooser.addView(editorButton("📁  IMPORTAR DESDE ARCHIVOS",()->{pickSpriteImage();}));
-        chooser.addView(editorButton("✕  CERRAR",()->{}));
-        android.app.AlertDialog chooserDialog=new android.app.AlertDialog.Builder(this).setTitle("CREAR SPRITE").setView(chooser).setNegativeButton("CERRAR",null).create();
-        chooserDialog.setOnShowListener(v->{if(chooserDialog.getWindow()!=null){chooserDialog.getWindow().setLayout(-1,-1);chooserDialog.getWindow().setBackgroundDrawableResource(android.R.color.black);}});
-        chooserDialog.show();
-        chooser.findViewWithTag("unused");
+        final String[] options={"🎮  Sprites predeterminados","🎨  Dibujar mi sprite","📁  Importar desde archivos","🧪  Crear sprite con efectos"};
+        android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(this)
+            .setTitle("CREAR SPRITE · PIXEL STUDIO")
+            .setItems(options,(d,which)->{
+                if(which==0)createBuiltinSpritePicker();
+                else if(which==1)openSpritePixelEditor();
+                else if(which==2)pickSpriteImage();
+                else openSpritePixelEditor();
+            }).setNegativeButton("CANCELAR",null).create();
+        dialog.setOnShowListener(v->{if(dialog.getWindow()!=null){dialog.getWindow().setLayout(-1,-1);dialog.getWindow().setBackgroundDrawableResource(android.R.color.black);}});
+        dialog.show();
     }
 
     void createBuiltinSpritePicker(){
