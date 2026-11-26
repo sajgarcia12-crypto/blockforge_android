@@ -390,6 +390,7 @@ public class BlockForgeActivity extends Activity {
         mobileActions.addView(button("＋ CREAR BOTÓN PARA MÓVILES",()->createMobileButtonDialog()),new LinearLayout.LayoutParams(0,-2,2));
         mobileActions.addView(button("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
         content.addView(mobileActions);
+        content.addView(button("⚙ ADMINISTRAR BOTONES MÓVILES",()->manageMobileButtons()));
         LinearLayout animationActions=new LinearLayout(this); animationActions.setOrientation(LinearLayout.HORIZONTAL);
         animationActions.addView(button("＋ FOTOGRAMA",()->pickAnimationFrame()),new LinearLayout.LayoutParams(0,-2,1));
         animationActions.addView(button("◀ FRAME",()->scenePreview.selectAnimationFrame(-1)),new LinearLayout.LayoutParams(0,-2,1));
@@ -1131,6 +1132,27 @@ public class BlockForgeActivity extends Activity {
         EditText width=new EditText(this);width.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);width.setHint("Ancho (5–64)");width.setText(String.valueOf(scenePreview.mapColumns));form.addView(width);
         EditText height=new EditText(this);height.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);height.setHint("Alto (5–64)");height.setText(String.valueOf(scenePreview.mapRows));form.addView(height);
         new android.app.AlertDialog.Builder(this).setTitle("Tamaño del mapa").setMessage("Configura las dimensiones de tu mundo 2D.").setView(form).setNegativeButton("Cancelar",null).setPositiveButton("APLICAR",(d,w)->{try{int c=Integer.parseInt(width.getText().toString()),r=Integer.parseInt(height.getText().toString());if(c<5||c>64||r<5||r>64)throw new NumberFormatException();scenePreview.setMapSize(c,r);openPage(2);}catch(Exception ex){Toast.makeText(this,"Usa valores entre 5 y 64",Toast.LENGTH_LONG).show();}}).show();
+    }
+
+    void manageMobileButtons(){
+        if(scenePreview==null||scenePreview.mobileButtons.isEmpty()){
+            Toast.makeText(this,"Todavía no hay botones móviles creados",Toast.LENGTH_SHORT).show();return;
+        }
+        String[] names=new String[scenePreview.mobileButtons.size()];
+        for(int i=0;i<names.length;i++){MobileButton b=scenePreview.mobileButtons.get(i);names[i]=b.title+"  ·  "+b.action;}
+        new android.app.AlertDialog.Builder(this).setTitle("Administrar botones")
+            .setItems(names,(dialog,which)->{
+                MobileButton selected=scenePreview.mobileButtons.get(which);
+                new android.app.AlertDialog.Builder(this).setTitle(selected.title)
+                    .setMessage("¿Quieres eliminar este botón del proyecto?")
+                    .setNegativeButton("Cancelar",null)
+                    .setPositiveButton("ELIMINAR",(d,w)->{
+                        MobileButton removed=scenePreview.mobileButtons.remove(which);
+                        if(removed.iconBitmap!=null&&!removed.iconBitmap.isRecycled())removed.iconBitmap.recycle();
+                        scenePreview.persistMobileButtons();scenePreview.invalidate();openPage(2);
+                        Toast.makeText(this,"Botón eliminado",Toast.LENGTH_SHORT).show();
+                    }).show();
+            }).setNegativeButton("Cerrar",null).show();
     }
 
     void createMobileButtonDialog() { createMobileButtonDialog(""); }
