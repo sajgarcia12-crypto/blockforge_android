@@ -92,7 +92,7 @@ jobs:
       - name: Crear icono original de BlockForge
         run: |
           set -e
-          python3 -m pip install --quiet pillow
+          python3 -m pip install --quiet --break-system-packages pillow
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
           python3 - "$P/app/src/main/res" <<'PY'
           from PIL import Image, ImageDraw
