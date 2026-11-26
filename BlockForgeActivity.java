@@ -3128,12 +3128,41 @@ public class BlockForgeActivity extends Activity {
         dialog.show();
     }
 
+    String importSpriteCookAsset(String assetName) throws java.io.IOException {
+        java.io.File dir = new java.io.File(getFilesDir(), "sprites");
+        if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("No se pudo crear la carpeta de sprites");
+        String fileName = "spritecook_" + assetName + ".webp";
+        java.io.File target = new java.io.File(dir, fileName);
+        if (!target.exists()) {
+            try (java.io.InputStream in = getAssets().open("spritecook/" + assetName + ".webp");
+                 java.io.FileOutputStream out = new java.io.FileOutputStream(target)) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                out.flush();
+            }
+        }
+        return fileName;
+    }
+
     void createBuiltinSpritePicker(){
-        final String[] names={"Personaje aventurero","Slime","Moneda","Plataforma","Árbol","Corazón","Caja","Robot","Murciélago","Esqueleto","Gema","Estrella","Poción","Cofre","Portal","Flor"};
-        new android.app.AlertDialog.Builder(this).setTitle("BIBLIOTECA DE SPRITES · 16 ELEMENTOS")
+        final String[] names={"Personaje aventurero","Slime","Moneda","Plataforma","Árbol","Corazón","Caja","Robot","Murciélago","Esqueleto","Gema","Estrella","Poción","Cofre","Portal","Flor",
+            "⭐ SpriteCook · Astronauta ardilla","SpriteCook · Hámster","SpriteCook · Loro","SpriteCook · Pingüino",
+            "SpriteCook · Perro","SpriteCook · Gato naranja","SpriteCook · Goblin","SpriteCook · Caballero"};
+        final String[] spriteCookFiles={"astronaut-squirrel","chunky-hamster","chunky-parrot","cute-penguin",
+            "friendly-brown-dog","ginger-cat","royal-goblin","paladin-knight"};
+        new android.app.AlertDialog.Builder(this).setTitle("BIBLIOTECA DE SPRITES · 24 ELEMENTOS")
             .setItems(names,(d,which)->{
-                try{String file=createBuiltinSprite(which);if(scenePreview==null)scenePreview=new ScenePreview();scenePreview.addSprite(file);Toast.makeText(this,"Sprite añadido: "+names[which],Toast.LENGTH_SHORT).show();openPage(2);}
-                catch(Exception e){Toast.makeText(this,"No se pudo crear el sprite",Toast.LENGTH_LONG).show();}
+                try{
+                    String file = which < 16 ? createBuiltinSprite(which) : importSpriteCookAsset(spriteCookFiles[which-16]);
+                    if(scenePreview==null)scenePreview=new ScenePreview();
+                    scenePreview.addSprite(file);
+                    Toast.makeText(this,"Sprite añadido: "+names[which],Toast.LENGTH_SHORT).show();
+                    openPage(2);
+                } catch(Exception e){
+                    android.util.Log.e("BlockForge","No se pudo importar sprite",e);
+                    Toast.makeText(this,"No se pudo importar el sprite",Toast.LENGTH_LONG).show();
+                }
             }).setNegativeButton("VOLVER",null).show();
     }
 
