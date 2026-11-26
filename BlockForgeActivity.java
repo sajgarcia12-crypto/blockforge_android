@@ -428,7 +428,7 @@ public class BlockForgeActivity extends Activity {
         card("Sprites", "Dibuja un sprite de 16×16 píxeles o importa una imagen PNG/JPG. Toca y arrastra un sprite para moverlo.");
         card("Físicas 2D", "Simulación continua con gravedad, velocidad, plataformas, límites, rebote y colisiones básicas. Usa el botón para iniciar o pausar.");
         card("Herramientas 2D", "Tres capas, cámara con zoom y desplazamiento, animación por fotogramas, controles de sprites, audio en bucle y exportación/importación JSON del nivel. Las imágenes deben estar disponibles en la biblioteca del dispositivo al importar.");
-        card("Paquetes de sprites", "Descarga desde BlockForge los recursos predeterminados optimizados a 30 o 60 FPS. El paquete se instala localmente dentro de la app.");
+        card("Paquetes de sprites y rendimiento", "Instala paquetes pixel art integrados sin conexión. Elige 30 FPS para priorizar batería o 60 FPS para una animación más fluida; la selección se guarda en el dispositivo.");
     }
 
     void showSceneAudioPicker() {
