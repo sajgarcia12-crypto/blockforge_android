@@ -827,10 +827,18 @@ public class BlockForgeActivity extends Activity {
         brand.addView(uiLabel("BLOCKFORGE", 12, uiInk, true));
         brand.addView(uiLabel(project + " · 2D", 9, uiMuted, false));
         top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
-        addWorkspaceTab(top, "2D", true, () -> openPage(2));
-        addWorkspaceTab(top, "SCRIPT", false, () -> openPage(3));
-        addWorkspaceTab(top, "JUEGO", false, () -> { scenePlayMode=true; physicsRunning=true; if(scenePreview!=null)scenePreview.startPhysics(); Toast.makeText(this,"Ejecutando escena 2D",Toast.LENGTH_SHORT).show(); });
-        addWorkspaceTab(top, "ASSETS", false, () -> openPage(4));
+        HorizontalScrollView workspaceNav = new HorizontalScrollView(this);
+        workspaceNav.setHorizontalScrollBarEnabled(false);
+        workspaceNav.setFillViewport(false);
+        LinearLayout workspaceTabs = new LinearLayout(this);
+        workspaceTabs.setGravity(Gravity.CENTER_VERTICAL);
+        addWorkspaceTab(workspaceTabs, "2D", true, () -> openPage(2));
+        addWorkspaceTab(workspaceTabs, "SCRIPT", false, () -> openPage(3));
+        addWorkspaceTab(workspaceTabs, "JUEGO", false, () -> { scenePlayMode=true; physicsRunning=true; if(scenePreview!=null)scenePreview.startPhysics(); Toast.makeText(this,"Ejecutando escena 2D",Toast.LENGTH_SHORT).show(); });
+        addWorkspaceTab(workspaceTabs, "ASSETS", false, () -> openPage(4));
+        addWorkspaceTab(workspaceTabs, "AJUSTES", false, () -> openPage(5));
+        workspaceNav.addView(workspaceTabs);
+        top.addView(workspaceNav, new LinearLayout.LayoutParams(0, 46, 1));
         top.addView(editorButton(scenePlayMode ? "■" : "▶", () -> {
             scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
             if(scenePreview!=null){if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();}
@@ -930,7 +938,13 @@ public class BlockForgeActivity extends Activity {
     void addWorkspaceTab(LinearLayout row,String text,boolean active,Runnable action){
         TextView v=editorButton((active?"● ":"")+text,action);
         v.setTextSize(10);
-        row.addView(v,new LinearLayout.LayoutParams(-2,40));
+        v.setSingleLine(true);
+        v.setPadding(13,0,13,0);
+        v.setTextColor(active?Color.rgb(105,170,245):uiInk);
+        v.setBackground(uiPanel(active?Color.rgb(39,54,73):Color.rgb(30,34,41)));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,38);
+        lp.setMargins(2,0,2,0);
+        row.addView(v,lp);
     }
     void addWorkspaceTool(LinearLayout row,String text,Runnable action){
         TextView v=editorButton(text,action);v.setTextSize(10);
