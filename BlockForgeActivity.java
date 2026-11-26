@@ -221,6 +221,11 @@ public class BlockForgeActivity extends Activity {
                     }).setNegativeButton("Cancelar",null).show();
             }));
             panelView.addView(editorButton(sprite.solid?"HACER TRANSPASABLE":"HACER SÓLIDO", () -> { scenePreview.toggleSelectedSpriteSolid(); dialog.dismiss(); }));
+            panelView.addView(editorButton(sprite.physicsEnabled?"PAUSAR FÍSICA DEL SPRITE":"ACTIVAR FÍSICA DEL SPRITE", () -> {
+                sprite.physicsEnabled=!sprite.physicsEnabled;
+                if(!sprite.physicsEnabled){sprite.vx=0f;sprite.vy=0f;}
+                scenePreview.persistSprites();scenePreview.invalidate();dialog.dismiss();showInspectorPanel();
+            }));
             panelView.addView(editorButton("ELIMINAR OBJETO", () -> { scenePreview.deleteSelectedSprite(); dialog.dismiss(); }));
             panelView.addView(editorButton("DUPLICAR OBJETO", () -> { scenePreview.duplicateSelectedSprite(); dialog.dismiss(); }));
             panelView.addView(editorButton("EDITAR CÓDIGO", () -> { dialog.dismiss(); showCodePanel(); }));
@@ -1010,6 +1015,7 @@ public class BlockForgeActivity extends Activity {
                 "girar_sprite(45)\n"+
                 "escalar_sprite(2, 2)\n"+
                 "sprite.fps(12)\n"+
+                "sprite.fisica.pausar()\n"+
                 "animacion.play()\n"+
                 "animacion.bucle(true)\n"+
                 "fisica.gravedad(24)\n"+
@@ -1430,7 +1436,8 @@ public class BlockForgeActivity extends Activity {
                 || line.startsWith("mover_sprite(") || line.startsWith("saltar_sprite(")
                 || line.startsWith("girar_sprite(") || line.startsWith("escalar_sprite(")
                 || line.startsWith("sprite.capa(") || line.equals("sprite.solido()")
-                || line.equals("sprite.atravesable()") || line.equals("eliminar_sprite()")
+                || line.equals("sprite.atravesable()") || line.equals("sprite.fisica.activar()")
+                || line.equals("sprite.fisica.pausar()") || line.equals("eliminar_sprite()")
                 || line.equals("duplicar_sprite()") || line.startsWith("velocidad_sprite(")
                 || line.startsWith("camara.zoom(") || line.equals("camara.centrar()")
                 || line.equals("fisica.activar()") || line.equals("fisica.pausar()")
@@ -1538,6 +1545,15 @@ public class BlockForgeActivity extends Activity {
                 sp.layer = layer;
                 target.persistSprites(); target.invalidate();
                 output.append("Capa del sprite: ").append(layer).append('\n');
+                return true;
+            }
+            if (line.equals("sprite.fisica.activar()") || line.equals("sprite.fisica.pausar()")) {
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.physicsEnabled = line.equals("sprite.fisica.activar()");
+                if (!sp.physicsEnabled) { sp.vx = 0f; sp.vy = 0f; }
+                target.persistSprites(); target.invalidate();
+                output.append(sp.physicsEnabled ? "Física del sprite activada\n" : "Física del sprite pausada\n");
                 return true;
             }
             if (line.equals("sprite.solido()") || line.equals("sprite.atravesable()")) {
@@ -1919,6 +1935,7 @@ public class BlockForgeActivity extends Activity {
         float width = 1f, height = 1f, rotation = 0f;
         int layer = 1;
         boolean solid = true;
+        boolean physicsEnabled = true;
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
         java.util.ArrayList<Bitmap> animationFrames=new java.util.ArrayList<>();
@@ -2011,6 +2028,7 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>12)loaded.height=Math.max(0.25f,Math.min((float)mapRows,Float.parseFloat(parts[12])));
                     if(parts.length>13)loaded.rotation=Math.max(-360f,Math.min(360f,Float.parseFloat(parts[13])));
                     if(parts.length>14)loaded.layer=Math.max(0,Math.min(2,Integer.parseInt(parts[14])));
+                    if(parts.length>15)loaded.physicsEnabled=Boolean.parseBoolean(parts[15]);
                     loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
                     loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
@@ -2090,7 +2108,7 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
                 data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop)
-                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation).append('|').append(sprite.layer);
+                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation).append('|').append(sprite.layer).append('|').append(sprite.physicsEnabled);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -2184,6 +2202,7 @@ public class BlockForgeActivity extends Activity {
 
         void physicsStep(float dt) {
             for (SceneSprite sprite : sprites) {
+                if (!sprite.physicsEnabled) continue;
                 float oldX = sprite.x, oldY = sprite.y;
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
@@ -2349,6 +2368,7 @@ public class BlockForgeActivity extends Activity {
             copy.width = original.width;
             copy.height = original.height;
             copy.rotation = original.rotation;
+            copy.physicsEnabled = original.physicsEnabled;
             copy.animationFps = original.animationFps;
             copy.animationLoop = original.animationLoop;
             copy.animationPlaying = original.animationPlaying;
@@ -3014,7 +3034,7 @@ public class BlockForgeActivity extends Activity {
             org.json.JSONObject item=new org.json.JSONObject();
             item.put("file",sp.fileName);item.put("x",sp.x);item.put("y",sp.y);item.put("layer",sp.layer);
             item.put("width",sp.width);item.put("height",sp.height);item.put("rotation",sp.rotation);
-            item.put("solid",sp.solid);item.put("vx",sp.vx);item.put("vy",sp.vy);
+            item.put("solid",sp.solid);item.put("physicsEnabled",sp.physicsEnabled);item.put("vx",sp.vx);item.put("vy",sp.vy);
             item.put("animationFps",sp.animationFps);item.put("animationLoop",sp.animationLoop);
             item.put("animationPlaying",sp.animationPlaying);item.put("currentFrameIndex",sp.currentFrameIndex);
             item.put("imageBase64",encodeSceneSpriteFile(sp.fileName));
@@ -3072,7 +3092,7 @@ public class BlockForgeActivity extends Activity {
             String importedMain=importSceneSpriteFile(item.optString("imageBase64",""),name,i);
             SceneSprite sp=new SceneSprite(importedMain,(float)item.optDouble("x",0),(float)item.optDouble("y",0),item.optBoolean("solid",true));
             if(sp.bitmap==null)continue;
-            sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);
+            sp.vx=(float)item.optDouble("vx",0);sp.vy=(float)item.optDouble("vy",0);sp.physicsEnabled=item.optBoolean("physicsEnabled",true);
             sp.width=(float)Math.max(0.25,Math.min(Math.min(8,target.mapColumns),item.optDouble("width",1)));
             sp.height=(float)Math.max(0.25,Math.min(Math.min(8,target.mapRows),item.optDouble("height",1)));
             sp.x=Math.max(0f,Math.min(target.mapColumns-sp.width,sp.x));
