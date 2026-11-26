@@ -24,6 +24,7 @@ public class BlockForgeActivity extends Activity {
     int sceneBrushColor = Color.rgb(55, 135, 90);
     boolean sceneEraseMode = false;
     boolean sceneGridVisible = true;
+    boolean sceneCollisionsEnabled = true;
     String runtimeWorldName = "Mi mundo";
 
     @Override
@@ -346,12 +347,30 @@ public class BlockForgeActivity extends Activity {
             scenePreview.invalidate();
         }), new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(editActions);
+        LinearLayout spriteActions = new LinearLayout(this);
+        spriteActions.setOrientation(LinearLayout.HORIZONTAL);
+        spriteActions.addView(button("✎ DIBUJAR SPRITE", () -> openSpriteDrawer()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        spriteActions.addView(button("＋ IMPORTAR IMAGEN", () -> pickSpriteImage()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(spriteActions);
+        LinearLayout physicsActions = new LinearLayout(this);
+        physicsActions.setOrientation(LinearLayout.HORIZONTAL);
+        physicsActions.addView(button("↓ FÍSICAS", () -> {
+            scenePreview.simulatePhysicsStep();
+            Toast.makeText(this, "Paso de gravedad y colisiones ejecutado", Toast.LENGTH_SHORT).show();
+        }), new LinearLayout.LayoutParams(0, -2, 1));
+        physicsActions.addView(button("COLISIONES: " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
+            sceneCollisionsEnabled = !sceneCollisionsEnabled;
+            openPage(2);
+        }), new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(physicsActions);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
-            Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
         }));
-        card("Cómo usar", "Toca cualquier celda de la cuadrícula para colocar un bloque. Los cambios se guardan automáticamente.");
-        card("Estado", "Editor 2D por cuadrícula. El modo 3D usa un renderizador OpenGL ES independiente.");
+        card("Sprites", "Dibuja un sprite de 16×16 píxeles o importa una imagen PNG/JPG. Toca y arrastra un sprite para moverlo.");
+        card("Físicas y colisiones", "FÍSICAS aplica un paso de gravedad. Los sprites sólidos se detienen al tocar bloques u otros sprites sólidos. Es una simulación 2D inicial, no un motor físico avanzado.");
     }
 
     void setSceneBrush(int color, boolean erase) {
@@ -928,11 +947,25 @@ public class BlockForgeActivity extends Activity {
         return result;
     }
 
+    class SceneSprite {
+        String fileName;
+        float x, y;
+        boolean solid = true;
+        Bitmap bitmap;
+        SceneSprite(String name, float px, float py, boolean isSolid) {
+            fileName = name; x = px; y = py; solid = isSolid;
+            java.io.File file = new java.io.File(new java.io.File(getFilesDir(), "sprites"), name);
+            bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+        }
+    }
+
     class ScenePreview extends View {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> blockColors = new java.util.ArrayList<>();
+        java.util.ArrayList<SceneSprite> sprites = new java.util.ArrayList<>();
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
+        int draggingSprite = -1;
 
         ScenePreview() {
             super(BlockForgeActivity.this);
@@ -951,6 +984,56 @@ public class BlockForgeActivity extends Activity {
                     }
                 }
             }
+            String spriteData = getPreferences(MODE_PRIVATE)
+                    .getString("scene_sprites_" + active, "");
+            if (!spriteData.isEmpty()) for (String item : spriteData.split(";")) {
+                String[] parts = item.split("\\|");
+                if (parts.length >= 3) try {
+                    sprites.add(new SceneSprite(parts[0], Float.parseFloat(parts[1]),
+                            Float.parseFloat(parts[2]), parts.length < 4 || Boolean.parseBoolean(parts[3])));
+                } catch (Exception ignored) { }
+            }
+        }
+
+        void persistSprites() {
+            StringBuilder data = new StringBuilder();
+            for (SceneSprite sprite : sprites) {
+                if (data.length() > 0) data.append(';');
+                data.append(sprite.fileName).append('|').append(sprite.x).append('|')
+                        .append(sprite.y).append('|').append(sprite.solid);
+            }
+            getPreferences(MODE_PRIVATE).edit()
+                    .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
+        }
+
+        void addSprite(String name) {
+            sprites.add(new SceneSprite(name, 4, 4, true));
+            persistSprites();
+            invalidate();
+        }
+
+        void simulatePhysicsStep() {
+            if (!sceneCollisionsEnabled) {
+                for (SceneSprite sprite : sprites) sprite.y = Math.min(9, sprite.y + 1);
+            } else {
+                for (SceneSprite sprite : sprites) {
+                    float nextY = Math.min(9, sprite.y + 1);
+                    boolean blocked = nextY >= 9.0f;
+                    int sx = Math.max(0, Math.min(9, Math.round(sprite.x)));
+                    int sy = Math.max(0, Math.min(9, Math.round(nextY)));
+                    if (sprite.solid) {
+                        for (Point block : blocks)
+                            if (block.x == sx && block.y == sy) blocked = true;
+                        for (SceneSprite other : sprites)
+                            if (other != sprite && other.solid &&
+                                    Math.round(other.x) == sx && Math.round(other.y) == sy)
+                                blocked = true;
+                    }
+                    if (!blocked) sprite.y = nextY;
+                }
+            }
+            persistSprites();
+            invalidate();
         }
 
         void persist() {
@@ -1021,26 +1104,50 @@ public class BlockForgeActivity extends Activity {
 
         @Override
         public boolean onTouchEvent(android.view.MotionEvent event) {
-            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                float cellW = Math.max(1f, getWidth() / 10f);
-                float cellH = Math.max(1f, getHeight() / 10f);
-                int col = Math.max(0, Math.min(9, (int)(event.getX() / cellW)));
-                int row = Math.max(0, Math.min(9, (int)(event.getY() / cellH)));
-                rememberState();
-                if (sceneEraseMode) {
-                    for (int i = blocks.size() - 1; i >= 0; i--) {
-                        Point block = blocks.get(i);
-                        if (block.x == col && block.y == row) {
-                            blocks.remove(i);
-                            if (i < blockColors.size()) blockColors.remove(i);
-                            break;
-                        }
+            float cellW = Math.max(1f, getWidth() / 10f);
+            float cellH = Math.max(1f, getHeight() / 10f);
+            int col = Math.max(0, Math.min(9, (int)(event.getX() / cellW)));
+            int row = Math.max(0, Math.min(9, (int)(event.getY() / cellH)));
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                draggingSprite = -1;
+                for (int i = sprites.size() - 1; i >= 0; i--) {
+                    SceneSprite sprite = sprites.get(i);
+                    if (Math.abs(sprite.x - col) <= 1 && Math.abs(sprite.y - row) <= 1) {
+                        draggingSprite = i;
+                        break;
                     }
-                } else {
-                    blocks.add(new Point(col, row));
-                    blockColors.add(sceneBrushColor);
                 }
-                persist();
+                return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
+                SceneSprite sprite = sprites.get(draggingSprite);
+                sprite.x = col; sprite.y = row;
+                invalidate();
+                return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                if (draggingSprite >= 0) {
+                    SceneSprite sprite = sprites.get(draggingSprite);
+                    sprite.x = col; sprite.y = row;
+                    draggingSprite = -1;
+                    persistSprites();
+                } else {
+                    rememberState();
+                    if (sceneEraseMode) {
+                        for (int i = blocks.size() - 1; i >= 0; i--) {
+                            Point block = blocks.get(i);
+                            if (block.x == col && block.y == row) {
+                                blocks.remove(i);
+                                if (i < blockColors.size()) blockColors.remove(i);
+                                break;
+                            }
+                        }
+                    } else {
+                        blocks.add(new Point(col, row));
+                        blockColors.add(sceneBrushColor);
+                    }
+                    persist();
+                }
                 invalidate();
                 performClick();
                 return true;
@@ -1082,6 +1189,26 @@ public class BlockForgeActivity extends Activity {
                 canvas.drawRect(left, top, right, top + 5, paint);
                 paint.setColor(Color.rgb(20, 35, 55));
                 canvas.drawRect(left, bottom - 5, right, bottom, paint);
+            }
+
+            for (SceneSprite sprite : sprites) {
+                float left = sprite.x * cellW + 2;
+                float top = sprite.y * cellH + 2;
+                float right = left + cellW - 4;
+                float bottom = top + cellH - 4;
+                if (sprite.bitmap != null) {
+                    paint.setFilterBitmap(false);
+                    canvas.drawBitmap(sprite.bitmap, null, new RectF(left, top, right, bottom), paint);
+                } else {
+                    paint.setColor(Color.MAGENTA);
+                    canvas.drawRect(left, top, right, bottom, paint);
+                }
+                if (sprite.solid) {
+                    paint.setColor(Color.WHITE);
+                    paint.setStyle(Paint.Style.STROKE);
+                    canvas.drawRect(left, top, right, bottom, paint);
+                    paint.setStyle(Paint.Style.FILL);
+                }
             }
 
             paint.setColor(white);
@@ -1276,6 +1403,7 @@ public class BlockForgeActivity extends Activity {
     }
 
     static final int PICK_RESOURCE_REQUEST = 7421;
+    static final int PICK_SPRITE_REQUEST = 7422;
 
     void resources() {
         heading("Biblioteca de recursos",
@@ -1303,29 +1431,144 @@ public class BlockForgeActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode,
                                     android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != PICK_RESOURCE_REQUEST || resultCode != RESULT_OK ||
-                data == null || data.getData() == null) return;
-        try {
-            android.net.Uri uri = data.getData();
-            String name = uri.getLastPathSegment();
-            if (name == null || name.trim().isEmpty())
-                name = "recurso_" + System.currentTimeMillis();
-            name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
-            java.io.File folder = new java.io.File(getFilesDir(), "resources");
-            if (!folder.exists()) folder.mkdirs();
-            java.io.File destination = new java.io.File(folder, name);
-            try (java.io.InputStream in = getContentResolver().openInputStream(uri);
-                 java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
-                if (in == null) throw new java.io.IOException("No se pudo abrir el archivo");
-                byte[] buffer = new byte[8192];
-                int count;
-                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == PICK_SPRITE_REQUEST) {
+            try {
+                String name = copyUriToFolder(data.getData(), "sprites", "sprite");
+                if (scenePreview != null) scenePreview.addSprite(name);
+                Toast.makeText(this, "Sprite importado y añadido a la escena", Toast.LENGTH_LONG).show();
+                openPage(2);
+            } catch (Exception ex) {
+                Toast.makeText(this, "No se pudo importar la imagen: " + ex.getMessage(),
+                        Toast.LENGTH_LONG).show();
             }
+            return;
+        }
+        if (requestCode != PICK_RESOURCE_REQUEST) return;
+        try {
+            String name = copyUriToFolder(data.getData(), "resources", "recurso");
             Toast.makeText(this, "Recurso importado: " + name, Toast.LENGTH_LONG).show();
             openPage(4);
         } catch (Exception ex) {
             Toast.makeText(this, "No se pudo importar: " + ex.getMessage(),
                     Toast.LENGTH_LONG).show();
+        }
+    }
+
+    String copyUriToFolder(android.net.Uri uri, String folderName, String prefix)
+            throws java.io.IOException {
+        String name = uri.getLastPathSegment();
+        if (name == null || name.trim().isEmpty()) name = prefix + "_" + System.currentTimeMillis();
+        name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (!name.contains(".")) name += ".png";
+        java.io.File folder = new java.io.File(getFilesDir(), folderName);
+        if (!folder.exists() && !folder.mkdirs())
+            throw new java.io.IOException("No se pudo crear la carpeta");
+        java.io.File destination = new java.io.File(folder, System.currentTimeMillis() + "_" + name);
+        try (java.io.InputStream in = getContentResolver().openInputStream(uri);
+             java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
+            if (in == null) throw new java.io.IOException("No se pudo abrir el archivo");
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+        }
+        return destination.getName();
+    }
+
+    void pickSpriteImage() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        startActivityForResult(intent, PICK_SPRITE_REQUEST);
+    }
+
+    void openSpriteDrawer() {
+        SpriteDrawView drawing = new SpriteDrawView();
+        LinearLayout wrap = vertical();
+        wrap.setPadding(12, 8, 12, 8);
+        wrap.addView(drawing, new LinearLayout.LayoutParams(-1, 360));
+        LinearLayout colors = new LinearLayout(this);
+        int[] palette = {Color.BLACK, Color.WHITE, Color.RED, Color.GREEN,
+                Color.BLUE, Color.YELLOW, Color.MAGENTA, Color.CYAN,
+                Color.rgb(130, 80, 40), Color.TRANSPARENT};
+        String[] labels = {"Negro","Blanco","Rojo","Verde","Azul","Amarillo","Rosa","Cian","Marrón","Borrar"};
+        for (int i = 0; i < palette.length; i++) {
+            final int color = palette[i];
+            TextView swatch = button(labels[i], () -> drawing.setColor(color));
+            swatch.setTextSize(9);
+            colors.addView(swatch, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        wrap.addView(colors);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Dibujar sprite · 16×16")
+                .setView(wrap)
+                .setNegativeButton("Cancelar", null)
+                .setPositiveButton("GUARDAR SPRITE", (dialog, which) -> {
+                    try {
+                        String name = saveDrawnSprite(drawing.exportBitmap());
+                        if (scenePreview != null) scenePreview.addSprite(name);
+                        Toast.makeText(this, "Sprite creado", Toast.LENGTH_SHORT).show();
+                        openPage(2);
+                    } catch (Exception ex) {
+                        Toast.makeText(this, "Error al guardar sprite: " + ex.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }).show();
+    }
+
+    String saveDrawnSprite(Bitmap bitmap) throws java.io.IOException {
+        java.io.File folder = new java.io.File(getFilesDir(), "sprites");
+        if (!folder.exists()) folder.mkdirs();
+        String name = "dibujado_" + System.currentTimeMillis() + ".png";
+        java.io.File file = new java.io.File(folder, name);
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        }
+        return name;
+    }
+
+    class SpriteDrawView extends View {
+        final int size = 16;
+        final int[] pixels = new int[size * size];
+        final Paint brush = new Paint(Paint.ANTI_ALIAS_FLAG);
+        int currentColor = Color.BLACK;
+        SpriteDrawView() {
+            super(BlockForgeActivity.this);
+            java.util.Arrays.fill(pixels, Color.TRANSPARENT);
+            setBackgroundColor(Color.rgb(25, 32, 45));
+        }
+        void setColor(int color) { currentColor = color; }
+        Bitmap exportBitmap() {
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            bitmap.setPixels(pixels, 0, size, 0, 0, size, size);
+            return Bitmap.createScaledBitmap(bitmap, 256, 256, false);
+        }
+        @Override public boolean onTouchEvent(android.view.MotionEvent event) {
+            float cell = Math.min(getWidth(), getHeight()) / 16f;
+            int x = Math.max(0, Math.min(15, (int)(event.getX() / cell)));
+            int y = Math.max(0, Math.min(15, (int)(event.getY() / cell)));
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN ||
+                    event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
+                pixels[y * size + x] = currentColor;
+                invalidate();
+                return true;
+            }
+            return true;
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float cell = Math.min(getWidth(), getHeight()) / 16f;
+            float left = (getWidth() - cell * 16f) / 2f;
+            float top = (getHeight() - cell * 16f) / 2f;
+            for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+                brush.setColor(((x + y) % 2 == 0) ? Color.rgb(45,52,65) : Color.rgb(35,42,55));
+                canvas.drawRect(left+x*cell, top+y*cell, left+(x+1)*cell, top+(y+1)*cell, brush);
+                if (pixels[y*16+x] != Color.TRANSPARENT) {
+                    brush.setColor(pixels[y*16+x]);
+                    canvas.drawRect(left+x*cell+1, top+y*cell+1,
+                            left+(x+1)*cell-1, top+(y+1)*cell-1, brush);
+                }
+            }
         }
     }
 
