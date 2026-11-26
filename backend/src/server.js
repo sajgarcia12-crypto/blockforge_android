@@ -102,8 +102,8 @@ app.post("/api/connect/onboarding", requireSandboxToken, async (req, res) => {
 
 app.post("/api/checkout", requireSandboxToken, async (req, res) => {
   try {
-    const { productId, creatorRef } = req.body || {};
-    const product = typeof productId === "string" ? products[productId] : null;
+    const { productId, creatorRef, requestId } = req.body || {};
+    if (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId)) {\n      return res.status(400).json({ error: "requestId UUID requerido para idempotencia" });\n    }\n    const product = typeof productId === "string" ? products[productId] : null;
     const accountId = typeof creatorRef === "string" ? connectedAccounts.get(creatorRef) : null;
 
     if (!product || !Number.isSafeInteger(product.amount_cad) || product.amount_cad < 100) {
@@ -138,7 +138,7 @@ app.post("/api/checkout", requireSandboxToken, async (req, res) => {
       success_url: successUrl + "?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: cancelUrl,
       metadata: { blockforge_product_id: productId, creator_ref: creatorRef }
-    }, { idempotencyKey: "bf_test_" + creatorRef + "_" + productId + "_" + Date.now() });
+    }, { idempotencyKey: "bf_test_" + requestId });
 
     return res.json({
       mode: "test",
