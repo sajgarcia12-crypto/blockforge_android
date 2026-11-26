@@ -412,18 +412,18 @@ public class BlockForgeActivity extends Activity {
         content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
 
         card("Sintaxis del lenguaje",
-                "variable puntos = 2 + 3\\n"+
-                "si puntos > 3 {\\n"+
-                "    mostrar_mensaje \\"Ganaste: ${puntos}\\"\\n"+
-                "} sino {\\n"+
-                "    mostrar_mensaje \\"Sigue intentando\\"\\n"+
-                "}\\n"+
-                "repetir 3 {\\n"+
-                "    crear_bloque piedra 1 0 1\\n"+
-                "}\\n"+
-                "crear_personaje Jugador\\n"+
-                "jugador.mover(2, 1)\\n"+
-                "mostrar_mensaje \\"Listo\\"");
+                "variable puntos = 2 + 3\n"+
+                "si puntos > 3 {\n"+
+                "    mostrar_mensaje \"Ganaste: ${puntos}\"\n"+
+                "} sino {\n"+
+                "    mostrar_mensaje \"Sigue intentando\"\n"+
+                "}\n"+
+                "repetir 3 {\n"+
+                "    crear_bloque piedra 1 0 1\n"+
+                "}\n"+
+                "crear_personaje Jugador\n"+
+                "jugador.mover(2, 1)\n"+
+                "mostrar_mensaje \"Listo\"");
     }
 
     void saveCurrentScript() {
