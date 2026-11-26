@@ -1,6 +1,8 @@
 
 package com.blockforge.studio;
 
+// Compilación: los métodos de interfaz deben permanecer en líneas Java reales, no como texto escapado.
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.graphics.*;
