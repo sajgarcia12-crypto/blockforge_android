@@ -62,6 +62,7 @@ public class BlockForgeActivity extends Activity {
         sceneCollisionsEnabled=getPreferences(MODE_PRIVATE).getBoolean("scene_collisions",true);
         buildInterface();
         home();
+        ensureOriginalSoundPackInstalled();
     }
 
     @Override
@@ -213,7 +214,8 @@ public class BlockForgeActivity extends Activity {
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
             panelView.addView(label(sprite.fileName,17,white));
-            panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No"),13,gray));
+            panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No")+" · "+(sprite.isPlayer?"PERSONAJE":"OBJETO FIJO"),13,gray));
+            panelView.addView(editorButton(sprite.isPlayer?"✓ PERSONAJE DEL JUEGO":"DESIGNAR COMO PERSONAJE",()->{scenePreview.designateSelectedAsPlayer();dialog.dismiss();}));
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
                 android.widget.EditText x=new android.widget.EditText(this); x.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); x.setHint("X"); x.setText(String.valueOf(sprite.x));
                 android.widget.EditText y=new android.widget.EditText(this); y.setInputType(8194 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED); y.setHint("Y"); y.setText(String.valueOf(sprite.y));
@@ -907,6 +909,8 @@ public class BlockForgeActivity extends Activity {
             detachScenePreviewFromParent();
             scenePreview.setBackgroundColor(Color.rgb(24,31,43));
             if(scenePreview.sprites.size()>0 && (scenePreview.selectedSprite<0||scenePreview.selectedSprite>=scenePreview.sprites.size()))scenePreview.selectedSprite=0;
+            gameBar.setElevation(12f);
+            scenePreview.setElevation(1f);
             content.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
             // Arrancar la física cuando el viewport ya esté unido a la ventana.
             if(physicsRunning) scenePreview.post(() -> {
@@ -1218,8 +1222,24 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    void ensureOriginalSoundPackInstalled() {
+        try {
+            java.io.File folder=new java.io.File(getFilesDir(),"resources");
+            if(!folder.exists()&&!folder.mkdirs())return;
+            java.io.File click=new java.io.File(folder,"bf_click_original.wav");
+            java.io.File jump=new java.io.File(folder,"bf_jump_original.wav");
+            java.io.File coin=new java.io.File(folder,"bf_coin_original.wav");
+            java.io.File ambient=new java.io.File(folder,"bf_ambient_original.wav");
+            if(!click.exists())createToneWav(click,660,90);
+            if(!jump.exists())createToneWav(jump,520,180);
+            if(!coin.exists())createToneWav(coin,990,220);
+            if(!ambient.exists())createToneWav(ambient,220,900);
+        } catch(Exception ex) { android.util.Log.w("BlockForge","No se pudo preparar el pack de audio",ex); }
+    }
+
     void installOriginalSoundPack() {
         try {
+            ensureOriginalSoundPackInstalled();
             java.io.File folder=new java.io.File(getFilesDir(),"resources");
             if(!folder.exists()&&!folder.mkdirs())throw new java.io.IOException("No se pudo crear Recursos");
             createToneWav(new java.io.File(folder,"bf_click_original.wav"),660,90);
@@ -2058,6 +2078,7 @@ public class BlockForgeActivity extends Activity {
         float x, y;
         float width = 1f, height = 1f, rotation = 0f;
         boolean solid = true;
+        boolean isPlayer = false;
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
         java.util.ArrayList<Bitmap> animationFrames=new java.util.ArrayList<>();
@@ -2147,10 +2168,19 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>11)loaded.width=Math.max(0.25f,Math.min((float)mapColumns,Float.parseFloat(parts[11])));
                     if(parts.length>12)loaded.height=Math.max(0.25f,Math.min((float)mapRows,Float.parseFloat(parts[12])));
                     if(parts.length>13)loaded.rotation=Math.max(-360f,Math.min(360f,Float.parseFloat(parts[13])));
+                    if(parts.length>14)loaded.isPlayer=Boolean.parseBoolean(parts[14]);
                     loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
                     loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
                 } catch (Exception ignored) { }
+            }
+            boolean hasPlayer=false;
+            for(SceneSprite sprite:sprites) if(sprite.isPlayer) { hasPlayer=true; break; }
+            if(!hasPlayer) for(SceneSprite sprite:sprites) {
+                String n=sprite.fileName.toLowerCase(java.util.Locale.ROOT);
+                if(n.contains("hero")||n.contains("player")||n.contains("personaje")||n.contains("astronaut")||n.contains("paladin")||n.contains("knight")||n.contains("adventur")) {
+                    sprite.isPlayer=true; break;
+                }
             }
         }
 
@@ -2235,7 +2265,7 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
                 data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop)
-                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation);
+                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation).append('|').append(sprite.isPlayer);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -2251,6 +2281,7 @@ public class BlockForgeActivity extends Activity {
             float centerY=(getHeight()*0.5f-cameraOffsetY)/(cameraZoom*64f);
             SceneSprite created = new SceneSprite(name, centerX, centerY, true);
             created.vy = 0f;
+            created.isPlayer = sprites.isEmpty() && isLikelyPlayerSprite(name);
             sprites.add(created);
             selectedSprite = sprites.size() - 1;
             persistSprites();
@@ -2258,6 +2289,13 @@ public class BlockForgeActivity extends Activity {
         }
 
         SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
+        void designateSelectedAsPlayer(){
+            SceneSprite chosen=selectedSpriteObject();
+            if(chosen==null){Toast.makeText(BlockForgeActivity.this,"Selecciona primero el personaje",Toast.LENGTH_SHORT).show();return;}
+            for(SceneSprite sprite:sprites)sprite.isPlayer=false;
+            chosen.isPlayer=true;chosen.vx=0f;chosen.vy=0f;persistSprites();invalidate();
+            Toast.makeText(BlockForgeActivity.this,"Personaje del juego asignado",Toast.LENGTH_SHORT).show();
+        }
         void addAnimationFrame(String name){SceneSprite sp=selectedSpriteObject();if(sp==null)return;java.io.File f=new java.io.File(new java.io.File(getFilesDir(),"sprites"),name);Bitmap b=BitmapFactory.decodeFile(f.getAbsolutePath());if(b==null)return;sp.animationFrames.add(b);sp.animationFrameNames.add(name);sp.currentFrameIndex=sp.animationFrames.size()-1;sp.animationPlaying=false;persistSprites();invalidate();startAnimationTicker();}
         void selectAnimationFrame(int delta){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"Añade fotogramas primero",Toast.LENGTH_SHORT).show();return;}sp.currentFrameIndex=(sp.currentFrameIndex+delta+sp.animationFrames.size())%sp.animationFrames.size();sp.animationPlaying=false;persistSprites();invalidate();}
         void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;if(sp.animationPlaying&&sp.currentFrameIndex>=sp.animationFrames.size()-1&&!sp.animationLoop)sp.currentFrameIndex=0;sp.lastFrameAdvance=android.os.SystemClock.uptimeMillis();persistSprites();startAnimationTicker();invalidate();}
@@ -2335,6 +2373,7 @@ public class BlockForgeActivity extends Activity {
 
         void physicsStep(float dt) {
             for (SceneSprite sprite : sprites) {
+                if (!sprite.isPlayer) continue; // Plataformas, monedas y decoraciones permanecen fijas.
                 float oldX = sprite.x, oldY = sprite.y;
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
@@ -2496,8 +2535,9 @@ public class BlockForgeActivity extends Activity {
             SceneSprite copy = new SceneSprite(original.fileName,
                     Math.min(mapColumns - original.width, original.x + 1f),
                     Math.min(mapRows - original.height, original.y + 1f), original.solid);
-            copy.vx = original.vx;
-            copy.vy = original.vy;
+            copy.vx = 0f;
+            copy.vy = 0f;
+            copy.isPlayer = false;
             copy.width = original.width;
             copy.height = original.height;
             copy.rotation = original.rotation;
@@ -2614,12 +2654,8 @@ public class BlockForgeActivity extends Activity {
                         runMobileButton(mobileButtons.get(hit));
                         return true;
                     }
-                    float wx=(event.getX(0)-cameraOffsetX)/(cameraZoom*64f);
-                    float wy=(event.getY(0)-cameraOffsetY)/(cameraZoom*64f);
-                    for(int i=sprites.size()-1;i>=0;i--){
-                        SceneSprite sp=sprites.get(i);
-                        if(wx>=sp.x&&wx<=sp.x+sp.width&&wy>=sp.y&&wy<=sp.y+sp.height){selectedSprite=i;invalidate();break;}
-                    }
+                    // En juego los toques sobre el escenario no cambian el personaje activo.
+                    // Solo los controles táctiles mueven al personaje designado.
                     return true;
                 }
                 if(action==android.view.MotionEvent.ACTION_POINTER_UP
@@ -3217,6 +3253,13 @@ public class BlockForgeActivity extends Activity {
                 Toast.makeText(this,"Añade al menos un sprite u objeto antes de ejecutar la escena",Toast.LENGTH_LONG).show();
                 return;
             }
+            boolean hasPlayer=false;
+            for(SceneSprite sprite:scenePreview.sprites) if(sprite.isPlayer){hasPlayer=true;break;}
+            if(!hasPlayer){
+                Toast.makeText(this,"Designa el personaje desde Inspector → DESIGNAR COMO PERSONAJE. Los demás sprites quedarán fijos.",Toast.LENGTH_LONG).show();
+                return;
+            }
+            for(int i=0;i<scenePreview.sprites.size();i++)if(scenePreview.sprites.get(i).isPlayer){scenePreview.selectedSprite=i;break;}
             // Cambiar primero al viewport de juego; no ejecutar física sobre una vista aún desmontada.
             scenePlayMode = true;
             if (scenePreview.selectedSprite < 0 && !scenePreview.sprites.isEmpty())
