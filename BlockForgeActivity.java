@@ -436,14 +436,16 @@ public class BlockForgeActivity extends Activity {
         String[] lines = codeEditor.getText().toString().split("\\r?\\n");
         StringBuilder output = new StringBuilder();
         java.util.Map<String, Double> variables = new java.util.HashMap<>();
+        java.util.Map<String, String[]> functions = new java.util.HashMap<>();
         int[] cursor = new int[]{0};
-        int executed = executeGrafisriptBlock(lines, cursor, variables, output, 0);
+        int executed = executeGrafisriptBlock(lines, cursor, variables, functions, output, 0);
         output.append("\nPrograma finalizado. Instrucciones ejecutadas: ").append(executed);
         runtimeOutput.setText(output.toString());
     }
 
     int executeGrafisriptBlock(String[] lines, int[] cursor,
-            java.util.Map<String, Double> variables, StringBuilder output, int depth) {
+            java.util.Map<String, Double> variables,
+            java.util.Map<String, String[]> functions, StringBuilder output, int depth) {
         if (depth > 12) {
             output.append("Error: demasiados bloques anidados (máximo 12).\n");
             return 0;
@@ -455,6 +457,39 @@ public class BlockForgeActivity extends Activity {
             if (line.isEmpty() || line.startsWith("#")) continue;
             if (line.equals("}") || line.equals("fin")) return executed;
 
+            if (line.startsWith("funcion ") && line.endsWith("{")) {
+                String name = line.substring(8, line.length() - 1).trim();
+                if (!name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+                    output.append("Línea ").append(lineNumber).append(": nombre de función inválido.\\n");
+                    continue;
+                }
+                int bodyStart = cursor[0];
+                int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) {
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar la función.\\n");
+                    return executed;
+                }
+                functions.put(name, java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd));
+                cursor[0] = bodyEnd + 1;
+                output.append("Función definida: ").append(name).append('\\n');
+                continue;
+            }
+
+            if (line.startsWith("llamar ")) {
+                String name = line.substring(7).trim();
+                String[] body = functions.get(name);
+                if (body == null) {
+                    output.append("Línea ").append(lineNumber).append(": función no definida: ")
+                            .append(name).append('\\n');
+                } else {
+                    int[] functionCursor = new int[]{0};
+                    executed += executeGrafisriptBlock(body, functionCursor, variables,
+                            functions, output, depth + 1);
+                    executed++;
+                }
+                continue;
+            }
+
             if (line.startsWith("si ") && line.endsWith("{")) {
                 String condition = line.substring(3, line.length() - 1).trim();
                 int bodyStart = cursor[0];
@@ -465,7 +500,7 @@ public class BlockForgeActivity extends Activity {
                 }
                 boolean result = evaluateGrafisriptCondition(condition, variables);
                 if (result) {
-                    executed += executeGrafisriptBlock(lines, cursor, variables, output, depth + 1);
+                    executed += executeGrafisriptBlock(lines, cursor, variables, functions, output, depth + 1);
                 } else {
                     cursor[0] = bodyEnd + 1;
                 }
@@ -481,7 +516,7 @@ public class BlockForgeActivity extends Activity {
                         return executed;
                     }
                     if (!result) {
-                        executed += executeGrafisriptBlock(lines, cursor, variables, output, depth + 1);
+                        executed += executeGrafisriptBlock(lines, cursor, variables, functions, output, depth + 1);
                     } else {
                         cursor[0] = elseEnd + 1;
                     }
@@ -513,7 +548,7 @@ public class BlockForgeActivity extends Activity {
                 String[] body = java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd);
                 for (int n = 0; n < count; n++) {
                     int[] nestedCursor = new int[]{0};
-                    executed += executeGrafisriptBlock(body, nestedCursor, variables, output, depth + 1);
+                    executed += executeGrafisriptBlock(body, nestedCursor, variables, functions, output, depth + 1);
                 }
                 cursor[0] = bodyEnd + 1;
                 continue;
