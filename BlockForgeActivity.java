@@ -1450,7 +1450,8 @@ public class BlockForgeActivity extends Activity {
                 || line.equals("colisiones.pausar()");
         if (!is2DCommand) return false;
         try {
-            ScenePreview target = scenePreview != null ? scenePreview : new ScenePreview();
+            if (scenePreview == null) throw new IllegalStateException("Abre una escena 2D antes de ejecutar comandos de escena");
+            ScenePreview target = scenePreview;
             if (line.startsWith("crear_bloque2d ")) {
                 String[] v = line.substring(15).trim().split("\\s+");
                 if (v.length < 2 || v.length > 3)
@@ -3303,6 +3304,8 @@ public class BlockForgeActivity extends Activity {
     }
 
     String saveDrawnSprite(Bitmap bitmap, String requestedName) throws java.io.IOException {
+        if (bitmap == null || bitmap.isRecycled())
+            throw new java.io.IOException("El lienzo no contiene una imagen exportable");
         java.io.File folder = new java.io.File(getFilesDir(), "sprites");
         if (!folder.exists() && !folder.mkdirs()) {
             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
@@ -3334,6 +3337,7 @@ public class BlockForgeActivity extends Activity {
         boolean showGrid = true;
         int lineStart = -1;
         int lastPaintedPixel = -1;
+        int gestureTool = -1;
         float cellSize, gridLeft, gridTop;
 
         SpriteDrawView() {
@@ -3429,31 +3433,47 @@ public class BlockForgeActivity extends Activity {
         }
         @Override public boolean onTouchEvent(android.view.MotionEvent event) {
             int index = pixelAt(event.getX(), event.getY());
-            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+            int action = event.getActionMasked();
+            if (action == android.view.MotionEvent.ACTION_DOWN) {
                 if (index < 0) return false;
-                if (tool != 4) snapshot();
+                gestureTool = tool;
+                if (gestureTool != 4) snapshot();
                 lineStart = index;
                 lastPaintedPixel = index;
-                if (tool != 3) paintAt(index);
+                if (gestureTool != 3) paintAt(index);
                 invalidate();
                 return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE) {
-                if (index >= 0 && tool != 2 && tool != 3 && tool != 4 && index != lastPaintedPixel) {
-                    if (tool == 0 && lastPaintedPixel >= 0) drawLine(lastPaintedPixel, index);
-                    else paintAt(index);
+            if (action == android.view.MotionEvent.ACTION_MOVE) {
+                if (gestureTool >= 0 && index >= 0 && gestureTool != 2 &&
+                        gestureTool != 3 && gestureTool != 4 && index != lastPaintedPixel) {
+                    if (gestureTool == 0 && lastPaintedPixel >= 0) drawLine(lastPaintedPixel, index);
+                    else {
+                        int activeTool = tool;
+                        tool = gestureTool;
+                        paintAt(index);
+                        tool = activeTool;
+                    }
                     lastPaintedPixel = index;
                     invalidate();
                 }
                 return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                if (tool == 3 && index >= 0) { drawLine(lineStart,index); invalidate(); }
+            if (action == android.view.MotionEvent.ACTION_UP) {
+                if (gestureTool == 3 && index >= 0) { drawLine(lineStart,index); invalidate(); }
+                gestureTool = -1;
+                lineStart = -1;
+                lastPaintedPixel = -1;
+                performClick();
+                return true;
+            }
+            if (action == android.view.MotionEvent.ACTION_CANCEL) {
+                gestureTool = -1;
                 lineStart = -1;
                 lastPaintedPixel = -1;
                 return true;
             }
-            return event.getAction() == android.view.MotionEvent.ACTION_CANCEL;
+            return true;
         }
         @Override protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
