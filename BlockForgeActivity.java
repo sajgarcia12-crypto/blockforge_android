@@ -648,8 +648,22 @@ public class BlockForgeActivity extends Activity {
     Scene3DView scene3DView;
     SpriteDrawView activeSpriteDrawView;
 
+    void showTargetFpsDialog() {
+        String[] values = {"30 FPS · ahorro de batería", "60 FPS · movimiento fluido"};
+        int selected = targetAnimationFps >= 60 ? 1 : 0;
+        new android.app.AlertDialog.Builder(this).setTitle("Frecuencia objetivo del editor")
+            .setSingleChoiceItems(values, selected, (dialog, which) -> {
+                targetAnimationFps = which == 0 ? 30 : 60;
+                getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", targetAnimationFps).apply();
+                if (scenePreview != null && physicsRunning) scenePreview.startPhysics();
+                dialog.dismiss();
+                Toast.makeText(this, "Objetivo actualizado: " + targetAnimationFps + " FPS", Toast.LENGTH_SHORT).show();
+                openPage(2);
+            }).setNegativeButton("CERRAR", null).show();
+    }
+
     void showEditorExtrasDialog() {
-        String[] options = {"Cambiar capa", "Mover cámara: " + (cameraPanMode ? "activado" : "desactivado"), "Tamaño del mapa", "Centrar cámara", "Instalar pack 30 FPS", "Instalar pack 60 FPS"};
+        String[] options = {"Cambiar capa", "Mover cámara: " + (cameraPanMode ? "activado" : "desactivado"), "Tamaño del mapa", "Centrar cámara", "FPS objetivo: " + targetAnimationFps, "Instalar pack 30 FPS", "Instalar pack 60 FPS"};
         new android.app.AlertDialog.Builder(this)
             .setTitle("Herramientas de escena")
             .setItems(options, (dialog, which) -> {
@@ -658,8 +672,9 @@ public class BlockForgeActivity extends Activity {
                     case 1: cameraPanMode=!cameraPanMode; openPage(2); break;
                     case 2: showMapSizeDialog(); break;
                     case 3: if(scenePreview!=null) scenePreview.resetCamera(); break;
-                    case 4: installSpritePack(30); break;
-                    case 5: installSpritePack(60); break;
+                    case 4: showTargetFpsDialog(); break;
+                    case 5: installSpritePack(30); break;
+                    case 6: installSpritePack(60); break;
                 }
             }).show();
     }
