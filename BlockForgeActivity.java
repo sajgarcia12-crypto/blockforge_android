@@ -32,6 +32,12 @@ public class BlockForgeActivity extends Activity {
         home();
     }
 
+    @Override
+    protected void onPause() {
+        saveCurrentScript();
+        super.onPause();
+    }
+
     GradientDrawable shape(int color) {
         GradientDrawable d = new GradientDrawable();
         d.setColor(color);
@@ -307,6 +313,12 @@ public class BlockForgeActivity extends Activity {
         runtimeOutput.setPadding(14, 14, 14, 14);
         runtimeOutput.setBackground(shape(Color.rgb(5, 10, 18)));
         content.addView(runtimeOutput);
+
+        content.addView(button("GUARDAR SCRIPT", () -> {
+            saveCurrentScript();
+            Toast.makeText(this, "Script guardado en este dispositivo",
+                    Toast.LENGTH_SHORT).show();
+        }));
 
         content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
 
