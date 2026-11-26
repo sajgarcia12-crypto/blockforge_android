@@ -317,6 +317,7 @@ public class BlockForgeActivity extends Activity {
             scene3DView = null;
         }
         content.removeAllViews();
+        if (navigation != null) navigation.setVisibility(page == 2 ? View.GONE : View.VISIBLE);
         switch(page) {
             case 0: home(); break;
             case 1: projects(); break;
@@ -501,6 +502,7 @@ public class BlockForgeActivity extends Activity {
                 .getString("project_type_" + project, "2D");
 
         if ("3D".equals(type)) {
+            content.addView(editorButton("← VOLVER A PROYECTOS", () -> openPage(1)));
             heading("Editor de escenas 3D", "Vista de trabajo 3D");
             scene3DView = new Scene3DView();
             content.addView(scene3DView, new LinearLayout.LayoutParams(-1, 390));
@@ -524,6 +526,7 @@ public class BlockForgeActivity extends Activity {
         top.setGravity(Gravity.CENTER_VERTICAL);
         top.setPadding(8, 7, 8, 7);
         top.setBackground(shape(Color.rgb(22, 30, 45)));
+        top.addView(editorButton("←", () -> openPage(1)), new LinearLayout.LayoutParams(48, 48));
         LinearLayout titleBox = vertical();
         titleBox.addView(label("2D  /  " + project, 16, white));
         titleBox.addView(label("ESCENA · EDITOR", 10, gray));
