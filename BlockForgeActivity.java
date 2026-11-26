@@ -330,6 +330,16 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    TextView editorButton(String value, Runnable action) {
+        TextView b = label(value, 12, white);
+        b.setGravity(Gravity.CENTER);
+        b.setPadding(5, 4, 5, 4);
+        b.setMinHeight(42);
+        b.setBackground(shape(Color.rgb(39, 91, 151)));
+        b.setOnClickListener(v -> action.run());
+        return b;
+    }
+
     void scenes() {
         String project = activeProjectName();
         String type = getPreferences(MODE_PRIVATE)
@@ -342,10 +352,10 @@ public class BlockForgeActivity extends Activity {
             scene3DView.onResume();
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
-            actions.addView(button("＋ CUBO", () -> scene3DView.addCube()), new LinearLayout.LayoutParams(0, -2, 1));
-            actions.addView(button("BORRAR", () -> scene3DView.clearCubes()), new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(editorButton("＋ CUBO", () -> scene3DView.addCube()), new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(editorButton("BORRAR", () -> scene3DView.clearCubes()), new LinearLayout.LayoutParams(0, -2, 1));
             content.addView(actions);
-            content.addView(button("GUARDAR ESCENA", () -> {
+            content.addView(editorButton("GUARDAR ESCENA", () -> {
                 scene3DView.persist();
                 Toast.makeText(this, "Escena 3D guardada", Toast.LENGTH_SHORT).show();
             }));
@@ -363,13 +373,13 @@ public class BlockForgeActivity extends Activity {
         titleBox.addView(label("2D  /  " + project, 16, white));
         titleBox.addView(label("ESCENA · EDITOR", 10, gray));
         top.addView(titleBox, new LinearLayout.LayoutParams(0, -2, 1));
-        top.addView(button("▶", () -> {
+        top.addView(editorButton("▶", () -> {
             scenePlayMode = !scenePlayMode;
             physicsRunning = scenePlayMode;
             if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
         }), new LinearLayout.LayoutParams(54, 48));
-        top.addView(button("💾", () -> {
+        top.addView(editorButton("💾", () -> {
             if (scenePreview != null) scenePreview.persist();
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
         }), new LinearLayout.LayoutParams(58, 48));
@@ -379,11 +389,11 @@ public class BlockForgeActivity extends Activity {
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(4, 7, 4, 7);
         toolbar.setBackground(shape(Color.rgb(18, 25, 38)));
-        toolbar.addView(button(sceneToolMode == 0 ? "✎" : "Lápiz", () -> { sceneToolMode=0; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(button(sceneToolMode == 1 ? "▧" : "Rect.", () -> { sceneToolMode=1; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(button(sceneToolMode == 2 ? "▨" : "Relleno", () -> { sceneToolMode=2; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(button("↶", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 46, 1));
-        toolbar.addView(button("＋", () -> scenePreview.addBlock()), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton(sceneToolMode == 0 ? "✎" : "Lápiz", () -> { sceneToolMode=0; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton(sceneToolMode == 1 ? "▧" : "Rect.", () -> { sceneToolMode=1; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton(sceneToolMode == 2 ? "▨" : "Relleno", () -> { sceneToolMode=2; openPage(2); }), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton("↶", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 46, 1));
+        toolbar.addView(editorButton("＋", () -> scenePreview.addBlock()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(toolbar);
 
         LinearLayout viewportFrame = vertical();
@@ -401,39 +411,39 @@ public class BlockForgeActivity extends Activity {
 
         LinearLayout palette = new LinearLayout(this);
         palette.setPadding(0, 7, 0, 7);
-        palette.addView(button("🟩", () -> setSceneBrush(Color.rgb(55,135,90), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(button("🟦", () -> setSceneBrush(Color.rgb(55,115,210), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(button("🟥", () -> setSceneBrush(Color.rgb(205,75,75), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(button("⌫", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(button("▦", () -> { sceneGridVisible=!sceneGridVisible; scenePreview.invalidate(); }), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("🟩", () -> setSceneBrush(Color.rgb(55,135,90), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("🟦", () -> setSceneBrush(Color.rgb(55,115,210), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("🟥", () -> setSceneBrush(Color.rgb(205,75,75), false)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("⌫", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
+        palette.addView(editorButton("▦", () -> { sceneGridVisible=!sceneGridVisible; scenePreview.invalidate(); }), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(palette);
 
         LinearLayout camera = new LinearLayout(this);
-        camera.addView(button("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(button("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(button("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(button("CAPA " + new String[]{"FONDO","MUNDO","FRENTE"}[sceneLayer], () -> { sceneLayer=(sceneLayer+1)%3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(editorButton("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(editorButton("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(editorButton("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
+        camera.addView(editorButton("CAPA " + new String[]{"FONDO","MUNDO","FRENTE"}[sceneLayer], () -> { sceneLayer=(sceneLayer+1)%3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
         content.addView(camera);
 
         LinearLayout assets = new LinearLayout(this);
-        assets.addView(button("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(button("IMPORTAR", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(button("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(editorButton("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(editorButton("IMPORTAR", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
+        assets.addView(editorButton("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(assets);
 
         LinearLayout spriteOps = new LinearLayout(this);
-        spriteOps.addView(button("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(button("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(button("MOVER ←", () -> scenePreview.moveSelectedSprite(-0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
-        spriteOps.addView(button("MOVER →", () -> scenePreview.moveSelectedSprite(0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(editorButton("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(editorButton("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(editorButton("MOVER ←", () -> scenePreview.moveSelectedSprite(-0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
+        spriteOps.addView(editorButton("MOVER →", () -> scenePreview.moveSelectedSprite(0.5f,0)), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(spriteOps);
 
         LinearLayout animation = new LinearLayout(this);
-        animation.addView(button("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(button("◀", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(button("▶", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(button("ANIMAR", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(button("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("◀", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("▶", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("ANIMAR", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
+        animation.addView(editorButton("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(animation);
         TextView timeline = label(scenePreview.animationStatus(), 11, Color.rgb(160,205,255));
         timeline.setPadding(8, 8, 8, 8);
@@ -441,33 +451,33 @@ public class BlockForgeActivity extends Activity {
         content.addView(timeline);
 
         LinearLayout runtime = new LinearLayout(this);
-        runtime.addView(button(scenePlayMode ? "■ DETENER" : "▶ PROBAR", () -> {
+        runtime.addView(editorButton(scenePlayMode ? "■ DETENER" : "▶ PROBAR", () -> {
             scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
             if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
         }), new LinearLayout.LayoutParams(0, 48, 1));
-        runtime.addView(button(physicsRunning ? "PAUSAR FÍSICA" : "FÍSICA", () -> {
+        runtime.addView(editorButton(physicsRunning ? "PAUSAR FÍSICA" : "FÍSICA", () -> {
             physicsRunning=!physicsRunning;
             if(physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
             openPage(2);
         }), new LinearLayout.LayoutParams(0, 48, 1));
-        runtime.addView(button("COLISIÓN " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
+        runtime.addView(editorButton("COLISIÓN " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
             sceneCollisionsEnabled=!sceneCollisionsEnabled; openPage(2);
         }), new LinearLayout.LayoutParams(0, 48, 1));
         content.addView(runtime);
 
-        content.addView(button("⚙  FÍSICA Y COLISIONES", () -> showPhysicsSettingsDialog()));
-        content.addView(button("☷  CAPAS, CÁMARA Y CONTROLES MÓVILES", () -> showEditorExtrasDialog()));
-        content.addView(button("＋  CREAR BOTÓN MÓVIL", () -> createMobileButtonDialog()));
-        content.addView(button("ADMINISTRAR BOTONES MÓVILES", () -> manageMobileButtons()));
-        content.addView(button("BOTONES PREDETERMINADOS", () -> { scenePreview.installDefaultMobileButtons(); openPage(2); }));
-        content.addView(button("♫  AUDIO DE ESCENA", () -> showSceneAudioPicker()));
-        content.addView(button("DETENER AUDIO", () -> stopSceneAudio()));
+        content.addView(editorButton("⚙  FÍSICA Y COLISIONES", () -> showPhysicsSettingsDialog()));
+        content.addView(editorButton("☷  CAPAS, CÁMARA Y CONTROLES MÓVILES", () -> showEditorExtrasDialog()));
+        content.addView(editorButton("＋  CREAR BOTÓN MÓVIL", () -> createMobileButtonDialog()));
+        content.addView(editorButton("ADMINISTRAR BOTONES MÓVILES", () -> manageMobileButtons()));
+        content.addView(editorButton("BOTONES PREDETERMINADOS", () -> { scenePreview.installDefaultMobileButtons(); openPage(2); }));
+        content.addView(editorButton("♫  AUDIO DE ESCENA", () -> showSceneAudioPicker()));
+        content.addView(editorButton("DETENER AUDIO", () -> stopSceneAudio()));
         LinearLayout transfer = new LinearLayout(this);
-        transfer.addView(button("EXPORTAR NIVEL", () -> exportScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
-        transfer.addView(button("IMPORTAR NIVEL", () -> importScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
+        transfer.addView(editorButton("EXPORTAR NIVEL", () -> exportScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
+        transfer.addView(editorButton("IMPORTAR NIVEL", () -> importScenePicker()), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(transfer);
-        content.addView(button("GUARDAR ESCENA", () -> {
+        content.addView(editorButton("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
         }));
