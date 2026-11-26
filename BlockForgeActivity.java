@@ -36,6 +36,7 @@ public class BlockForgeActivity extends Activity {
         super.onCreate(saved);
         getWindow().setStatusBarColor(background);
         getWindow().setNavigationBarColor(background);
+        targetAnimationFps = getPreferences(MODE_PRIVATE).getInt("sprite_fps", 30);
         buildInterface();
         home();
     }
@@ -324,6 +325,7 @@ public class BlockForgeActivity extends Activity {
                 "Editor táctil por cuadrícula. Toca una celda para colocar un bloque.");
         scenePreview = new ScenePreview();
         content.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
+        if (physicsRunning) scenePreview.startPhysics();
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.addView(button("＋ BLOQUE", () -> scenePreview.addBlock()),
@@ -1096,7 +1098,7 @@ public class BlockForgeActivity extends Activity {
                     steps++;
                 }
                 invalidate();
-                postOnAnimation(this);
+                postDelayed(this, Math.max(8, 1000 / Math.max(30, targetAnimationFps)));
             }
         };
 
