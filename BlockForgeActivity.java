@@ -3032,6 +3032,10 @@ public class BlockForgeActivity extends Activity {
         tools.addView(editorButton("LÍNEA", () -> drawing.setTool(3)), new LinearLayout.LayoutParams(0, 44, 1));
         tools.addView(editorButton("COLOR", () -> drawing.setTool(4)), new LinearLayout.LayoutParams(0, 44, 1));
         wrap.addView(tools);
+        LinearLayout historyTools = new LinearLayout(this);
+        historyTools.addView(editorButton("DESHACER", () -> drawing.undo()), new LinearLayout.LayoutParams(0, 42, 1));
+        historyTools.addView(editorButton("REHACER", () -> drawing.redo()), new LinearLayout.LayoutParams(0, 42, 1));
+        wrap.addView(historyTools);
 
         HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
         paletteScroll.setHorizontalScrollBarEnabled(false);
