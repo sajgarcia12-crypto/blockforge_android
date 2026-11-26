@@ -1,5 +1,6 @@
 
 name: Build BlockForge APK
+# Validación de compilación del editor y menú de BlockForge.
 
 on:
   workflow_dispatch:
