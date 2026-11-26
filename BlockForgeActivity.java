@@ -357,12 +357,12 @@ public class BlockForgeActivity extends Activity {
         LinearLayout iconBox = vertical();
         iconBox.setGravity(Gravity.CENTER);
         iconBox.setBackground(uiPanel(Color.rgb(39, 58, 78)));
-        iconBox.addView(uiLabel("2D", 13, Color.rgb(144, 194, 245), true));
+        String type = getPreferences(MODE_PRIVATE).getString("project_type_" + name, "2D");
+        iconBox.addView(uiLabel(type, 13, Color.rgb(144, 194, 245), true));
         tile.addView(iconBox, new LinearLayout.LayoutParams(46, 46));
         LinearLayout details = vertical();
         details.setPadding(12, 0, 0, 0);
         details.addView(uiLabel(name, 14, uiInk, true));
-        String type = getPreferences(MODE_PRIVATE).getString("project_type_" + name, "2D");
         details.addView(uiLabel(type + "  ·  En este dispositivo", 11, uiMuted, false));
         tile.addView(details, new LinearLayout.LayoutParams(0, -2, 1));
         tile.addView(uiLabel("›", 24, uiMuted, false));
@@ -2791,7 +2791,7 @@ public class BlockForgeActivity extends Activity {
         LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(-1, 0, 1);
         canvasParams.topMargin = 10;
         canvasParams.bottomMargin = 10;
-        wrap.addView(drawing, canvasParams);
+        wrap.addView(drawing, new LinearLayout.LayoutParams(-1, (int)(getResources().getDisplayMetrics().density * 340)));
         sizePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 drawing.setSize(position == 0 ? 16 : position == 1 ? 32 : 64);
@@ -2881,6 +2881,8 @@ public class BlockForgeActivity extends Activity {
         java.io.File file = new java.io.File(folder, name);
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } finally {
+            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
         }
         return name;
     }
