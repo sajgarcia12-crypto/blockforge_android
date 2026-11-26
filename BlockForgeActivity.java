@@ -1697,6 +1697,29 @@ public class BlockForgeActivity extends Activity {
         }
     }
 
+    void savePackPixelSprite(java.io.File folder, String name, int color, int type)
+            throws java.io.IOException {
+        Bitmap bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint p = new Paint();
+        p.setColor(color);
+        if (type == 0) {
+            canvas.drawRect(5,2,11,5,p); canvas.drawRect(3,5,13,11,p);
+            canvas.drawRect(4,11,7,15,p); canvas.drawRect(9,11,12,15,p);
+            p.setColor(Color.WHITE); canvas.drawPoint(6,7,p); canvas.drawPoint(10,7,p);
+        } else if (type == 1) {
+            canvas.drawCircle(8,8,6,p); p.setColor(Color.rgb(255,245,170));
+            canvas.drawCircle(8,8,3,p);
+        } else {
+            canvas.drawRect(0,5,16,12,p);
+            p.setColor(Color.rgb(35,80,55)); canvas.drawRect(0,12,16,15,p);
+        }
+        java.io.File file = new java.io.File(folder, name);
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+        } finally { bitmap.recycle(); }
+    }
+
     void downloadSpritePack(final int fps) {
         final String packUrl = "https://raw.githubusercontent.com/sajgarcia12-crypto/blockforge_android/blockforge/dev-hub-foundation/sprite-packs/pack-" + fps + ".json";
         Toast.makeText(this, "Descargando paquete " + fps + " FPS…", Toast.LENGTH_SHORT).show();
@@ -1731,11 +1754,30 @@ public class BlockForgeActivity extends Activity {
                 try (java.io.FileOutputStream out = new java.io.FileOutputStream(target)) {
                     out.write(bytes.toByteArray());
                 }
+                org.json.JSONArray palette = pack.optJSONArray("palette");
+                int heroColor = Color.rgb(77,155,255);
+                int coinColor = Color.rgb(255,211,77);
+                int platformColor = Color.rgb(84,200,120);
+                if (palette != null && palette.length() >= 3) {
+                    heroColor = Color.parseColor(palette.getString(0));
+                    coinColor = Color.parseColor(palette.getString(1));
+                    platformColor = Color.parseColor(palette.getString(2));
+                }
+                java.io.File spriteFolder = new java.io.File(getFilesDir(), "sprites");
+                if (!spriteFolder.exists()) spriteFolder.mkdirs();
+                savePackPixelSprite(spriteFolder, "pack_hero_" + fps + ".png", heroColor, 0);
+                savePackPixelSprite(spriteFolder, "pack_coin_" + fps + ".png", coinColor, 1);
+                savePackPixelSprite(spriteFolder, "pack_platform_" + fps + ".png", platformColor, 2);
                 runOnUiThread(() -> {
                     targetAnimationFps = fps;
                     getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", fps).apply();
-                    Toast.makeText(this, "Pack " + fps + " FPS instalado (" +
-                            (target.length() / 1024) + " KB)", Toast.LENGTH_LONG).show();
+                    if (scenePreview != null) {
+                        scenePreview.addSprite("pack_hero_" + fps + ".png");
+                        scenePreview.addSprite("pack_coin_" + fps + ".png");
+                        scenePreview.addSprite("pack_platform_" + fps + ".png");
+                    }
+                    Toast.makeText(this, "Pack " + fps + " FPS instalado: 3 sprites pixel art (" +
+                            (target.length() / 1024) + " KB de datos)", Toast.LENGTH_LONG).show();
                 });
             } catch (Exception ex) {
                 runOnUiThread(() -> Toast.makeText(this,
