@@ -428,7 +428,9 @@ public class BlockForgeActivity extends Activity {
 
                 case "limpiar_mundo":
                     runtimeBlockCount = 0;
-                    output.append("Mundo limpiado\n");
+                    clearProjectScene();
+                    refreshScenePreview();
+                    output.append("Mundo limpiado\\n");
                     executed++;
                     break;
 
@@ -541,8 +543,16 @@ public class BlockForgeActivity extends Activity {
 
     String unquote(String value) {
         String result = value.trim();
-        if (result.length() >= 2 && result.charAt(0) == '"' && result.charAt(result.length() - 1) == '"') {
-        class ScenePreview extends View {
+        if (result.length() >= 2 && result.charAt(0) == '"' &&
+                result.charAt(result.length() - 1) == '"') {
+            return result.substring(1, result.length() - 1)
+                    .replace("\\n", "\n")
+                    .replace("\\\"", "\"");
+        }
+        return result;
+    }
+
+    class ScenePreview extends View {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
 
