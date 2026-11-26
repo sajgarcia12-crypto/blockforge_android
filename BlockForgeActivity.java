@@ -273,13 +273,37 @@ public class BlockForgeActivity extends Activity {
     }
 
     ScenePreview scenePreview;
+    Scene3DView scene3DView;
 
     void scenes() {
-        heading("Editor de escenas",
-                "Editor táctil 2D experimental. Toca una celda para colocar un bloque.");
+        String project = activeProjectName();
+        String type = getPreferences(MODE_PRIVATE)
+                .getString("project_type_" + project, "2D");
+        if ("3D".equals(type)) {
+            heading("Editor de escenas 3D",
+                    "Vista 3D OpenGL ES: coloca cubos y observa la escena desde una cámara en perspectiva.");
+            scene3DView = new Scene3DView();
+            content.addView(scene3DView, new LinearLayout.LayoutParams(-1, 390));
+            LinearLayout actions = new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            actions.addView(button("＋ CUBO", () -> scene3DView.addCube()),
+                    new LinearLayout.LayoutParams(0, -2, 1));
+            actions.addView(button("BORRAR TODO", () -> scene3DView.clearCubes()),
+                    new LinearLayout.LayoutParams(0, -2, 1));
+            content.addView(actions);
+            content.addView(button("GUARDAR ESCENA", () -> {
+                scene3DView.persist();
+                Toast.makeText(this, "Escena 3D guardada", Toast.LENGTH_SHORT).show();
+            }));
+            card("Controles", "Usa ＋ CUBO para añadir geometría cúbica. La escena se guarda en este proyecto.");
+            card("Estado del motor", "Renderizador 3D inicial con OpenGL ES 2.0. Todavía faltan materiales, iluminación avanzada, físicas, modelos y exportación.");
+            return;
+        }
+
+        heading("Editor de escenas 2D",
+                "Editor táctil por cuadrícula. Toca una celda para colocar un bloque.");
         scenePreview = new ScenePreview();
         content.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
-
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.addView(button("＋ BLOQUE", () -> scenePreview.addBlock()),
@@ -287,13 +311,12 @@ public class BlockForgeActivity extends Activity {
         actions.addView(button("BORRAR TODO", () -> scenePreview.clearBlocks()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(actions);
-
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
         }));
         card("Cómo usar", "Toca cualquier celda de la cuadrícula para colocar un bloque. Los cambios se guardan automáticamente.");
-        card("Estado", "Editor 2D por cuadrícula. El renderizado 3D nativo todavía no está conectado a esta interfaz.");
+        card("Estado", "Editor 2D por cuadrícula. El modo 3D usa un renderizador OpenGL ES independiente.");
     }
 
     void grafisript() {
@@ -521,6 +544,7 @@ public class BlockForgeActivity extends Activity {
 
     void refreshScenePreview() {
         if (scenePreview != null) scenePreview.invalidate();
+        if (scene3DView != null) scene3DView.refresh();
     }
 
     void addSceneBlock(int x, int z) {
@@ -667,6 +691,172 @@ public class BlockForgeActivity extends Activity {
         }
     }
 
+
+
+    class Scene3DView extends android.opengl.GLSurfaceView {
+        final Scene3DRenderer renderer;
+        final java.util.ArrayList<Point> cubes = new java.util.ArrayList<>();
+
+        Scene3DView() {
+            super(BlockForgeActivity.this);
+            setEGLContextClientVersion(2);
+            renderer = new Scene3DRenderer();
+            setRenderer(renderer);
+            setRenderMode(android.opengl.GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+            setBackgroundColor(Color.rgb(7, 13, 23));
+            String saved = getPreferences(MODE_PRIVATE)
+                    .getString("scene_blocks_" + activeProjectName(), "");
+            if (!saved.isEmpty()) {
+                for (String pair : saved.split(";")) {
+                    String[] xy = pair.split(",");
+                    if (xy.length == 2) {
+                        try {
+                            cubes.add(new Point(Integer.parseInt(xy[0]), Integer.parseInt(xy[1])));
+                        } catch (NumberFormatException ignored) { }
+                    }
+                }
+            }
+            refresh();
+        }
+
+        void refresh() {
+            float[] positions = new float[cubes.size() * 2];
+            for (int i = 0; i < cubes.size(); i++) {
+                positions[i * 2] = cubes.get(i).x;
+                positions[i * 2 + 1] = cubes.get(i).y;
+            }
+            renderer.setBlocks(positions);
+        }
+
+        void persist() {
+            StringBuilder data = new StringBuilder();
+            for (Point p : cubes) {
+                if (data.length() > 0) data.append(';');
+                data.append(p.x).append(',').append(p.y);
+            }
+            getPreferences(MODE_PRIVATE).edit()
+                    .putString("scene_blocks_" + activeProjectName(), data.toString()).apply();
+        }
+
+        void addCube() {
+            int index = cubes.size();
+            cubes.add(new Point(index % 10, (index / 10) % 10));
+            persist();
+            refresh();
+        }
+
+        void clearCubes() {
+            cubes.clear();
+            persist();
+            refresh();
+        }
+    }
+
+    class Scene3DRenderer implements android.opengl.GLSurfaceView.Renderer {
+        private final String vertexShader =
+                "attribute vec4 aPosition; uniform mat4 uMvp; void main(){ gl_Position=uMvp*aPosition; }";
+        private final String fragmentShader =
+                "precision mediump float; uniform vec4 uColor; void main(){ gl_FragColor=uColor; }";
+        private java.nio.FloatBuffer cubeBuffer;
+        private int program;
+        private int positionHandle;
+        private int matrixHandle;
+        private int colorHandle;
+        private final float[] projection = new float[16];
+        private final float[] view = new float[16];
+        private final float[] viewProjection = new float[16];
+        private final float[] model = new float[16];
+        private final float[] mvp = new float[16];
+        private volatile float[] blocks = new float[0];
+        private final float[] vertices = {
+            -0.5f,-0.5f, 0.5f,  0.5f,-0.5f, 0.5f,  0.5f, 0.5f, 0.5f,
+            -0.5f,-0.5f, 0.5f,  0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f,
+             0.5f,-0.5f,-0.5f, -0.5f,-0.5f,-0.5f, -0.5f, 0.5f,-0.5f,
+             0.5f,-0.5f,-0.5f, -0.5f, 0.5f,-0.5f,  0.5f, 0.5f,-0.5f,
+            -0.5f,-0.5f,-0.5f, -0.5f,-0.5f, 0.5f, -0.5f, 0.5f, 0.5f,
+            -0.5f,-0.5f,-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f,-0.5f,
+             0.5f,-0.5f, 0.5f,  0.5f,-0.5f,-0.5f,  0.5f, 0.5f,-0.5f,
+             0.5f,-0.5f, 0.5f,  0.5f, 0.5f,-0.5f,  0.5f, 0.5f, 0.5f,
+            -0.5f, 0.5f, 0.5f,  0.5f, 0.5f, 0.5f,  0.5f, 0.5f,-0.5f,
+            -0.5f, 0.5f, 0.5f,  0.5f, 0.5f,-0.5f, -0.5f, 0.5f,-0.5f,
+            -0.5f,-0.5f,-0.5f,  0.5f,-0.5f,-0.5f,  0.5f,-0.5f, 0.5f,
+            -0.5f,-0.5f,-0.5f,  0.5f,-0.5f, 0.5f, -0.5f,-0.5f, 0.5f
+        };
+
+        Scene3DRenderer() {
+            java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocateDirect(vertices.length * 4);
+            bb.order(java.nio.ByteOrder.nativeOrder());
+            cubeBuffer = bb.asFloatBuffer();
+            cubeBuffer.put(vertices).position(0);
+        }
+
+        void setBlocks(float[] value) { blocks = value; }
+
+        int compileShader(int type, String source) {
+            int shader = android.opengl.GLES20.glCreateShader(type);
+            android.opengl.GLES20.glShaderSource(shader, source);
+            android.opengl.GLES20.glCompileShader(shader);
+            int[] status = new int[1];
+            android.opengl.GLES20.glGetShaderiv(shader, android.opengl.GLES20.GL_COMPILE_STATUS, status, 0);
+            if (status[0] == 0) {
+                String error = android.opengl.GLES20.glGetShaderInfoLog(shader);
+                android.opengl.GLES20.glDeleteShader(shader);
+                throw new RuntimeException("Shader 3D inválido: " + error);
+            }
+            return shader;
+        }
+
+        @Override
+        public void onSurfaceCreated(javax.microedition.khronos.egl.EGLConfig config) {
+            android.opengl.GLES20.glClearColor(0.03f, 0.05f, 0.09f, 1f);
+            android.opengl.GLES20.glEnable(android.opengl.GLES20.GL_DEPTH_TEST);
+            int vs = compileShader(android.opengl.GLES20.GL_VERTEX_SHADER, vertexShader);
+            int fs = compileShader(android.opengl.GLES20.GL_FRAGMENT_SHADER, fragmentShader);
+            program = android.opengl.GLES20.glCreateProgram();
+            android.opengl.GLES20.glAttachShader(program, vs);
+            android.opengl.GLES20.glAttachShader(program, fs);
+            android.opengl.GLES20.glLinkProgram(program);
+            android.opengl.GLES20.glDeleteShader(vs);
+            android.opengl.GLES20.glDeleteShader(fs);
+            int[] status = new int[1];
+            android.opengl.GLES20.glGetProgramiv(program, android.opengl.GLES20.GL_LINK_STATUS, status, 0);
+            if (status[0] == 0) throw new RuntimeException("No se pudo enlazar el motor 3D.");
+            positionHandle = android.opengl.GLES20.glGetAttribLocation(program, "aPosition");
+            matrixHandle = android.opengl.GLES20.glGetUniformLocation(program, "uMvp");
+            colorHandle = android.opengl.GLES20.glGetUniformLocation(program, "uColor");
+        }
+
+        @Override
+        public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl, int width, int height) {
+            android.opengl.GLES20.glViewport(0, 0, width, height);
+            float ratio = (float) width / Math.max(1, height);
+            android.opengl.Matrix.perspectiveM(projection, 0, 48f, ratio, 0.1f, 100f);
+            android.opengl.Matrix.setLookAtM(view, 0, 9f, 11f, 13f, 0f, 0f, 0f, 0f, 1f, 0f);
+            android.opengl.Matrix.multiplyMM(viewProjection, 0, projection, 0, view, 0);
+        }
+
+        @Override
+        public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl) {
+            android.opengl.GLES20.glClear(android.opengl.GLES20.GL_COLOR_BUFFER_BIT |
+                    android.opengl.GLES20.GL_DEPTH_BUFFER_BIT);
+            android.opengl.GLES20.glUseProgram(program);
+            android.opengl.GLES20.glEnableVertexAttribArray(positionHandle);
+            android.opengl.GLES20.glVertexAttribPointer(positionHandle, 3,
+                    android.opengl.GLES20.GL_FLOAT, false, 0, cubeBuffer);
+            float[] current = blocks;
+            for (int i = 0; i < current.length; i += 2) {
+                android.opengl.Matrix.setIdentityM(model, 0);
+                android.opengl.Matrix.translateM(model, 0,
+                        current[i] - 4.5f, 0.5f, current[i + 1] - 4.5f);
+                android.opengl.Matrix.multiplyMM(mvp, 0, viewProjection, 0, model, 0);
+                android.opengl.GLES20.glUniformMatrix4fv(matrixHandle, 1, false, mvp, 0);
+                android.opengl.GLES20.glUniform4f(colorHandle, 0.20f, 0.68f, 0.42f, 1f);
+                cubeBuffer.position(0);
+                android.opengl.GLES20.glDrawArrays(android.opengl.GLES20.GL_TRIANGLES, 0, 36);
+            }
+            android.opengl.GLES20.glDisableVertexAttribArray(positionHandle);
+        }
+    }
 
     static final int PICK_RESOURCE_REQUEST = 7421;
 
