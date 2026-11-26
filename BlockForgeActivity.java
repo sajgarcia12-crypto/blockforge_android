@@ -2234,34 +2234,42 @@ public class BlockForgeActivity extends Activity {
                 float nextY = oldY + sprite.vy * dt;
                 boolean landed = false;
                 if (sceneCollisionsEnabled && sprite.solid) {
+                    // Choose the first surface crossed during this step, not the last
+                    // item in the block/sprite list. This prevents falling through a
+                    // stack of platforms when several overlap the same horizontal span.
+                    float landingY = Float.POSITIVE_INFINITY;
+                    float ceilingY = Float.NEGATIVE_INFINITY;
                     for (int i = 0; i < blocks.size(); i++) {
                         int layer = i < blockLayers.size() ? blockLayers.get(i) : 1;
                         if (layer == 0) continue;
                         Point block = blocks.get(i);
                         boolean overlapX = sprite.x < block.x + 1f && sprite.x + sprite.width > block.x;
                         if (!overlapX) continue;
-                        float top = block.y - sprite.height;
-                        float bottom = block.y + 1f;
-                        if (sprite.vy >= 0f && oldY + sprite.height <= block.y && nextY + sprite.height >= block.y) {
-                            nextY = top;
-                            landed = true;
-                        } else if (sprite.vy < 0f && oldY >= bottom && nextY <= bottom) {
-                            nextY = bottom;
-                            sprite.vy = 0f;
+                        if (sprite.vy >= 0f && oldY + sprite.height <= block.y &&
+                                nextY + sprite.height >= block.y) {
+                            landingY = Math.min(landingY, block.y - sprite.height);
+                        } else if (sprite.vy < 0f && oldY >= block.y + 1f &&
+                                nextY <= block.y + 1f) {
+                            ceilingY = Math.max(ceilingY, block.y + 1f);
                         }
                     }
                     for (SceneSprite other : sprites) {
                         if (other == sprite || !other.solid ||
                                 sprite.x >= other.x + other.width || sprite.x + sprite.width <= other.x) continue;
-                        float platformTop = other.y - sprite.height;
-                        if (sprite.vy >= 0f && oldY + sprite.height <= other.y && nextY + sprite.height >= other.y) {
-                            nextY = platformTop;
-                            landed = true;
+                        if (sprite.vy >= 0f && oldY + sprite.height <= other.y &&
+                                nextY + sprite.height >= other.y) {
+                            landingY = Math.min(landingY, other.y - sprite.height);
                         } else if (sprite.vy < 0f && oldY >= other.y + other.height &&
                                 nextY <= other.y + other.height) {
-                            nextY = other.y + other.height;
-                            sprite.vy = 0f;
+                            ceilingY = Math.max(ceilingY, other.y + other.height);
                         }
+                    }
+                    if (landingY != Float.POSITIVE_INFINITY) {
+                        nextY = landingY;
+                        landed = true;
+                    } else if (ceilingY != Float.NEGATIVE_INFINITY) {
+                        nextY = ceilingY;
+                        sprite.vy = 0f;
                     }
                 }
 
