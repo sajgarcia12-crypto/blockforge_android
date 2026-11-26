@@ -1548,6 +1548,64 @@ public class BlockForgeActivity extends Activity {
                 output.append("Gravedad 2D: ").append(physicsGravity).append('\n');
                 return true;
             }
+            if (line.startsWith("fisica.rebote(") && line.endsWith(")")) {
+                double bounce = evaluateGrafisriptExpression(line.substring(14, line.length() - 1).trim(), variables);
+                if (Double.isNaN(bounce) || Double.isInfinite(bounce) || bounce < 0 || bounce > 1)
+                    throw new IllegalArgumentException("Rebote permitido: 0 a 1");
+                physicsBounce = (float) bounce;
+                getPreferences(MODE_PRIVATE).edit().putFloat("physics_bounce", physicsBounce).apply();
+                output.append("Rebote de física: ").append(physicsBounce).append('\n');
+                return true;
+            }
+            if (line.startsWith("sprite.fps(") && line.endsWith(")")) {
+                int fps = evaluateGrafisriptInteger(line.substring(11, line.length() - 1).trim(), variables);
+                if (fps < 1 || fps > 60) throw new IllegalArgumentException("FPS de sprite: 1 a 60");
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.animationFps = fps;
+                sp.lastFrameAdvance = android.os.SystemClock.uptimeMillis();
+                targetAnimationFps = Math.max(30, fps);
+                getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", targetAnimationFps).apply();
+                target.persistSprites(); target.startAnimationTicker(); target.invalidate();
+                output.append("Animación configurada a ").append(fps).append(" FPS\n");
+                return true;
+            }
+            if (line.equals("animacion.play()")) {
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null || sp.animationFrames.size() < 2)
+                    throw new IllegalArgumentException("El sprite necesita al menos 2 fotogramas");
+                sp.animationPlaying = true;
+                sp.lastFrameAdvance = android.os.SystemClock.uptimeMillis();
+                target.persistSprites(); target.startAnimationTicker(); target.invalidate();
+                output.append("Animación reproducida\n");
+                return true;
+            }
+            if (line.equals("animacion.pausar()")) {
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.animationPlaying = false;
+                target.persistSprites(); target.invalidate();
+                output.append("Animación pausada\n");
+                return true;
+            }
+            if (line.equals("animacion.siguiente()")) {
+                target.selectAnimationFrame(1);
+                output.append("Fotograma siguiente\n");
+                return true;
+            }
+            if (line.equals("animacion.anterior()")) {
+                target.selectAnimationFrame(-1);
+                output.append("Fotograma anterior\n");
+                return true;
+            }
+            if (line.equals("animacion.bucle(true)") || line.equals("animacion.bucle(false)")) {
+                SceneSprite sp = target.selectedSpriteObject();
+                if (sp == null) throw new IllegalArgumentException("Selecciona un sprite primero");
+                sp.animationLoop = line.endsWith("true)");
+                target.persistSprites(); target.invalidate();
+                output.append(sp.animationLoop ? "Bucle de animación activado\n" : "Bucle de animación desactivado\n");
+                return true;
+            }
             if (line.equals("colisiones.activar()") || line.equals("colisiones.pausar()")) {
                 sceneCollisionsEnabled = line.equals("colisiones.activar()");
                 getPreferences(MODE_PRIVATE).edit().putBoolean("scene_collisions", sceneCollisionsEnabled).apply();
