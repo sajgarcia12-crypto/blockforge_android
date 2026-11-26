@@ -19,6 +19,7 @@ public class BlockForgeActivity extends Activity {
     int white = Color.WHITE;
     int gray = Color.rgb(160,175,195);
     EditText codeEditor;
+    String codeEditorProjectName = null;
     TextView runtimeOutput;
     int runtimeBlockCount = 0;
     int sceneBrushColor = Color.rgb(55, 135, 90);
@@ -216,6 +217,7 @@ public class BlockForgeActivity extends Activity {
         }));
         panelView.addView(editorButton("ABRIR EDITOR Y EJECUTAR",()->{
             getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
+            if (codeEditor != null) { codeEditorProjectName = project; codeEditor.setText(editor.getText().toString()); }
             dialog.dismiss();openPage(3);
         }));
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
@@ -711,6 +713,7 @@ public class BlockForgeActivity extends Activity {
 
         String project = getPreferences(MODE_PRIVATE)
                 .getString("active_project", "Mi primer proyecto");
+        codeEditorProjectName = project;
         codeEditor.setText(getPreferences(MODE_PRIVATE).getString(
             "grafisript_" + project,
             "# Demo de El Grafisript · variables, condiciones y bucles\n"+
@@ -824,8 +827,7 @@ public class BlockForgeActivity extends Activity {
 
     void saveCurrentScript() {
         if (codeEditor == null) return;
-        String project = getPreferences(MODE_PRIVATE)
-                .getString("active_project", "Mi primer proyecto");
+        String project = codeEditorProjectName != null ? codeEditorProjectName : activeProjectName();
         getPreferences(MODE_PRIVATE).edit()
                 .putString("grafisript_" + project,
                         codeEditor.getText().toString()).apply();
