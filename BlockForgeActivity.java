@@ -23,6 +23,7 @@ public class BlockForgeActivity extends Activity {
     int runtimeBlockCount = 0;
     int sceneBrushColor = Color.rgb(55, 135, 90);
     boolean sceneEraseMode = false;
+    boolean sceneGridVisible = true;
     String runtimeWorldName = "Mi mundo";
 
     @Override
@@ -336,6 +337,15 @@ public class BlockForgeActivity extends Activity {
         palette.addView(button("BORRAR", () -> setSceneBrush(sceneBrushColor, true)),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(palette);
+        LinearLayout editActions = new LinearLayout(this);
+        editActions.setOrientation(LinearLayout.HORIZONTAL);
+        editActions.addView(button("↶ DESHACER", () -> scenePreview.undo()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        editActions.addView(button("CUADRÍCULA", () -> {
+            sceneGridVisible = !sceneGridVisible;
+            scenePreview.invalidate();
+        }), new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(editActions);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
@@ -390,6 +400,7 @@ public class BlockForgeActivity extends Activity {
             "ver_bloques\n"
         ));
 
+        content.addView(button("＋ CREAR CÓDIGO", () -> showGrafisriptCreator()));
         content.addView(codeEditor);
 
         TextView consoleTitle = label("CONSOLA DE EL GRAFISRIPT", 13, gray);
@@ -424,6 +435,57 @@ public class BlockForgeActivity extends Activity {
                 "crear_personaje Jugador\n"+
                 "jugador.mover(2, 1)\n"+
                 "mostrar_mensaje \"Listo\"");
+    }
+
+    void showGrafisriptCreator() {
+        final String[] names = {
+            "Crear mundo", "Crear bloque", "Crear personaje",
+            "Mover personaje", "Hacer saltar", "Configurar vida",
+            "Aplicar daño", "Mostrar mensaje", "Repetir acciones"
+        };
+        final String[] snippets = {
+            "crear_mundo \"Mi mundo\"",
+            "crear_bloque piedra 4 0 4",
+            "crear_personaje Jugador",
+            "jugador.mover(1, 0)",
+            "jugador.saltar(5)",
+            "jugador.vida(100)",
+            "jugador.recibir_danio(10)",
+            "mostrar_mensaje \"¡Hola, mundo!\"",
+            "repetir 3 {\n    crear_bloque piedra 4 0 4\n}"
+        };
+        LinearLayout creator = vertical();
+        creator.setPadding(18, 8, 18, 0);
+        Spinner chooser = new Spinner(this);
+        chooser.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_spinner_dropdown_item, names));
+        creator.addView(chooser);
+        TextView preview = label(snippets[0], 13, Color.rgb(180,220,255));
+        preview.setTypeface(Typeface.MONOSPACE);
+        preview.setPadding(12, 14, 12, 14);
+        preview.setBackground(shape(Color.rgb(5,10,18)));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, -2);
+        previewParams.topMargin = 12;
+        creator.addView(preview, previewParams);
+        chooser.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view,
+                    int position, long id) {
+                preview.setText(snippets[position]);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Crear código")
+            .setMessage("Elige una acción. BlockForge escribirá el ejemplo por ti.")
+            .setView(creator)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("INSERTAR", (dialog, which) -> {
+                int start = Math.max(0, codeEditor.getSelectionStart());
+                int end = Math.max(start, codeEditor.getSelectionEnd());
+                codeEditor.getText().replace(start, end,
+                        snippets[chooser.getSelectedItemPosition()] + "\n");
+                Toast.makeText(this, "Código insertado", Toast.LENGTH_SHORT).show();
+            }).show();
     }
 
     void saveCurrentScript() {
@@ -813,6 +875,16 @@ public class BlockForgeActivity extends Activity {
                 output.append("Vida del jugador: ").append(health).append("\n");
                 return true;
             }
+            if (line.startsWith("jugador.recibir_danio(") && line.endsWith(")")) {
+                int damage = Integer.parseInt(line.substring(21, line.length() - 1).trim());
+                if (damage < 0 || damage > 1000) throw new IllegalArgumentException("Daño permitido: 0 a 1000");
+                int health = prefs.getInt("character_health_" + project, 100);
+                health = Math.max(0, health - damage);
+                prefs.edit().putInt("character_health_" + project, health).apply();
+                output.append("Daño aplicado: ").append(damage)
+                        .append(" · vida restante: ").append(health).append("\n");
+                return true;
+            }
         } catch (Exception ex) {
             output.append("Línea ").append(lineIndex + 1).append(": ")
                     .append(ex.getMessage() == null ? "parámetro inválido" : ex.getMessage())
@@ -860,6 +932,7 @@ public class BlockForgeActivity extends Activity {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
         java.util.ArrayList<Integer> blockColors = new java.util.ArrayList<>();
+        java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
 
         ScenePreview() {
             super(BlockForgeActivity.this);
@@ -892,7 +965,45 @@ public class BlockForgeActivity extends Activity {
             getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + active, data.toString()).apply();
         }
 
+        String captureState() {
+            StringBuilder state = new StringBuilder();
+            for (int i = 0; i < blocks.size(); i++) {
+                if (state.length() > 0) state.append(';');
+                Point point = blocks.get(i);
+                int color = i < blockColors.size() ? blockColors.get(i) : sceneBrushColor;
+                state.append(point.x).append(',').append(point.y).append(',').append(color);
+            }
+            return state.toString();
+        }
+
+        void rememberState() {
+            undoHistory.add(captureState());
+            if (undoHistory.size() > 30) undoHistory.remove(0);
+        }
+
+        void undo() {
+            if (undoHistory.isEmpty()) {
+                Toast.makeText(BlockForgeActivity.this, "No hay cambios para deshacer", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String previous = undoHistory.remove(undoHistory.size() - 1);
+            blocks.clear();
+            blockColors.clear();
+            if (!previous.isEmpty()) {
+                for (String entry : previous.split(";")) {
+                    String[] values = entry.split(",");
+                    try {
+                        blocks.add(new Point(Integer.parseInt(values[0]), Integer.parseInt(values[1])));
+                        blockColors.add(values.length > 2 ? Integer.parseInt(values[2]) : sceneBrushColor);
+                    } catch (Exception ignored) { }
+                }
+            }
+            persist();
+            invalidate();
+        }
+
         void addBlock() {
+            rememberState();
             int index = blocks.size();
             blocks.add(new Point(index % 10, (index / 10) % 10));
             blockColors.add(sceneBrushColor);
@@ -901,6 +1012,7 @@ public class BlockForgeActivity extends Activity {
         }
 
         void clearBlocks() {
+            rememberState();
             blocks.clear();
             blockColors.clear();
             persist();
@@ -914,6 +1026,7 @@ public class BlockForgeActivity extends Activity {
                 float cellH = Math.max(1f, getHeight() / 10f);
                 int col = Math.max(0, Math.min(9, (int)(event.getX() / cellW)));
                 int row = Math.max(0, Math.min(9, (int)(event.getY() / cellH)));
+                rememberState();
                 if (sceneEraseMode) {
                     for (int i = blocks.size() - 1; i >= 0; i--) {
                         Point block = blocks.get(i);
@@ -947,12 +1060,14 @@ public class BlockForgeActivity extends Activity {
             float cellW = getWidth() / 10f;
             float cellH = getHeight() / 10f;
 
-            paint.setColor(Color.rgb(32,45,65));
-            paint.setStrokeWidth(1f);
-            for (int x = 0; x <= 10; x++)
-                canvas.drawLine(x * cellW, 0, x * cellW, getHeight(), paint);
-            for (int y = 0; y <= 10; y++)
-                canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
+            if (sceneGridVisible) {
+                paint.setColor(Color.rgb(32,45,65));
+                paint.setStrokeWidth(1f);
+                for (int x = 0; x <= 10; x++)
+                    canvas.drawLine(x * cellW, 0, x * cellW, getHeight(), paint);
+                for (int y = 0; y <= 10; y++)
+                    canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
+            }
 
             for (int blockIndex = 0; blockIndex < blocks.size(); blockIndex++) {
                 Point p = blocks.get(blockIndex);
