@@ -397,6 +397,16 @@ public class BlockForgeActivity extends Activity {
         timelineTools.addView(button("MOVER →",()->scenePreview.moveSelectedSprite(0.5f,0f)),new LinearLayout.LayoutParams(0,-2,1));
         timelineTools.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(timelineTools);
         content.addView(button(scenePlayMode?"■ DETENER PRUEBA":"▶ PROBAR NIVEL",()->{scenePlayMode=!scenePlayMode;physicsRunning=scenePlayMode;if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();openPage(2);}));
+        if(scenePlayMode){
+            card("CONTROLES TÁCTILES","Selecciona un sprite en la escena y muévelo con estos controles durante la prueba.");
+            LinearLayout dpadTop=new LinearLayout(this);dpadTop.setGravity(Gravity.CENTER);
+            dpadTop.addView(button("▲",()->scenePreview.moveSelectedSprite(0,-0.5f)),new LinearLayout.LayoutParams(110,-2));content.addView(dpadTop);
+            LinearLayout dpadBottom=new LinearLayout(this);dpadBottom.setGravity(Gravity.CENTER);
+            dpadBottom.addView(button("◀",()->scenePreview.moveSelectedSprite(-0.5f,0)),new LinearLayout.LayoutParams(90,-2));
+            dpadBottom.addView(button("▼",()->scenePreview.moveSelectedSprite(0,0.5f)),new LinearLayout.LayoutParams(90,-2));
+            dpadBottom.addView(button("▶",()->scenePreview.moveSelectedSprite(0.5f,0)),new LinearLayout.LayoutParams(90,-2));
+            dpadBottom.addView(button("SALTAR",()->scenePreview.jumpSelectedSprite()),new LinearLayout.LayoutParams(0,-2,1));content.addView(dpadBottom);
+        }
         LinearLayout physicsActions = new LinearLayout(this);
         physicsActions.setOrientation(LinearLayout.HORIZONTAL);
         physicsActions.addView(button(physicsRunning ? "PAUSAR FÍSICAS" : "▶ INICIAR FÍSICAS", () -> {
@@ -1134,6 +1144,8 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
         int selectedSprite=-1;
+        boolean paintingBlocks=false;
+        int lastPaintedCol=-1,lastPaintedRow=-1;
         float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
         boolean multiTouchGesture=false;
         android.view.ScaleGestureDetector scaleDetector;
@@ -1207,7 +1219,7 @@ public class BlockForgeActivity extends Activity {
         void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;persistSprites();startAnimationTicker();invalidate();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
         String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS";}
-        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size())return;SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(9,sp.x+dx));sp.y=Math.max(0,Math.min(9,sp.y+dy));persistSprites();invalidate();}
+        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(9,sp.x+dx));sp.y=Math.max(0,Math.min(9,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
         void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
         void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);saveCamera();invalidate();}
@@ -1388,6 +1400,17 @@ public class BlockForgeActivity extends Activity {
             invalidate();
         }
 
+        void paintCell(int col,int row){
+            if(col==lastPaintedCol&&row==lastPaintedRow)return;
+            lastPaintedCol=col;lastPaintedRow=row;
+            if(sceneEraseMode){
+                for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x==col&&p.y==row&&(i>=blockLayers.size()||blockLayers.get(i)==sceneLayer)){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);break;}}
+            }else{
+                boolean exists=false;
+                for(int i=0;i<blocks.size();i++){Point p=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(p.x==col&&p.y==row&&layer==sceneLayer){exists=true;break;}}
+                if(!exists){blocks.add(new Point(col,row));blockColors.add(sceneBrushColor);blockLayers.add(sceneLayer);}
+            }
+        }
         void addBlock() {
             rememberState();
             int index = blocks.size();
@@ -1431,7 +1454,11 @@ public class BlockForgeActivity extends Activity {
                         break;
                     }
                 }
+                if(draggingSprite<0){paintingBlocks=true;lastPaintedCol=-1;lastPaintedRow=-1;rememberState();paintCell(col,row);invalidate();}
                 return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && paintingBlocks) {
+                paintCell(col,row);invalidate();return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
                 SceneSprite sprite = sprites.get(draggingSprite);
@@ -1440,6 +1467,7 @@ public class BlockForgeActivity extends Activity {
                 return true;
             }
             if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                if(paintingBlocks){paintingBlocks=false;lastPaintedCol=-1;lastPaintedRow=-1;persist();invalidate();performClick();return true;}
                 if (draggingSprite >= 0) {
                     SceneSprite sprite = sprites.get(draggingSprite);
                     sprite.x = col; sprite.y = row;
