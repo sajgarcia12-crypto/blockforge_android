@@ -254,27 +254,28 @@ public class BlockForgeActivity extends Activity {
             .show();
     }
 
+    ScenePreview scenePreview;
+
     void scenes() {
         heading("Editor de escenas",
-                "Construye y organiza tu mundo.");
+                "Editor táctil 2D experimental. Toca una celda para colocar un bloque.");
+        scenePreview = new ScenePreview();
+        content.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
 
-        ScenePreview preview=new ScenePreview();
-        content.addView(preview,
-                new LinearLayout.LayoutParams(-1,430));
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.addView(button("＋ BLOQUE", () -> scenePreview.addBlock()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        actions.addView(button("BORRAR TODO", () -> scenePreview.clearBlocks()),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(actions);
 
-        content.addView(button("＋ AÑADIR BLOQUE",
-                () -> Toast.makeText(this,
-                    "Herramienta experimental",
-                    Toast.LENGTH_SHORT).show()));
-
-        card("Jerarquía",
-                "Mundo\n  ├ Cámara\n  ├ Luz\n  └ Bloque");
-
-        card("Inspector",
-                "Propiedades del objeto seleccionado.");
-
-        card("Herramientas",
-                "Movimiento · Rotación · Escala");
+        content.addView(button("GUARDAR ESCENA", () -> {
+            scenePreview.persist();
+            Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
+        }));
+        card("Cómo usar", "Toca cualquier celda de la cuadrícula para colocar un bloque. Los cambios se guardan automáticamente.");
+        card("Estado", "Editor 2D por cuadrícula. El renderizado 3D nativo todavía no está conectado a esta interfaz.");
     }
 
     void grafisript() {
@@ -423,71 +424,100 @@ public class BlockForgeActivity extends Activity {
     String unquote(String value) {
         String result = value.trim();
         if (result.length() >= 2 && result.charAt(0) == '"' && result.charAt(result.length() - 1) == '"') {
-            return result.substring(1, result.length() - 1);
-        }
-        return result;
-    }
-
-    void settings() {
-        heading("Configuración",
-                "Personaliza BlockForge.");
-
-        card("Apariencia","Tema oscuro.");
-        card("Idioma","Español.");
-        card("Motor gráfico","C++ / SDL2.");
-        card("Lenguaje","El Grafisript.");
-        card("Información",
-                "BlockForge Studio Mobile\nVersión 0.2 experimental.");
-    }
-
-    class ScenePreview extends View {
-        Paint paint=new Paint(3);
+        class ScenePreview extends View {
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
 
         ScenePreview() {
             super(BlockForgeActivity.this);
             setBackground(shape(Color.rgb(7,13,23)));
+            String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks", "");
+            if (!saved.isEmpty()) {
+                for (String pair : saved.split(";")) {
+                    String[] xy = pair.split(",");
+                    if (xy.length == 2) {
+                        try {
+                            blocks.add(new Point(Integer.parseInt(xy[0]), Integer.parseInt(xy[1])));
+                        } catch (NumberFormatException ignored) { }
+                    }
+                }
+            }
         }
 
-        void polygon(Canvas c,float[] points,int color) {
-            Path p=new Path();
-            p.moveTo(points[0],points[1]);
-            for(int i=2;i<points.length;i+=2)
-                p.lineTo(points[i],points[i+1]);
-            p.close();
-            paint.setColor(color);
-            c.drawPath(p,paint);
+        void persist() {
+            StringBuilder data = new StringBuilder();
+            for (Point p : blocks) {
+                if (data.length() > 0) data.append(';');
+                data.append(p.x).append(',').append(p.y);
+            }
+            getPreferences(MODE_PRIVATE).edit().putString("scene_blocks", data.toString()).apply();
+        }
+
+        void addBlock() {
+            int index = blocks.size();
+            blocks.add(new Point(index % 10, (index / 10) % 10));
+            persist();
+            invalidate();
+        }
+
+        void clearBlocks() {
+            blocks.clear();
+            persist();
+            invalidate();
         }
 
         @Override
-        protected void onDraw(Canvas c) {
-            super.onDraw(c);
+        public boolean onTouchEvent(android.view.MotionEvent event) {
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                float cellW = Math.max(1f, getWidth() / 10f);
+                float cellH = Math.max(1f, getHeight() / 10f);
+                int col = Math.max(0, Math.min(9, (int)(event.getX() / cellW)));
+                int row = Math.max(0, Math.min(9, (int)(event.getY() / cellH)));
+                blocks.add(new Point(col, row));
+                persist();
+                invalidate();
+                performClick();
+                return true;
+            }
+            return true;
+        }
 
-            float w=getWidth(),h=getHeight();
+        @Override
+        public boolean performClick() {
+            super.performClick();
+            return true;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float cellW = getWidth() / 10f;
+            float cellH = getHeight() / 10f;
+
             paint.setColor(Color.rgb(32,45,65));
-            paint.setStrokeWidth(1);
+            paint.setStrokeWidth(1f);
+            for (int x = 0; x <= 10; x++)
+                canvas.drawLine(x * cellW, 0, x * cellW, getHeight(), paint);
+            for (int y = 0; y <= 10; y++)
+                canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
 
-            for(int x=0;x<w;x+=35)
-                c.drawLine(x,0,x,h,paint);
-            for(int y=0;y<h;y+=35)
-                c.drawLine(0,y,w,y,paint);
-
-            float x=w/2,y=h/2;
-
-            polygon(c,new float[]{
-                x,y-65,x+65,y-32,x,y,x-65,y-32
-            },Color.rgb(78,165,105));
-
-            polygon(c,new float[]{
-                x-65,y-32,x,y,x,y+65,x-65,y+32
-            },Color.rgb(48,112,77));
-
-            polygon(c,new float[]{
-                x+65,y-32,x,y,x,y+65,x+65,y+32
-            },Color.rgb(34,83,65));
+            for (Point p : blocks) {
+                float left = p.x * cellW + 3;
+                float top = p.y * cellH + 3;
+                float right = left + cellW - 6;
+                float bottom = top + cellH - 6;
+                paint.setColor(Color.rgb(55,135,90));
+                canvas.drawRect(left, top, right, bottom, paint);
+                paint.setColor(Color.rgb(115,210,145));
+                canvas.drawRect(left, top, right, top + 5, paint);
+                paint.setColor(Color.rgb(25,75,50));
+                canvas.drawRect(left, bottom - 5, right, bottom, paint);
+            }
 
             paint.setColor(white);
             paint.setTextSize(12);
-            c.drawText("VISTA DE ESCENA",15,25,paint);
+            canvas.drawText("ESCENA · " + blocks.size() + " BLOQUES", 12, 20, paint);
         }
     }
-    }
+
+}
