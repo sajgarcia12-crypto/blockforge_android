@@ -45,6 +45,9 @@ public class BlockForgeActivity extends Activity {
         getWindow().setStatusBarColor(background);
         getWindow().setNavigationBarColor(background);
         targetAnimationFps = getPreferences(MODE_PRIVATE).getInt("sprite_fps", 30);
+        physicsGravity=getPreferences(MODE_PRIVATE).getFloat("physics_gravity",24f);
+        physicsBounce=getPreferences(MODE_PRIVATE).getFloat("physics_bounce",0.15f);
+        sceneCollisionsEnabled=getPreferences(MODE_PRIVATE).getBoolean("scene_collisions",true);
         buildInterface();
         home();
     }
@@ -356,6 +359,7 @@ public class BlockForgeActivity extends Activity {
         toolActions.addView(button(sceneToolMode==1?"▧ RECTÁNGULO":"RECTÁNGULO",()->{sceneToolMode=1;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
         toolActions.addView(button(sceneToolMode==2?"▨ RELLENO":"RELLENO",()->{sceneToolMode=2;openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
         content.addView(toolActions);
+        content.addView(button("⚙ CONFIGURAR FÍSICA Y COLISIONES",()->showPhysicsSettingsDialog()));
         LinearLayout palette = new LinearLayout(this);
         palette.setOrientation(LinearLayout.HORIZONTAL);
         palette.addView(button("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)),
@@ -471,6 +475,25 @@ public class BlockForgeActivity extends Activity {
         if(audio.isEmpty()){Toast.makeText(this,"Importa primero un audio desde Recursos",Toast.LENGTH_LONG).show();return;}
         String[] names=new String[audio.size()];for(int i=0;i<audio.size();i++)names[i]=audio.get(i).getName();
         new android.app.AlertDialog.Builder(this).setTitle("Audio de la escena").setItems(names,(dialog,which)->playSceneAudio(names[which])).setNegativeButton("Cancelar",null).show();
+    }
+
+    void showPhysicsSettingsDialog(){
+        LinearLayout form=vertical();form.setPadding(18,8,18,0);
+        EditText gravity=new EditText(this);gravity.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL|android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);gravity.setHint("Gravedad (0–80)");gravity.setText(String.valueOf(physicsGravity));form.addView(gravity);
+        EditText bounce=new EditText(this);bounce.setInputType(android.text.InputType.TYPE_CLASS_NUMBER|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);bounce.setHint("Rebote (0–1)");bounce.setText(String.valueOf(physicsBounce));form.addView(bounce);
+        android.widget.CheckBox collisions=new android.widget.CheckBox(this);collisions.setText("Activar colisiones entre bloques y sprites");collisions.setChecked(sceneCollisionsEnabled);form.addView(collisions);
+        new android.app.AlertDialog.Builder(this).setTitle("Física 2D").setView(form)
+            .setNegativeButton("Cancelar",null).setPositiveButton("Guardar",(d,w)->{
+                try{
+                    float g=Float.parseFloat(gravity.getText().toString().trim());
+                    float b=Float.parseFloat(bounce.getText().toString().trim());
+                    if(Float.isNaN(g)||Float.isInfinite(g)||g<0f||g>80f||Float.isNaN(b)||Float.isInfinite(b)||b<0f||b>1f)throw new NumberFormatException();
+                    physicsGravity=g;physicsBounce=b;sceneCollisionsEnabled=collisions.isChecked();
+                    getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",g).putFloat("physics_bounce",b).putBoolean("scene_collisions",sceneCollisionsEnabled).apply();
+                    if(scenePreview!=null)scenePreview.invalidate();
+                    Toast.makeText(this,"Física guardada en este dispositivo",Toast.LENGTH_SHORT).show();
+                }catch(Exception ex){Toast.makeText(this,"Valores inválidos. Gravedad: 0–80; rebote: 0–1.",Toast.LENGTH_LONG).show();}
+            }).show();
     }
 
     void playSceneAudio(String name) {
