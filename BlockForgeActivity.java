@@ -3304,13 +3304,18 @@ public class BlockForgeActivity extends Activity {
 
     String saveDrawnSprite(Bitmap bitmap, String requestedName) throws java.io.IOException {
         java.io.File folder = new java.io.File(getFilesDir(), "sprites");
-        if (!folder.exists()) folder.mkdirs();
+        if (!folder.exists() && !folder.mkdirs()) {
+            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+            throw new java.io.IOException("No se pudo crear la biblioteca de sprites");
+        }
         String safe = requestedName == null ? "sprite" : requestedName.trim().replaceAll("[^a-zA-Z0-9_-]", "_");
         if (safe.isEmpty()) safe = "sprite";
+        if (safe.length() > 40) safe = safe.substring(0, 40);
         String name = safe + "_" + System.currentTimeMillis() + ".png";
         java.io.File file = new java.io.File(folder, name);
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+                throw new java.io.IOException("No se pudo codificar el PNG");
         } finally {
             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
         }
