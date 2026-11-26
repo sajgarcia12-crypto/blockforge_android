@@ -52,8 +52,7 @@ jobs:
         working-directory: project/BlockForge_Android
         run: gradle --no-daemon assembleDebug
 
-      - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v4
         with:
           name: BlockForge-APK
-          path: project/BlockForge_Android/app/build/outputs/apk/debug/a
-          pp-debug.apk
+          path: project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
