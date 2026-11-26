@@ -73,6 +73,30 @@ jobs:
           test -f "$P/app/build.gradle"
           test -f "$P/app/src/main/cpp/CMakeLists.txt"
 
+      - name: Copiar nueva interfaz BlockForge
+        run: |
+          set -e
+          P="$GITHUB_WORKSPACE/project/BlockForge_Android"
+          SOURCE="$GITHUB_WORKSPACE/BlockForgeActivity.java"
+
+          test -f "$SOURCE"
+
+          PACKAGE=$(sed -n 's/^package[[:space:]]\+\([^;]*\);.*/\1/p' "$SOURCE" | head -n 1)
+
+          if [ -z "$PACKAGE" ]; then
+            echo "ERROR: No se encontró el package de BlockForgeActivity.java"
+            exit 1
+          fi
+
+          PACKAGE_PATH=$(echo "$PACKAGE" | tr '.' '/')
+          DEST="$P/app/src/main/java/$PACKAGE_PATH/BlockForgeActivity.java"
+
+          mkdir -p "$(dirname "$DEST")"
+          cp "$SOURCE" "$DEST"
+
+          echo "Interfaz copiada a: $DEST"
+          test -f "$DEST"
+
       - name: Descargar e instalar SDL2
         run: |
           set -e
@@ -120,5 +144,6 @@ jobs:
         with:
           name: BlockForge-APK
           path: project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found
+          : error
           retention-days: 7
