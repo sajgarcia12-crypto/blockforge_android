@@ -30,6 +30,9 @@ public class BlockForgeActivity extends Activity {
     int sceneLayer = 1;
     boolean cameraPanMode = false;
     boolean scenePlayMode = false;
+    android.media.MediaPlayer sceneAudioPlayer;
+    boolean sceneAudioPrepared = false;
+    boolean activityResumed = false;
     float physicsGravity = 24f;
     float physicsBounce = 0.15f;
     String runtimeWorldName = "Mi mundo";
@@ -46,6 +49,8 @@ public class BlockForgeActivity extends Activity {
 
     @Override
     protected void onPause() {
+        activityResumed = false;
+        if (sceneAudioPlayer != null && sceneAudioPrepared && sceneAudioPlayer.isPlaying()) sceneAudioPlayer.pause();
         saveCurrentScript();
         if (scene3DView != null) scene3DView.onPause();
         if (scenePreview != null) scenePreview.stopPhysics();
@@ -55,6 +60,10 @@ public class BlockForgeActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        activityResumed = true;
+        if (sceneAudioPlayer != null && sceneAudioPrepared && !sceneAudioPlayer.isPlaying()) {
+            try { sceneAudioPlayer.start(); } catch (Exception ignored) { }
+        }
         if (scene3DView != null) scene3DView.onResume();
         if (scenePreview != null && physicsRunning) scenePreview.startPhysics();
     }
@@ -404,6 +413,9 @@ public class BlockForgeActivity extends Activity {
         spriteTools.addView(button("BORRAR SPRITE", () -> scenePreview.deleteSelectedSprite()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(spriteTools);
+        LinearLayout audioActions=new LinearLayout(this);audioActions.setOrientation(LinearLayout.HORIZONTAL);
+        audioActions.addView(button("♫ ELEGIR AUDIO",()->showSceneAudioPicker()),new LinearLayout.LayoutParams(0,-2,1));
+        audioActions.addView(button("DETENER AUDIO",()->stopSceneAudio()),new LinearLayout.LayoutParams(0,-2,1));content.addView(audioActions);
         content.addView(button("GUARDAR ESCENA", () -> {
             scenePreview.persist();
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
@@ -412,6 +424,36 @@ public class BlockForgeActivity extends Activity {
         card("Físicas 2D", "Simulación continua con paso fijo, gravedad, velocidad, plataformas, límites de escena y rebote. Usa el botón para iniciar o pausar.");
         card("Paquetes de sprites", "Descarga desde BlockForge los recursos predeterminados optimizados a 30 o 60 FPS. El paquete se instala localmente dentro de la app.");
     }
+
+    void showSceneAudioPicker() {
+        java.io.File folder=new java.io.File(getFilesDir(),"resources");
+        java.io.File[] all=folder.listFiles();java.util.ArrayList<java.io.File> audio=new java.util.ArrayList<>();
+        if(all!=null)for(java.io.File file:all){String n=file.getName().toLowerCase(java.util.Locale.ROOT);if(n.endsWith(".mp3")||n.endsWith(".wav")||n.endsWith(".ogg")||n.endsWith(".m4a")||n.endsWith(".aac"))audio.add(file);}
+        if(audio.isEmpty()){Toast.makeText(this,"Importa primero un audio desde Recursos",Toast.LENGTH_LONG).show();return;}
+        String[] names=new String[audio.size()];for(int i=0;i<audio.size();i++)names[i]=audio.get(i).getName();
+        new android.app.AlertDialog.Builder(this).setTitle("Audio de la escena").setItems(names,(dialog,which)->playSceneAudio(names[which])).setNegativeButton("Cancelar",null).show();
+    }
+
+    void playSceneAudio(String name) {
+        stopSceneAudio();
+        try {
+            sceneAudioPlayer=new android.media.MediaPlayer();sceneAudioPrepared=false;
+            java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"resources"),name);
+            sceneAudioPlayer.setDataSource(file.getAbsolutePath());sceneAudioPlayer.setLooping(true);
+            sceneAudioPlayer.setOnPreparedListener(mp->{sceneAudioPrepared=true;if(activityResumed)mp.start();});
+            sceneAudioPlayer.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"No se pudo reproducir el audio",Toast.LENGTH_SHORT).show();stopSceneAudio();return true;});
+            sceneAudioPlayer.prepareAsync();getPreferences(MODE_PRIVATE).edit().putString("scene_audio_"+activeProjectName(),name).apply();
+            Toast.makeText(this,"Preparando audio: "+name,Toast.LENGTH_SHORT).show();
+        } catch(Exception ex){stopSceneAudio();Toast.makeText(this,"Error de audio: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
+    }
+
+    void stopSceneAudio() {
+        if(sceneAudioPlayer!=null){try{sceneAudioPlayer.stop();}catch(Exception ignored){}try{sceneAudioPlayer.release();}catch(Exception ignored){}sceneAudioPlayer=null;}
+        sceneAudioPrepared=false;
+        getPreferences(MODE_PRIVATE).edit().remove("scene_audio_"+activeProjectName()).apply();
+    }
+
+    @Override protected void onDestroy(){stopSceneAudio();super.onDestroy();}
 
     void setSceneBrush(int color, boolean erase) {
         sceneBrushColor = color;
