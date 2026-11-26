@@ -1287,21 +1287,33 @@ public class BlockForgeActivity extends Activity {
     }
 
     void addSceneBlock(int x, int z) {
-        String project = getPreferences(MODE_PRIVATE)
-                .getString("active_project", "Mi primer proyecto");
+        if (scenePreview != null) {
+            int bx=Math.max(0,Math.min(scenePreview.mapColumns-1,x));
+            int by=Math.max(0,Math.min(scenePreview.mapRows-1,z));
+            scenePreview.blocks.add(new Point(bx,by));
+            scenePreview.blockColors.add(sceneBrushColor);
+            scenePreview.blockLayers.add(1);
+            scenePreview.persist();
+            scenePreview.invalidate();
+            return;
+        }
+        String project = activeProjectName();
         String key = "scene_blocks_" + project;
         String saved = getPreferences(MODE_PRIVATE).getString(key, "");
-        String entry = Math.max(0, Math.min(9, x)) + "," +
-                Math.max(0, Math.min(9, z));
+        String entry = Math.max(0, Math.min(9, x)) + "," + Math.max(0, Math.min(9, z)) + "," + sceneBrushColor + ",1";
         String updated = saved.isEmpty() ? entry : saved + ";" + entry;
         getPreferences(MODE_PRIVATE).edit().putString(key, updated).apply();
     }
 
     void clearProjectScene() {
-        String project = getPreferences(MODE_PRIVATE)
-                .getString("active_project", "Mi primer proyecto");
-        getPreferences(MODE_PRIVATE).edit()
-                .putString("scene_blocks_" + project, "").apply();
+        getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + activeProjectName(), "").apply();
+        if (scenePreview != null) {
+            scenePreview.blocks.clear();
+            scenePreview.blockColors.clear();
+            scenePreview.blockLayers.clear();
+            scenePreview.persist();
+            scenePreview.invalidate();
+        }
     }
 
     String unquote(String value) {
