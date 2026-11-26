@@ -376,12 +376,12 @@ public class BlockForgeActivity extends Activity {
 
     void buildInterface() {
         root = vertical();
-        root.setBackgroundColor(Color.rgb(17, 20, 26));
+        root.setBackgroundColor(getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false) ? Color.rgb(242,244,247) : Color.rgb(17, 20, 26));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(18, 13, 18, 13);
-        header.setBackgroundColor(Color.rgb(22, 26, 33));
+        header.setBackgroundColor(getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false) ? Color.WHITE : Color.rgb(22, 26, 33));
 
         TextView mark = uiLabel("BF", 16, Color.WHITE, true);
         mark.setGravity(Gravity.CENTER);
@@ -414,7 +414,7 @@ public class BlockForgeActivity extends Activity {
         navigation = new LinearLayout(this);
         navigation.setGravity(Gravity.CENTER);
         navigation.setPadding(12, 8, 12, 8);
-        navigation.setBackgroundColor(Color.rgb(37, 40, 46));
+        navigation.setBackgroundColor(getPreferences(MODE_PRIVATE).getBoolean("ui_light_theme",false) ? Color.rgb(225,229,235) : Color.rgb(37, 40, 46));
         TextView marketplaceButton = uiSecondary("▦   MARKETPLACE", () -> openPage(6));
         navigation.addView(marketplaceButton,
                 new LinearLayout.LayoutParams(-1, -2));
@@ -3169,8 +3169,12 @@ public class BlockForgeActivity extends Activity {
     }
 
     void showStorageManager(java.io.File folder) {
-        if (folder == null || !folder.getCanonicalPath().startsWith(getFilesDir().getCanonicalPath())) {
-            Toast.makeText(this, uiText("Carpeta no permitida","Folder not allowed"), Toast.LENGTH_SHORT).show(); return;
+        try {
+            if (folder == null || !folder.getCanonicalPath().startsWith(getFilesDir().getCanonicalPath() + java.io.File.separator) && !folder.equals(getFilesDir())) {
+                Toast.makeText(this, uiText("Carpeta no permitida","Folder not allowed"), Toast.LENGTH_SHORT).show(); return;
+            }
+        } catch (java.io.IOException ex) {
+            Toast.makeText(this, uiText("No se pudo abrir la carpeta","Could not open folder"), Toast.LENGTH_SHORT).show(); return;
         }
         java.io.File[] entries = folder.listFiles();
         java.util.Arrays.sort(entries == null ? new java.io.File[0] : entries, (a,b) -> {
