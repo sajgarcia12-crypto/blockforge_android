@@ -876,7 +876,7 @@ public class BlockForgeActivity extends Activity {
                 return true;
             }
             if (line.startsWith("jugador.recibir_danio(") && line.endsWith(")")) {
-                int damage = Integer.parseInt(line.substring(21, line.length() - 1).trim());
+                int damage = Integer.parseInt(line.substring(22, line.length() - 1).trim());
                 if (damage < 0 || damage > 1000) throw new IllegalArgumentException("Daño permitido: 0 a 1000");
                 int health = prefs.getInt("character_health_" + project, 100);
                 health = Math.max(0, health - damage);
