@@ -711,10 +711,8 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
-            if (executeCharacterCommand(line, output, lineNumber - 1)) {
-                executed++;
-                continue;
-            }
+            if (executeCharacterCommand(line, output, lineNumber - 1)) { executed++; continue; }
+            if (execute2DCommand(line, output, lineNumber - 1)) { executed++; continue; }
 
             int space = line.indexOf(' ');
             String command = space < 0 ? line : line.substring(0, space);
@@ -764,7 +762,7 @@ public class BlockForgeActivity extends Activity {
                     break;
                 case "ayuda":
                     output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
-                            .append("jugador.saltar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
+                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
                     executed++;
                     break;
                 default:
@@ -883,6 +881,59 @@ public class BlockForgeActivity extends Activity {
     String activeProjectName() {
         return getPreferences(MODE_PRIVATE)
                 .getString("active_project", "Mi primer proyecto");
+    }
+
+    boolean execute2DCommand(String line, StringBuilder output, int lineIndex) {
+        try {
+            ScenePreview target = scenePreview != null ? scenePreview : new ScenePreview();
+            if (line.startsWith("crear_bloque2d ")) {
+                String[] v = line.substring(15).trim().split("\\s+");
+                if (v.length < 2 || v.length > 3) throw new IllegalArgumentException("Uso: crear_bloque2d x y [capa]");
+                int x = Integer.parseInt(v[0]), y = Integer.parseInt(v[1]);
+                int layer = v.length == 3 ? Integer.parseInt(v[2]) : sceneLayer;
+                if (x < 0 || x > 9 || y < 0 || y > 9 || layer < 0 || layer > 2)
+                    throw new IllegalArgumentException("x/y: 0 a 9; capa: 0 fondo, 1 mundo, 2 frente");
+                target.rememberState(); target.blocks.add(new Point(x,y));
+                target.blockColors.add(sceneBrushColor); target.blockLayers.add(layer);
+                target.persist(); target.invalidate();
+                output.append("Bloque 2D creado en (").append(x).append(", ").append(y).append("), capa ").append(layer).append('\n');
+                return true;
+            }
+            if (line.startsWith("capa ")) {
+                int layer = Integer.parseInt(line.substring(5).trim());
+                if (layer < 0 || layer > 2) throw new IllegalArgumentException("Usa 0, 1 o 2");
+                sceneLayer=layer; output.append("Capa activa: ").append(layer).append('\n');
+                if(scenePreview!=null)scenePreview.invalidate(); return true;
+            }
+            if (line.startsWith("mover_sprite(") && line.endsWith(")")) {
+                String[] v=line.substring(13,line.length()-1).split(",");
+                if(v.length!=2)throw new IllegalArgumentException("Uso: mover_sprite(dx, dy)");
+                if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
+                int index=target.selectedSprite>=0?target.selectedSprite:0; SceneSprite sp=target.sprites.get(index);
+                sp.x=Math.max(0f,Math.min(9f,sp.x+Float.parseFloat(v[0].trim())));
+                sp.y=Math.max(0f,Math.min(9f,sp.y+Float.parseFloat(v[1].trim())));
+                target.persistSprites();target.invalidate();output.append("Sprite movido a (").append(sp.x).append(", ").append(sp.y).append(")\n");return true;
+            }
+            if (line.startsWith("saltar_sprite(") && line.endsWith(")")) {
+                float force=Float.parseFloat(line.substring(13,line.length()-1).trim());
+                if(force<=0||force>20)throw new IllegalArgumentException("Fuerza permitida: mayor que 0 y hasta 20");
+                if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
+                int index=target.selectedSprite>=0?target.selectedSprite:0;target.sprites.get(index).vy=-force;
+                target.persistSprites();physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Salto 2D iniciado\n");return true;
+            }
+            if (line.startsWith("camara.zoom(") && line.endsWith(")")) {
+                float factor=Float.parseFloat(line.substring(12,line.length()-1).trim());
+                if(factor<0.5f||factor>2f)throw new IllegalArgumentException("Zoom permitido: 0.5 a 2");
+                target.changeZoom(factor);output.append("Zoom de cámara actualizado\n");return true;
+            }
+            if (line.equals("camara.centrar()")) {target.resetCamera();output.append("Cámara centrada\n");return true;}
+            if (line.equals("fisica.activar()")) {physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Física 2D activada\n");return true;}
+            if (line.equals("fisica.pausar()")) {physicsRunning=false;if(scenePreview!=null)scenePreview.stopPhysics();output.append("Física 2D pausada\n");return true;}
+        } catch(Exception ex) {
+            output.append("Línea ").append(lineIndex+1).append(": ").append(ex.getMessage()==null?"parámetro 2D inválido":ex.getMessage()).append('\n');
+            return true;
+        }
+        return false;
     }
 
     boolean executeCharacterCommand(String line, StringBuilder output, int lineIndex) {
