@@ -10,6 +10,7 @@ on:
       - blockforge/2d-review
       - blockforge/settings-panel
       - blockforge/godot-style-2d
+      - blockforge/gameplay-sprite-studio
 
 permissions:
   contents: read
