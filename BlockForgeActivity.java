@@ -35,7 +35,14 @@ public class BlockForgeActivity extends Activity {
     @Override
     protected void onPause() {
         saveCurrentScript();
+        if (scene3DView != null) scene3DView.onPause();
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (scene3DView != null) scene3DView.onResume();
     }
 
     GradientDrawable shape(int color) {
@@ -122,6 +129,10 @@ public class BlockForgeActivity extends Activity {
 
     void openPage(int page) {
         saveCurrentScript();
+        if (scene3DView != null) {
+            scene3DView.onPause();
+            scene3DView = null;
+        }
         content.removeAllViews();
         switch(page) {
             case 0: home(); break;
@@ -284,6 +295,7 @@ public class BlockForgeActivity extends Activity {
                     "Vista 3D OpenGL ES: coloca cubos y observa la escena desde una cámara en perspectiva.");
             scene3DView = new Scene3DView();
             content.addView(scene3DView, new LinearLayout.LayoutParams(-1, 390));
+            scene3DView.onResume();
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
             actions.addView(button("＋ CUBO", () -> scene3DView.addCube()),
