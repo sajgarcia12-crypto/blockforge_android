@@ -96,48 +96,6 @@ jobs:
           grep -q "applicationId 'com.blockforge.studio'" "$P/app/build.gradle"
           grep -q "versionCode 3" "$P/app/build.gradle"
 
-      - name: Configurar firma permanente de BlockForge
-        env:
-          BLOCKFORGE_KEYSTORE_BASE64: ${{ secrets.BLOCKFORGE_KEYSTORE_BASE64 }}
-          BLOCKFORGE_STORE_PASSWORD: ${{ secrets.BLOCKFORGE_STORE_PASSWORD }}
-          BLOCKFORGE_KEY_ALIAS: ${{ secrets.BLOCKFORGE_KEY_ALIAS }}
-          BLOCKFORGE_KEY_PASSWORD: ${{ secrets.BLOCKFORGE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          : "${BLOCKFORGE_KEYSTORE_BASE64:?Falta el secreto BLOCKFORGE_KEYSTORE_BASE64}"
-          : "${BLOCKFORGE_STORE_PASSWORD:?Falta el secreto BLOCKFORGE_STORE_PASSWORD}"
-          : "${BLOCKFORGE_KEY_ALIAS:?Falta el secreto BLOCKFORGE_KEY_ALIAS}"
-          : "${BLOCKFORGE_KEY_PASSWORD:?Falta el secreto BLOCKFORGE_KEY_PASSWORD}"
-          P="$GITHUB_WORKSPACE/project/BlockForge_Android"
-          echo "$BLOCKFORGE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/blockforge-release.jks"
-          test -s "$RUNNER_TEMP/blockforge-release.jks"
-          # Make the keystore path available to the separate Gradle build step.
-          echo "BLOCKFORGE_KEYSTORE_FILE=$RUNNER_TEMP/blockforge-release.jks" >> "$GITHUB_ENV"
-          # Fail here with a clear message if the keystore/password/alias do not match.
-          keytool -list -keystore "$RUNNER_TEMP/blockforge-release.jks" \
-            -storepass "$BLOCKFORGE_STORE_PASSWORD" \
-            -alias "$BLOCKFORGE_KEY_ALIAS" >/dev/null
-          cat >> "$P/app/build.gradle" <<'GRADLE'
-
-          // Permanent BlockForge signing identity. Keep this key for every future update.
-          android {
-              signingConfigs {
-                  debug {
-                      storeFile file(System.getenv("BLOCKFORGE_KEYSTORE_FILE"))
-                      storePassword System.getenv("BLOCKFORGE_STORE_PASSWORD")
-                      keyAlias System.getenv("BLOCKFORGE_KEY_ALIAS")
-                      keyPassword System.getenv("BLOCKFORGE_KEY_PASSWORD")
-                  }
-              }
-              buildTypes {
-                  debug {
-                      signingConfig signingConfigs.debug
-                  }
-              }
-          }
-          GRADLE
-        shell: bash
-
       - name: Crear icono original de BlockForge
         run: |
           set -e
@@ -207,13 +165,8 @@ jobs:
           sed -i 's/SDL2 SDL2main/SDL2/g' "$P/app/src/main/cpp/CMakeLists.txt"
           test -f "$P/app/src/main/java/org/libsdl/app/SDLActivity.java"
 
-      - name: Compilar BlockForge APK firmado
+      - name: Compilar BlockForge APK
         working-directory: project/BlockForge_Android
-        env:
-          BLOCKFORGE_KEYSTORE_FILE: ${{ runner.temp }}/blockforge-release.jks
-          BLOCKFORGE_STORE_PASSWORD: ${{ secrets.BLOCKFORGE_STORE_PASSWORD }}
-          BLOCKFORGE_KEY_ALIAS: ${{ secrets.BLOCKFORGE_KEY_ALIAS }}
-          BLOCKFORGE_KEY_PASSWORD: ${{ secrets.BLOCKFORGE_KEY_PASSWORD }}
         run: |
           set -e
           for attempt in 1 2 3; do
