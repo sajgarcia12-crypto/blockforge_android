@@ -27,21 +27,31 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools,platforms;android-35,build-tools;35.0.0,ndk;27.2.12479018,cmake;3.22.1'
           accept-android-sdk-licenses: true
+
+      - name: Instalar herramientas Android
+        run: |
+          set -e
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;3.22.1"
 
       - name: Verificar Android SDK
         run: |
+          set -e
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
-          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          sdkmanager --version
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/ndk/27.2.12479018"
-          sdkmanager --version
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
 
       - name: Instalar Gradle
         run: |
+          set -e
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
           unzip -q gradle-8.9-bin.zip
           echo "$GITHUB_WORKSPACE/gradle-8.9/bin" >> "$GITHUB_PATH"
@@ -51,10 +61,14 @@ jobs:
 
       - name: Extraer proyecto BlockForge
         run: |
+          set -e
           test -f BlockForge_Android_Proyecto.zip
           mkdir -p project
           unzip -q BlockForge_Android_Proyecto.zip -d project
+
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
+
+          test -f "$P/settings.gradle"
           test -f "$P/app/build.gradle"
           test -f "$P/app/src/main/cpp/CMakeLists.txt"
 
@@ -64,17 +78,23 @@ jobs:
           P="$GITHUB_WORKSPACE/project/BlockForge_Android"
 
           mkdir -p "$P/app/src/main/cpp"
-          curl -fL https://www.libsdl.org/release/SDL2-2.32.10.tar.gz -o /tmp/sdl.tar.gz
+
+          curl -fL \
+            https://www.libsdl.org/release/SDL2-2.32.10.tar.gz \
+            -o /tmp/sdl.tar.gz
+
           tar -xzf /tmp/sdl.tar.gz -C /tmp
 
           rm -rf "$P/app/src/main/cpp/SDL"
           mv /tmp/SDL2-2.32.10 "$P/app/src/main/cpp/SDL"
 
+          SDL_JAVA="$P/app/src/main/cpp/SDL/android-project/app/src/main/java/org/libsdl/app"
+
+          test -d "$SDL_JAVA"
+
           mkdir -p "$P/app/src/main/java/org/libsdl/app"
 
-          test -d "$P/app/src/main/cpp/SDL/android-project/app/src/main/java/org/libsdl/app"
-
-          cp -R "$P/app/src/main/cpp/SDL/android-project/app/src/main/java/org/libsdl/app/." \
+          cp -R "$SDL_JAVA/." \
             "$P/app/src/main/java/org/libsdl/app/"
 
           sed -i 's/SDL2 SDL2main/SDL2/g' \
@@ -89,8 +109,10 @@ jobs:
 
       - name: Verificar APK
         run: |
-          test -f project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
-          ls -lh project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
+          set -e
+          APK="project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk"
+          test -f "$APK"
+          ls -lh "$APK"
 
       - name: Guardar APK
         uses: actions/upload-artifact@v4
@@ -99,5 +121,3 @@ jobs:
           path: project/BlockForge_Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
-
-
