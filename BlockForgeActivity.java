@@ -29,6 +29,13 @@ public class BlockForgeActivity extends Activity {
     boolean sceneGridVisible = true;
     boolean sceneCollisionsEnabled = true;
     int sceneToolMode = 0; // 0 lápiz, 1 rectángulo, 2 relleno
+    final java.util.ArrayList<GraphNode> grafisriptNodes = new java.util.ArrayList<>();
+    int selectedGraphNode = -1;
+    static final class GraphNode {
+        String type;
+        float value;
+        GraphNode(String t, float v) { type=t; value=v; }
+    }
 
     boolean physicsRunning = false;
     int targetAnimationFps = 30;
@@ -805,120 +812,268 @@ public class BlockForgeActivity extends Activity {
             return;
         }
 
-        content.setPadding(10, 8, 10, 16);
+        // Editor 2D de escritorio adaptado a móvil horizontal: árbol / viewport / inspector.
+        content.setPadding(0, 0, 0, 0);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setBackgroundColor(Color.rgb(30, 32, 36));
+
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(7, 6, 7, 6);
-        top.setBackground(uiPanel(uiSurface));
-        top.addView(editorButton("‹", () -> openPage(1)), new LinearLayout.LayoutParams(42, 44));
-        LinearLayout titleBox = vertical();
-        titleBox.setPadding(10, 0, 4, 0);
-        titleBox.addView(uiLabel(project, 14, uiInk, true));
-        titleBox.addView(uiLabel("ESCENA 2D  ·  EDITOR", 9, uiMuted, true));
-        top.addView(titleBox, new LinearLayout.LayoutParams(0, -2, 1));
-        top.addView(editorButton("▶", () -> {
-            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
-            if (physicsRunning && scenePreview != null) scenePreview.startPhysics();
-            else if (scenePreview != null) scenePreview.stopPhysics();
+        top.setPadding(8, 4, 8, 4);
+        top.setBackgroundColor(Color.rgb(22, 24, 28));
+        top.addView(editorButton("☰", () -> openPage(1)), new LinearLayout.LayoutParams(42, 42));
+        LinearLayout brand = vertical();
+        brand.setPadding(8, 0, 8, 0);
+        brand.addView(uiLabel("BLOCKFORGE", 12, uiInk, true));
+        brand.addView(uiLabel(project + " · 2D", 9, uiMuted, false));
+        top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        HorizontalScrollView workspaceNav = new HorizontalScrollView(this);
+        workspaceNav.setHorizontalScrollBarEnabled(false);
+        workspaceNav.setFillViewport(false);
+        LinearLayout workspaceTabs = new LinearLayout(this);
+        workspaceTabs.setGravity(Gravity.CENTER_VERTICAL);
+        addWorkspaceTab(workspaceTabs, "2D", true, () -> openPage(2));
+        addWorkspaceTab(workspaceTabs, "SCRIPT", false, () -> openPage(3));
+        addWorkspaceTab(workspaceTabs, "JUEGO", false, () -> { scenePlayMode=true; physicsRunning=true; if(scenePreview!=null)scenePreview.startPhysics(); Toast.makeText(this,"Ejecutando escena 2D",Toast.LENGTH_SHORT).show(); });
+        addWorkspaceTab(workspaceTabs, "ASSETS", false, () -> openPage(4));
+        addWorkspaceTab(workspaceTabs, "AJUSTES", false, () -> openPage(5));
+        workspaceNav.addView(workspaceTabs);
+        top.addView(workspaceNav, new LinearLayout.LayoutParams(0, 46, 1));
+        top.addView(editorButton(scenePlayMode ? "■" : "▶", () -> {
+            scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
+            if(scenePreview!=null){if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();}
             openPage(2);
-        }), new LinearLayout.LayoutParams(44, 44));
-        top.addView(editorButton("▣", () -> {
-            if (scenePreview != null) scenePreview.persist();
-            Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
-        }), new LinearLayout.LayoutParams(44, 44));
-        content.addView(top);
+        }), new LinearLayout.LayoutParams(42,42));
+        top.addView(editorButton("💾", () -> { if(scenePreview!=null){scenePreview.persist();scenePreview.persistSprites();} Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show(); }), new LinearLayout.LayoutParams(42,42));
+        content.addView(top, new LinearLayout.LayoutParams(-1, 48));
 
-        LinearLayout panels = new LinearLayout(this);
-        panels.setPadding(0, 7, 0, 5);
-        panels.addView(editorButton("ESCENA", () -> showSceneTreePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("ANIMAR", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("MÁS", () -> showToolsPanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        content.addView(panels);
+        LinearLayout tools = new LinearLayout(this);
+        tools.setGravity(Gravity.CENTER_VERTICAL);
+        tools.setPadding(5,3,5,3);
+        tools.setBackgroundColor(Color.rgb(39,42,47));
+        addWorkspaceTool(tools,"↖ Seleccionar / mover", () -> {sceneToolMode=0;});
+        addWorkspaceTool(tools,"✋ Mano", () -> {cameraPanMode=!cameraPanMode;Toast.makeText(this,cameraPanMode?"Arrastra para mover la vista":"Selección activa",Toast.LENGTH_SHORT).show();});
+        addWorkspaceTool(tools,sceneGridVisible?"▦ Cuadrícula":"□ Cuadrícula",()->{sceneGridVisible=!sceneGridVisible;if(scenePreview!=null)scenePreview.invalidate();});
+        addWorkspaceTool(tools,"＋ Sprite",()->openSpriteDrawer());
+        addWorkspaceTool(tools,"Nodos",()->showNodeGraphPanel());
+        addWorkspaceTool(tools,"Animación",()->showTimelinePanel());
+        addWorkspaceTool(tools,"Deshacer",()->{if(scenePreview!=null)scenePreview.undo();});
+        addWorkspaceTool(tools,"Rehacer",()->{if(scenePreview!=null)scenePreview.redo();});
+        content.addView(tools,new LinearLayout.LayoutParams(-1,44));
 
-        LinearLayout toolbar = new LinearLayout(this);
-        toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(4, 5, 4, 5);
-        toolbar.setBackground(uiPanel(Color.rgb(24, 29, 37)));
-        toolbar.addView(editorButton(sceneToolMode == 0 ? "● LÁPIZ" : "LÁPIZ", () -> { sceneToolMode = 0; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton(sceneToolMode == 1 ? "● RECT." : "RECT.", () -> { sceneToolMode = 1; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton(sceneToolMode == 2 ? "● CUBETA" : "CUBETA", () -> { sceneToolMode = 2; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton("DESHACER", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton("REHACER", () -> scenePreview.redo()), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(toolbar);
+        LinearLayout workspace = new LinearLayout(this);
+        workspace.setOrientation(LinearLayout.HORIZONTAL);
+        workspace.setBackgroundColor(Color.rgb(18,20,24));
+        int sideWidth = Math.max(148, Math.min(205, getResources().getDisplayMetrics().widthPixels / 5));
+        LinearLayout left = vertical();
+        left.setPadding(7,7,7,7);
+        left.setBackgroundColor(Color.rgb(36,39,44));
+        left.addView(panelHeading("ESCENA"));
+        left.addView(editorButton("＋ Nodo raíz",()->showNodePalette()));
+        left.addView(editorButton("＋ Sprite",()->openSpriteDrawer()));
+        left.addView(editorButton("＋ Cámara 2D",()->{if(scenePreview!=null){scenePreview.cameraOffsetX=0;scenePreview.cameraOffsetY=0;scenePreview.cameraZoom=1f;scenePreview.saveCamera();scenePreview.invalidate();}}));
+        left.addView(editorButton("Árbol de nodos",()->showSceneTreePanel()));
+        left.addView(panelHeading("ARCHIVOS"));
+        left.addView(editorButton("Importar PNG",()->pickSpriteImage()));
+        left.addView(editorButton("Recursos",()->openPage(4)));
+        workspace.addView(left,new LinearLayout.LayoutParams(sideWidth,-1));
 
-        LinearLayout viewportFrame = vertical();
-        viewportFrame.setPadding(3, 3, 3, 3);
-        viewportFrame.setBackground(uiPanel(Color.rgb(13, 17, 23)));
-        LinearLayout viewportHeader = new LinearLayout(this);
-        viewportHeader.setGravity(Gravity.CENTER_VERTICAL);
-        viewportHeader.setPadding(9, 7, 9, 7);
-        viewportHeader.addView(uiLabel("VISTA DE ESCENA", 10, uiInk, true), new LinearLayout.LayoutParams(0, -2, 1));
-        viewportHeader.addView(uiLabel("2D  ·  " + scenePreviewStatus(), 9, uiMuted, false));
-        viewportFrame.addView(viewportHeader);
+        LinearLayout center = vertical();
+        center.setPadding(4,4,4,4);
+        center.setBackgroundColor(Color.rgb(27,29,33));
+        LinearLayout viewportBar = new LinearLayout(this);
+        viewportBar.setGravity(Gravity.CENTER_VERTICAL);
+        viewportBar.setPadding(8,4,8,4);
+        viewportBar.addView(uiLabel("VISTA 2D",10,uiInk,true),new LinearLayout.LayoutParams(0,30,1));
+        viewportBar.addView(uiLabel(scenePreviewStatus(),9,uiMuted,false));
+        center.addView(viewportBar);
         scenePreview = new ScenePreview();
-        String savedSceneAudio = getPreferences(MODE_PRIVATE).getString("scene_audio_" + project, "");
-        if (!savedSceneAudio.isEmpty() && sceneAudioPlayer == null) playSceneAudio(savedSceneAudio);
-        int viewportHeight = Math.max(340, Math.min(600, (int)(getResources().getDisplayMetrics().heightPixels * 0.38f)));
-        viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, viewportHeight));
-        content.addView(viewportFrame);
-        if (physicsRunning) scenePreview.startPhysics();
+        String savedSceneAudio=getPreferences(MODE_PRIVATE).getString("scene_audio_"+project,"");
+        if(!savedSceneAudio.isEmpty()&&sceneAudioPlayer==null)playSceneAudio(savedSceneAudio);
+        center.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout zoom = new LinearLayout(this);
+        zoom.setGravity(Gravity.CENTER_VERTICAL);
+        zoom.addView(editorButton("−",()->scenePreview.changeZoom(0.83f)),new LinearLayout.LayoutParams(42,36));
+        zoom.addView(editorButton("Centrar",()->scenePreview.resetCamera()),new LinearLayout.LayoutParams(75,36));
+        zoom.addView(editorButton("+",()->scenePreview.changeZoom(1.2f)),new LinearLayout.LayoutParams(42,36));
+        zoom.addView(editorButton("Cuadrícula",()->{sceneGridVisible=!sceneGridVisible;scenePreview.invalidate();}),new LinearLayout.LayoutParams(0,36,1));
+        center.addView(zoom);
+        workspace.addView(center,new LinearLayout.LayoutParams(0,-1,1));
 
-        uiSection("PINCEL Y VISTA", "HERRAMIENTAS DEL LIENZO");
-        LinearLayout palette = new LinearLayout(this);
-        palette.addView(editorButton("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("AZUL", () -> setSceneBrush(Color.rgb(55, 115, 210), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("ROJO", () -> setSceneBrush(Color.rgb(205, 75, 75), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("BORRAR", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("HEX", () -> showSceneColorDialog()), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton(sceneGridVisible ? "CUADRÍCULA ON" : "CUADRÍCULA OFF", () -> { sceneGridVisible = !sceneGridVisible; if (scenePreview != null) scenePreview.invalidate(); openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(palette);
+        LinearLayout inspector = vertical();
+        inspector.setPadding(7,7,7,7);
+        inspector.setBackgroundColor(Color.rgb(36,39,44));
+        inspector.addView(panelHeading("INSPECTOR"));
+        inspector.addView(editorButton("Propiedades",()->showInspectorPanel()));
+        inspector.addView(editorButton("Transformar",()->showInspectorPanel()));
+        inspector.addView(editorButton("Físicas 2D",()->showPhysicsSettings()));
+        inspector.addView(editorButton("Colisiones "+(sceneCollisionsEnabled?"ON":"OFF"),()->{sceneCollisionsEnabled=!sceneCollisionsEnabled;openPage(2);}));
+        inspector.addView(panelHeading("CAPAS"));
+        inspector.addView(editorButton("Fondo",()->{sceneLayer=0;Toast.makeText(this,"Capa Fondo",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(editorButton("Mundo",()->{sceneLayer=1;Toast.makeText(this,"Capa Mundo",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(editorButton("Frente",()->{sceneLayer=2;Toast.makeText(this,"Capa Frente",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(panelHeading("PROYECTO"));
+        inspector.addView(editorButton("Tamaño del mapa",()->showMapSizeDialog()));
+        inspector.addView(editorButton("Exportar escena",()->exportScenePicker()));
+        workspace.addView(inspector,new LinearLayout.LayoutParams(sideWidth,-1));
+        int workspaceHeight=Math.max(420,(int)(getResources().getDisplayMetrics().heightPixels*0.58f));
+        content.addView(workspace,new LinearLayout.LayoutParams(-1,workspaceHeight));
 
-        uiSection("TRANSFORMACIÓN", "CÁMARA Y CAPAS");
-        LinearLayout camera = new LinearLayout(this);
-        camera.addView(editorButton("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("CAPA " + new String[]{"FONDO", "MUNDO", "FRENTE"}[sceneLayer], () -> { sceneLayer = (sceneLayer + 1) % 3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(camera);
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setPadding(7,4,7,5);
+        bottom.setBackgroundColor(Color.rgb(28,30,34));
+        LinearLayout bottomTabs = new LinearLayout(this);
+        bottomTabs.setGravity(Gravity.CENTER_VERTICAL);
+        addWorkspaceTool(bottomTabs,"Salida",()->showRuntimeOutput());
+        addWorkspaceTool(bottomTabs,"Depurador",()->showRuntimeOutput());
+        addWorkspaceTool(bottomTabs,"Animación",()->showTimelinePanel());
+        addWorkspaceTool(bottomTabs,"Grafisript · Nodos",()->showNodeGraphPanel());
+        bottom.addView(bottomTabs);
+        bottom.addView(uiLabel(scenePreview==null?"LISTO":scenePreview.animationStatus(),9,uiMuted,false));
+        content.addView(bottom,new LinearLayout.LayoutParams(-1,92));
+        if(physicsRunning)scenePreview.startPhysics();
+    }
 
-        uiSection("RECURSOS DE ESCENA", "SPRITES Y MAPA");
-        LinearLayout assets = new LinearLayout(this);
-        assets.addView(editorButton("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(editorButton("IMPORTAR PNG", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(editorButton("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(assets);
+    void addWorkspaceTab(LinearLayout row,String text,boolean active,Runnable action){
+        TextView v=editorButton((active?"● ":"")+text,action);
+        v.setTextSize(10);
+        v.setSingleLine(true);
+        v.setPadding(13,0,13,0);
+        v.setTextColor(active?Color.rgb(105,170,245):uiInk);
+        v.setBackground(uiPanel(active?Color.rgb(39,54,73):Color.rgb(30,34,41)));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,38);
+        lp.setMargins(2,0,2,0);
+        row.addView(v,lp);
+    }
+    void addWorkspaceTool(LinearLayout row,String text,Runnable action){
+        TextView v=editorButton(text,action);v.setTextSize(10);
+        row.addView(v,new LinearLayout.LayoutParams(-2,38));
+    }
+    TextView panelHeading(String text){
+        TextView v=uiLabel(text,10,Color.rgb(145,178,218),true);
+        v.setPadding(5,10,3,7);return v;
+    }
 
-        uiSection("ANIMACIÓN", "FOTOGRAMAS");
-        LinearLayout animation = new LinearLayout(this);
-        animation.addView(editorButton("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("ANTERIOR", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("SIGUIENTE", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("PLAY / PAUSA", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(animation);
-        TextView timeline = uiLabel(scenePreview.animationStatus(), 10, Color.rgb(145, 184, 224), false);
-        timeline.setPadding(11, 10, 11, 10);
-        timeline.setBackground(uiPanel(uiSurface));
-        content.addView(timeline);
+    void showNodePalette(){
+        String[] choices={"Personaje 2D","Saltar","Mover horizontal","Activar física","Pausar física"};
+        new android.app.AlertDialog.Builder(this).setTitle("Añadir nodo Grafisript")
+            .setItems(choices,(d,which)->{
+                float value=which==1?6f:(which==2?1f:0f);
+                String[] types={"personaje","saltar","mover","fisica_on","fisica_off"};
+                grafisriptNodes.add(new GraphNode(types[which],value));
+                persistGraphNodes();showNodeGraphPanel();
+            }).setNegativeButton("Cancelar",null).show();
+    }
 
-        uiSection("EJECUCIÓN", "FÍSICA Y COLISIONES");
-        LinearLayout runtime = new LinearLayout(this);
-        runtime.addView(editorButton(scenePlayMode ? "DETENER" : "PROBAR", () -> {
-            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
-            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
-            openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        runtime.addView(editorButton(physicsRunning ? "PAUSAR FÍSICA" : "ACTIVAR FÍSICA", () -> {
-            physicsRunning = !physicsRunning;
-            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
-            openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        runtime.addView(editorButton("COLISIONES " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
-            sceneCollisionsEnabled = !sceneCollisionsEnabled; openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(runtime);
+    void persistGraphNodes(){
+        org.json.JSONArray a=new org.json.JSONArray();
+        for(GraphNode n:grafisriptNodes){org.json.JSONObject o=new org.json.JSONObject();try{o.put("type",n.type);o.put("value",n.value);a.put(o);}catch(Exception ignored){}}
+        getPreferences(MODE_PRIVATE).edit().putString("grafisript_nodes_"+activeProjectName(),a.toString()).apply();
+    }
+    void loadGraphNodes(){
+        grafisriptNodes.clear();
+        try{org.json.JSONArray a=new org.json.JSONArray(getPreferences(MODE_PRIVATE).getString("grafisript_nodes_"+activeProjectName(),"[]"));
+            for(int i=0;i<a.length();i++){org.json.JSONObject o=a.getJSONObject(i);grafisriptNodes.add(new GraphNode(o.optString("type","saltar"),(float)o.optDouble("value",6)));}}
+        catch(Exception ignored){}
+    }
+    String graphToGrafisript(){
+        StringBuilder b=new StringBuilder("# Generado desde el grafo visual de BlockForge\n");
+        for(GraphNode n:grafisriptNodes){
+            if("personaje".equals(n.type))b.append("# Personaje: usa el sprite seleccionado en la escena\n");
+            else if("saltar".equals(n.type))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\n");
+            else if("mover".equals(n.type))b.append("mover_sprite(").append(n.value).append(", 0)\n");
+            else if("fisica_on".equals(n.type))b.append("fisica.activar()\n");
+            else if("fisica_off".equals(n.type))b.append("fisica.pausar()\n");
+        }
+        return b.toString();
+    }
+    void showNodeGraphPanel(){
+        loadGraphNodes();
+        android.app.Dialog dialog=editorPanel("GRAFISRIPT · GRAFO VISUAL",Gravity.BOTTOM,98);
+        if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(430,getResources().getDisplayMetrics().heightPixels*84/100));
+        LinearLayout p=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        p.addView(label("Arrastra un bloque al lienzo o tócalo para añadirlo. Los bloques se ejecutan en orden mediante Grafisript.",11,gray));
+        LinearLayout graphWorkspace=new LinearLayout(this);
+        graphWorkspace.setOrientation(LinearLayout.HORIZONTAL);
+        graphWorkspace.setBackgroundColor(Color.rgb(19,23,30));
+        LinearLayout palette=vertical();palette.setPadding(5,5,5,5);palette.setBackgroundColor(Color.rgb(31,38,49));
+        palette.addView(panelHeading("NODOS"));
+        LinearLayout graphStack=vertical();graphStack.setPadding(9,8,9,8);
+        graphStack.setOnDragListener((v,event)->{
+            if(event.getAction()==android.view.DragEvent.ACTION_DRAG_STARTED)return event.getClipDescription()!=null;
+            if(event.getAction()==android.view.DragEvent.ACTION_DROP){
+                String nodeType=String.valueOf(event.getClipData().getItemAt(0).getText());
+                float defaultValue="saltar".equals(nodeType)?6f:("mover".equals(nodeType)?1f:0f);
+                grafisriptNodes.add(new GraphNode(nodeType,defaultValue));persistGraphNodes();
+                dialog.dismiss();showNodeGraphPanel();return true;
+            }
+            return true;
+        });
+        String[] labels={"Personaje 2D","Saltar","Mover","Activar física","Pausar física"};
+        String[] types={"personaje","saltar","mover","fisica_on","fisica_off"};
+        for(int i=0;i<labels.length;i++){
+            final String nodeType=types[i];
+            TextView chip=editorButton("＋ "+labels[i],()->{
+                float val="saltar".equals(nodeType)?6f:("mover".equals(nodeType)?1f:0f);
+                grafisriptNodes.add(new GraphNode(nodeType,val));persistGraphNodes();
+                dialog.dismiss();showNodeGraphPanel();
+            });
+            chip.setTextSize(10);
+            chip.setOnLongClickListener(v->{
+                android.content.ClipData data=android.content.ClipData.newPlainText("grafisript-node",nodeType);
+                if(android.os.Build.VERSION.SDK_INT>=24)v.startDragAndDrop(data,new View.DragShadowBuilder(v),nodeType,0);
+                else v.startDrag(data,new View.DragShadowBuilder(v),nodeType,0);
+                return true;
+            });
+            palette.addView(chip);
+        }
+        ScrollView graphScroll=new ScrollView(this);
+        graphScroll.setFillViewport(true);
+        graphScroll.addView(graphStack);
+        for(int i=0;i<grafisriptNodes.size();i++){
+            final int index=i;GraphNode n=grafisriptNodes.get(i);
+            String title=("personaje".equals(n.type)?"PERSONAJE 2D · SPRITE SELECCIONADO":"saltar".equals(n.type)?"SALTAR":"mover".equals(n.type)?"MOVER HORIZONTAL":"fisica_on".equals(n.type)?"ACTIVAR FÍSICA":"PAUSAR FÍSICA");
+            LinearLayout nodeCard=vertical();nodeCard.setPadding(8,7,8,7);
+            nodeCard.setBackground(uiPanel(Color.rgb(45,59,77)));
+            TextView nodeTitle=label((i==0?"● INICIO  ":"● ENTRADA  ")+title,11,white);
+            nodeTitle.setTypeface(Typeface.DEFAULT_BOLD);nodeCard.addView(nodeTitle);
+            if("saltar".equals(n.type)||"mover".equals(n.type)){
+                TextView parameter=editorButton(("saltar".equals(n.type)?"FUERZA: ":"VELOCIDAD X: ")+n.value+"   ✎",()->{
+                    EditText input=new EditText(this);input.setSingleLine(true);input.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL|android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);input.setText(String.valueOf(n.value));
+                    new android.app.AlertDialog.Builder(this).setTitle("Valor del nodo").setView(input).setPositiveButton("Aplicar",(d,w)->{try{n.value=Float.parseFloat(input.getText().toString());if(Float.isNaN(n.value)||Float.isInfinite(n.value))throw new NumberFormatException();persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}catch(Exception ex){Toast.makeText(this,"Introduce un número válido",Toast.LENGTH_SHORT).show();}}).setNegativeButton("Cancelar",null).show();
+                });
+                nodeCard.addView(parameter);
+            }
+            nodeCard.addView(editorButton("QUITAR BLOQUE",()->{grafisriptNodes.remove(index);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}));
+            graphStack.addView(nodeCard);
+            if(i<grafisriptNodes.size()-1){TextView wire=label("│\n▼",19,Color.rgb(70,166,235));wire.setGravity(Gravity.CENTER);graphStack.addView(wire);}
+        }
+        if(grafisriptNodes.isEmpty()){
+            TextView empty=label("SUELTA AQUÍ LOS NODOS\n\nPersonaje → Saltar → Física",12,gray);
+            empty.setGravity(Gravity.CENTER);empty.setPadding(12,35,12,35);graphStack.addView(empty);
+        }
+        graphWorkspace.addView(palette,new LinearLayout.LayoutParams(Math.max(125,getResources().getDisplayMetrics().widthPixels/4),-1));
+        graphWorkspace.addView(graphScroll,new LinearLayout.LayoutParams(0,-1,1));
+        p.addView(graphWorkspace,new LinearLayout.LayoutParams(-1,0,1));
+        p.addView(editorButton("GENERAR CÓDIGO GRAFISRIPT",()->{
+            String code=graphToGrafisript();getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+activeProjectName(),code).apply();
+            Toast.makeText(this,"Código Grafisript generado desde los nodos",Toast.LENGTH_LONG).show();
+            dialog.dismiss();showCodePanel();
+        }));
+        p.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
+    void showPhysicsSettings(){
+        EditText gravity=new EditText(this);gravity.setSingleLine(true);gravity.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);gravity.setText(String.valueOf(physicsGravity));
+        EditText bounce=new EditText(this);bounce.setSingleLine(true);bounce.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);bounce.setText(String.valueOf(physicsBounce));
+        LinearLayout form=vertical();form.addView(label("Gravedad",12,gray));form.addView(gravity);form.addView(label("Rebote",12,gray));form.addView(bounce);
+        new android.app.AlertDialog.Builder(this).setTitle("Físicas 2D").setView(form).setPositiveButton("Guardar",(d,w)->{try{physicsGravity=Math.max(0,Math.min(100,Float.parseFloat(gravity.getText().toString())));physicsBounce=Math.max(0,Math.min(1,Float.parseFloat(bounce.getText().toString())));getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",physicsGravity).putFloat("physics_bounce",physicsBounce).apply();}catch(Exception e){Toast.makeText(this,"Valores no válidos",Toast.LENGTH_SHORT).show();}}).setNegativeButton("Cancelar",null).show();
+    }
+    void showRuntimeOutput(){
+        new android.app.AlertDialog.Builder(this).setTitle("Salida · BlockForge")
+            .setMessage("Grafisript · "+grafisriptNodes.size()+" nodos visuales\nEscena: "+scenePreviewStatus()+"\nFísica: "+(physicsRunning?"activa":"en pausa"))
+            .setPositiveButton("Aceptar",null).show();
     }
 
     void showSceneAudioPicker() {
@@ -1808,7 +1963,7 @@ public class BlockForgeActivity extends Activity {
             cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f));
             cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f));
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
-                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
+                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.12f,Math.min(8f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             loadMobileButtons();
             mapColumns=Math.max(5,Math.min(64,getPreferences(MODE_PRIVATE).getInt("scene_map_w_"+active,10)));
@@ -1929,7 +2084,9 @@ public class BlockForgeActivity extends Activity {
         }
 
         void addSprite(String name) {
-            SceneSprite created = new SceneSprite(name, 4, 4, true);
+            float centerX=(getWidth()*0.5f-cameraOffsetX)/(cameraZoom*64f);
+            float centerY=(getHeight()*0.5f-cameraOffsetY)/(cameraZoom*64f);
+            SceneSprite created = new SceneSprite(name, centerX, centerY, true);
             created.vy = 0f;
             sprites.add(created);
             selectedSprite = sprites.size() - 1;
@@ -2293,13 +2450,11 @@ public class BlockForgeActivity extends Activity {
                         runMobileButton(mobileButtons.get(hit));
                         return true;
                     }
-                    float wx=(event.getX(0)-cameraOffsetX)/cameraZoom;
-                    float wy=(event.getY(0)-cameraOffsetY)/cameraZoom;
-                    int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/Math.max(1f,getWidth()/(float)mapColumns))));
-                    int row=Math.max(0,Math.min(mapRows-1,(int)(wy/Math.max(1f,getHeight()/(float)mapRows))));
+                    float wx=(event.getX(0)-cameraOffsetX)/(cameraZoom*64f);
+                    float wy=(event.getY(0)-cameraOffsetY)/(cameraZoom*64f);
                     for(int i=sprites.size()-1;i>=0;i--){
                         SceneSprite sp=sprites.get(i);
-                        if(col>=sp.x-0.25f&&col<=sp.x+sp.width+0.25f&&row>=sp.y-0.25f&&row<=sp.y+sp.height+0.25f){selectedSprite=i;invalidate();break;}
+                        if(wx>=sp.x&&wx<=sp.x+sp.width&&wy>=sp.y&&wy<=sp.y+sp.height){selectedSprite=i;invalidate();break;}
                     }
                     return true;
                 }
@@ -2327,76 +2482,40 @@ public class BlockForgeActivity extends Activity {
             if(event.getPointerCount()>1 || scaleDetector.isInProgress()){multiTouchGesture=true;return true;}
             if(action==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
             if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
+            final float worldUnit=64f;
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
-            float cellW=Math.max(1f,getWidth()/(float)mapColumns),cellH=Math.max(1f,getHeight()/(float)mapRows);
-            int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/cellW))),row=Math.max(0,Math.min(mapRows-1,(int)(wy/cellH)));
+            float worldX=wx/worldUnit,worldY=wy/worldUnit;
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
-                if(sceneToolMode==2){floodFill(col,row);return true;}
-                if(sceneToolMode==1){gestureStartCol=col;gestureStartRow=row;paintingBlocks=false;draggingSprite=-1;return true;}
-                draggingSprite = -1;
-                for (int i = sprites.size() - 1; i >= 0; i--) {
-                    SceneSprite sprite = sprites.get(i);
-                    if (col >= sprite.x - 0.25f && col <= sprite.x + sprite.width + 0.25f &&
-                            row >= sprite.y - 0.25f && row <= sprite.y + sprite.height + 0.25f) {
-                        if (sceneEraseMode) {
-                            if (sprite.bitmap != null) sprite.bitmap.recycle();
-                            for (Bitmap frame : sprite.animationFrames) if (frame != null) frame.recycle();
-                            sprites.remove(i);
-                            selectedSprite = -1;
-                            persistSprites();
-                        } else {
-                            draggingSprite = i;
-                            selectedSprite = i;
-                            spriteDragOffsetX = col - sprite.x;
-                            spriteDragOffsetY = row - sprite.y;
+                draggingSprite=-1;
+                for(int i=sprites.size()-1;i>=0;i--){
+                    SceneSprite sprite=sprites.get(i);
+                    if(worldX>=sprite.x&&worldX<=sprite.x+sprite.width&&worldY>=sprite.y&&worldY<=sprite.y+sprite.height){
+                        if(sceneEraseMode){
+                            if(sprite.bitmap!=null)sprite.bitmap.recycle();
+                            for(Bitmap frame:sprite.animationFrames)if(frame!=null)frame.recycle();
+                            sprites.remove(i);selectedSprite=-1;persistSprites();
+                        }else{
+                            draggingSprite=i;selectedSprite=i;
+                            spriteDragOffsetX=worldX-sprite.x;spriteDragOffsetY=worldY-sprite.y;
                         }
                         break;
                     }
                 }
-                if(draggingSprite<0){paintingBlocks=true;lastPaintedCol=-1;lastPaintedRow=-1;rememberState();paintCell(col,row);invalidate();}
-                return true;
+                if(draggingSprite<0){selectedSprite=-1;lastPanX=event.getX();lastPanY=event.getY();}
+                invalidate();return true;
             }
-            if(sceneToolMode==1 && event.getAction()==android.view.MotionEvent.ACTION_UP && gestureStartCol>=0){
-                applyRectangle(gestureStartCol,gestureStartRow,col,row);gestureStartCol=-1;gestureStartRow=-1;performClick();return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_MOVE&&draggingSprite>=0){
+                SceneSprite sprite=sprites.get(draggingSprite);
+                sprite.x=worldX-spriteDragOffsetX;sprite.y=worldY-spriteDragOffsetY;
+                invalidate();return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && paintingBlocks) {
-                paintCell(col,row);invalidate();return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_MOVE&&draggingSprite<0){
+                cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;
+                lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;
             }
-            if (event.getAction() == android.view.MotionEvent.ACTION_MOVE && draggingSprite >= 0) {
-                SceneSprite sprite = sprites.get(draggingSprite);
-                sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
-                sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
-                invalidate();
-                return true;
-            }
-            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
-                if(paintingBlocks){paintingBlocks=false;lastPaintedCol=-1;lastPaintedRow=-1;persist();invalidate();performClick();return true;}
-                if (draggingSprite >= 0) {
-                    SceneSprite sprite = sprites.get(draggingSprite);
-                    sprite.x = Math.max(0f, Math.min(mapColumns - sprite.width, col - spriteDragOffsetX));
-                    sprite.y = Math.max(0f, Math.min(mapRows - sprite.height, row - spriteDragOffsetY));
-                    draggingSprite = -1;
-                    persistSprites();
-                } else {
-                    rememberState();
-                    if (sceneEraseMode) {
-                        for (int i = blocks.size() - 1; i >= 0; i--) {
-                            Point block = blocks.get(i);
-                            if (block.x == col && block.y == row) {
-                                blocks.remove(i);
-                                if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);
-                                break;
-                            }
-                        }
-                    } else {
-                        blocks.add(new Point(col, row));
-                        blockColors.add(sceneBrushColor);blockLayers.add(sceneLayer);
-                    }
-                    persist();
-                }
-                invalidate();
-                performClick();
-                return true;
+            if(event.getAction()==android.view.MotionEvent.ACTION_UP){
+                if(draggingSprite>=0)persistSprites();
+                draggingSprite=-1;performClick();return true;
             }
             return true;
         }
@@ -2421,24 +2540,25 @@ public class BlockForgeActivity extends Activity {
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             canvas.save();canvas.translate(cameraOffsetX,cameraOffsetY);canvas.scale(cameraZoom,cameraZoom);
-            float cellW=getWidth()/(float)mapColumns,cellH=getHeight()/(float)mapRows;
-            if (sceneGridVisible) {
-                paint.setColor(Color.rgb(32,45,65));
-                paint.setStrokeWidth(1f);
-                for (int x = 0; x <= mapColumns; x++)
-                    canvas.drawLine(x * cellW, 0, x * cellW, mapRows * cellH, paint);
-                for (int y = 0; y <= mapRows; y++)
-                    canvas.drawLine(0, y * cellH, mapColumns * cellW, y * cellH, paint);
+            final float worldUnit=64f;
+            float visibleLeft=-cameraOffsetX/(cameraZoom*worldUnit);
+            float visibleTop=-cameraOffsetY/(cameraZoom*worldUnit);
+            float visibleRight=visibleLeft+getWidth()/(cameraZoom*worldUnit);
+            float visibleBottom=visibleTop+getHeight()/(cameraZoom*worldUnit);
+            if(sceneGridVisible){
+                paint.setColor(Color.rgb(31,43,60));paint.setStrokeWidth(1f);
+                int startX=(int)Math.floor(visibleLeft),endX=(int)Math.ceil(visibleRight);
+                int startY=(int)Math.floor(visibleTop),endY=(int)Math.ceil(visibleBottom);
+                for(int x=startX;x<=endX;x++)canvas.drawLine(x*worldUnit,visibleTop*worldUnit,x*worldUnit,visibleBottom*worldUnit,paint);
+                for(int y=startY;y<=endY;y++)canvas.drawLine(visibleLeft*worldUnit,y*worldUnit,visibleRight*worldUnit,y*worldUnit,paint);
+                paint.setColor(Color.rgb(95,65,80));paint.setStrokeWidth(2f);canvas.drawLine(visibleLeft*worldUnit,0,visibleRight*worldUnit,0,paint);
+                paint.setColor(Color.rgb(65,100,75));canvas.drawLine(0,visibleTop*worldUnit,0,visibleBottom*worldUnit,paint);
             }
-
-            drawBlockLayer(canvas,0,cellW,cellH);
-            drawBlockLayer(canvas,1,cellW,cellH);
-
-            for (SceneSprite sprite : sprites) {
-                float left = sprite.x * cellW + 2;
-                float top = sprite.y * cellH + 2;
-                float right = left + cellW * sprite.width - 4;
-                float bottom = top + cellH * sprite.height - 4;
+            paint.setColor(Color.rgb(115,130,150));paint.setTextSize(12f);
+            canvas.drawText("WORLD 2D  ·  "+(int)(cameraZoom*100)+"%",12-visibleLeft*worldUnit,24-visibleTop*worldUnit,paint);
+            for(SceneSprite sprite:sprites){
+                float left=sprite.x*worldUnit,top=sprite.y*worldUnit;
+                float right=left+worldUnit*sprite.width,bottom=top+worldUnit*sprite.height;
                 float centerX = (left + right) * 0.5f, centerY = (top + bottom) * 0.5f;
                 canvas.save();
                 canvas.rotate(sprite.rotation, centerX, centerY);
@@ -2458,7 +2578,7 @@ public class BlockForgeActivity extends Activity {
                 canvas.restore();
             }
 
-            drawBlockLayer(canvas,2,cellW,cellH);
+
             paint.setColor(white);
             paint.setTextSize(12);
             String active = activeProjectName();
@@ -2467,18 +2587,16 @@ public class BlockForgeActivity extends Activity {
             if (!character.isEmpty()) {
                 float px = getPreferences(MODE_PRIVATE).getFloat("character_x_" + active, 0f);
                 float pz = getPreferences(MODE_PRIVATE).getFloat("character_z_" + active, 0f);
-                int cx = Math.max(0, Math.min(9, Math.round(px)));
-                int cz = Math.max(0, Math.min(9, Math.round(pz)));
-                float centerX = (cx + 0.5f) * cellW;
-                float centerY = (cz + 0.5f) * cellH;
+                float centerX = px * worldUnit;
+                float centerY = pz * worldUnit;
                 paint.setColor(Color.rgb(65, 145, 255));
-                canvas.drawCircle(centerX, centerY, Math.min(cellW, cellH) * 0.32f, paint);
+                canvas.drawCircle(centerX, centerY, worldUnit * 0.32f, paint);
                 paint.setColor(Color.WHITE);
                 paint.setTextSize(10);
                 canvas.drawText(character, centerX - 18, centerY - 12, paint);
             }
 
-            canvas.drawText("ESCENA · "+blocks.size()+" BLOQUES · CAPA "+(sceneLayer+1)+" · "+Math.round(cameraZoom*100)+"%",12,20,paint);
+            canvas.drawText("ESCENA 2D · "+sprites.size()+" OBJETOS · "+Math.round(cameraZoom*100)+"%",12,20,paint);
             if(selectedSprite>=0&&selectedSprite<sprites.size())canvas.drawText("SELECCIONADO · "+sprites.get(selectedSprite).fileName,12,38,paint);
             canvas.restore();
             drawMobileButtons(canvas);
