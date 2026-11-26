@@ -2573,18 +2573,16 @@ public class BlockForgeActivity extends Activity {
             if (!character.isEmpty()) {
                 float px = getPreferences(MODE_PRIVATE).getFloat("character_x_" + active, 0f);
                 float pz = getPreferences(MODE_PRIVATE).getFloat("character_z_" + active, 0f);
-                int cx = Math.max(0, Math.min(9, Math.round(px)));
-                int cz = Math.max(0, Math.min(9, Math.round(pz)));
-                float centerX = (cx + 0.5f) * cellW;
-                float centerY = (cz + 0.5f) * cellH;
+                float centerX = px * worldUnit;
+                float centerY = pz * worldUnit;
                 paint.setColor(Color.rgb(65, 145, 255));
-                canvas.drawCircle(centerX, centerY, Math.min(cellW, cellH) * 0.32f, paint);
+                canvas.drawCircle(centerX, centerY, worldUnit * 0.32f, paint);
                 paint.setColor(Color.WHITE);
                 paint.setTextSize(10);
                 canvas.drawText(character, centerX - 18, centerY - 12, paint);
             }
 
-            canvas.drawText("ESCENA · "+blocks.size()+" BLOQUES · CAPA "+(sceneLayer+1)+" · "+Math.round(cameraZoom*100)+"%",12,20,paint);
+            canvas.drawText("ESCENA 2D · "+sprites.size()+" OBJETOS · "+Math.round(cameraZoom*100)+"%",12,20,paint);
             if(selectedSprite>=0&&selectedSprite<sprites.size())canvas.drawText("SELECCIONADO · "+sprites.get(selectedSprite).fileName,12,38,paint);
             canvas.restore();
             drawMobileButtons(canvas);
