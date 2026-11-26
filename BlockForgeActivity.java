@@ -25,6 +25,10 @@ public class BlockForgeActivity extends Activity {
     boolean sceneEraseMode = false;
     boolean sceneGridVisible = true;
     boolean sceneCollisionsEnabled = true;
+    boolean physicsRunning = false;
+    int targetAnimationFps = 30;
+    float physicsGravity = 24f;
+    float physicsBounce = 0.15f;
     String runtimeWorldName = "Mi mundo";
 
     @Override
@@ -356,15 +360,23 @@ public class BlockForgeActivity extends Activity {
         content.addView(spriteActions);
         LinearLayout physicsActions = new LinearLayout(this);
         physicsActions.setOrientation(LinearLayout.HORIZONTAL);
-        physicsActions.addView(button("↓ FÍSICAS", () -> {
-            scenePreview.simulatePhysicsStep();
-            Toast.makeText(this, "Paso de gravedad y colisiones ejecutado", Toast.LENGTH_SHORT).show();
+        physicsActions.addView(button(physicsRunning ? "PAUSAR FÍSICAS" : "▶ INICIAR FÍSICAS", () -> {
+            physicsRunning = !physicsRunning;
+            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
+            openPage(2);
         }), new LinearLayout.LayoutParams(0, -2, 1));
         physicsActions.addView(button("COLISIONES: " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
             sceneCollisionsEnabled = !sceneCollisionsEnabled;
             openPage(2);
         }), new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(physicsActions);
+        LinearLayout packActions = new LinearLayout(this);
+        packActions.setOrientation(LinearLayout.HORIZONTAL);
+        packActions.addView(button("DESCARGAR PACK 30 FPS", () -> downloadSpritePack(30)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        packActions.addView(button("DESCARGAR PACK 60 FPS", () -> downloadSpritePack(60)),
+                new LinearLayout.LayoutParams(0, -2, 1));
+        content.addView(packActions);
         LinearLayout spriteTools = new LinearLayout(this);
         spriteTools.setOrientation(LinearLayout.HORIZONTAL);
         spriteTools.addView(button("SÓLIDO ON/OFF", () -> scenePreview.toggleSelectedSpriteSolid()),
@@ -377,7 +389,8 @@ public class BlockForgeActivity extends Activity {
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
         }));
         card("Sprites", "Dibuja un sprite de 16×16 píxeles o importa una imagen PNG/JPG. Toca y arrastra un sprite para moverlo.");
-        card("Físicas y colisiones", "FÍSICAS aplica un paso de gravedad. Los sprites sólidos se detienen al tocar bloques u otros sprites sólidos. Es una simulación 2D inicial, no un motor físico avanzado.");
+        card("Físicas 2D", "Simulación continua con paso fijo, gravedad, velocidad, plataformas, límites de escena y rebote. Usa el botón para iniciar o pausar.");
+        card("Paquetes de sprites", "Descarga desde BlockForge los recursos predeterminados optimizados a 30 o 60 FPS. El paquete se instala localmente dentro de la app.");
     }
 
     void setSceneBrush(int color, boolean erase) {
@@ -958,6 +971,7 @@ public class BlockForgeActivity extends Activity {
         String fileName;
         float x, y;
         boolean solid = true;
+        float vx = 0f, vy = 0f;
         Bitmap bitmap;
         SceneSprite(String name, float px, float py, boolean isSolid) {
             fileName = name; x = px; y = py; solid = isSolid;
@@ -1005,8 +1019,11 @@ public class BlockForgeActivity extends Activity {
             if (!spriteData.isEmpty()) for (String item : spriteData.split(";")) {
                 String[] parts = item.split("\\|");
                 if (parts.length >= 3) try {
-                    sprites.add(new SceneSprite(parts[0], Float.parseFloat(parts[1]),
-                            Float.parseFloat(parts[2]), parts.length < 4 || Boolean.parseBoolean(parts[3])));
+                    SceneSprite loaded = new SceneSprite(parts[0], Float.parseFloat(parts[1]),
+                            Float.parseFloat(parts[2]), parts.length < 4 || Boolean.parseBoolean(parts[3]));
+                    if (parts.length > 4) loaded.vx = Float.parseFloat(parts[4]);
+                    if (parts.length > 5) loaded.vy = Float.parseFloat(parts[5]);
+                    sprites.add(loaded);
                 } catch (Exception ignored) { }
             }
         }
@@ -1016,14 +1033,17 @@ public class BlockForgeActivity extends Activity {
             for (SceneSprite sprite : sprites) {
                 if (data.length() > 0) data.append(';');
                 data.append(sprite.fileName).append('|').append(sprite.x).append('|')
-                        .append(sprite.y).append('|').append(sprite.solid);
+                        .append(sprite.y).append('|').append(sprite.solid).append('|')
+                        .append(sprite.vx).append('|').append(sprite.vy);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
         }
 
         void addSprite(String name) {
-            sprites.add(new SceneSprite(name, 4, 4, true));
+            SceneSprite created = new SceneSprite(name, 4, 4, true);
+            created.vy = 0f;
+            sprites.add(created);
             selectedSprite = sprites.size() - 1;
             persistSprites();
             invalidate();
@@ -1058,28 +1078,79 @@ public class BlockForgeActivity extends Activity {
             invalidate();
         }
 
-        void simulatePhysicsStep() {
-            if (!sceneCollisionsEnabled) {
-                for (SceneSprite sprite : sprites) sprite.y = Math.min(9, sprite.y + 1);
-            } else {
-                for (SceneSprite sprite : sprites) {
-                    float nextY = Math.min(9, sprite.y + 1);
-                    boolean blocked = nextY >= 9.0f;
-                    int sx = Math.max(0, Math.min(9, Math.round(sprite.x)));
-                    int sy = Math.max(0, Math.min(9, Math.round(nextY)));
-                    if (sprite.solid) {
-                        for (Point block : blocks)
-                            if (block.x == sx && block.y == sy) blocked = true;
-                        for (SceneSprite other : sprites)
-                            if (other != sprite && other.solid &&
-                                    Math.round(other.x) == sx && Math.round(other.y) == sy)
-                                blocked = true;
-                    }
-                    if (!blocked) sprite.y = nextY;
+        long lastPhysicsNanos = 0L;
+        float accumulator = 0f;
+        final float fixedStep = 1f / 60f;
+        final Runnable physicsLoop = new Runnable() {
+            @Override public void run() {
+                if (!physicsRunning || !isAttachedToWindow()) return;
+                long now = System.nanoTime();
+                if (lastPhysicsNanos == 0L) lastPhysicsNanos = now;
+                float frameTime = Math.min(0.05f, (now - lastPhysicsNanos) / 1_000_000_000f);
+                lastPhysicsNanos = now;
+                accumulator += frameTime;
+                int steps = 0;
+                while (accumulator >= fixedStep && steps < 3) {
+                    physicsStep(fixedStep);
+                    accumulator -= fixedStep;
+                    steps++;
                 }
+                invalidate();
+                postOnAnimation(this);
             }
+        };
+
+        void startPhysics() {
+            lastPhysicsNanos = 0L;
+            accumulator = 0f;
+            removeCallbacks(physicsLoop);
+            postOnAnimation(physicsLoop);
+        }
+
+        void stopPhysics() {
+            removeCallbacks(physicsLoop);
+            lastPhysicsNanos = 0L;
             persistSprites();
-            invalidate();
+        }
+
+        void physicsStep(float dt) {
+            if (!sceneCollisionsEnabled) {
+                for (SceneSprite sprite : sprites) {
+                    sprite.vy += physicsGravity * dt;
+                    sprite.y += sprite.vy * dt;
+                }
+                return;
+            }
+            for (SceneSprite sprite : sprites) {
+                float oldY = sprite.y;
+                sprite.vy = Math.min(32f, sprite.vy + physicsGravity * dt);
+                float nextY = sprite.y + sprite.vy * dt;
+                float maxY = 9f;
+                boolean landed = false;
+                if (sprite.solid) {
+                    for (Point block : blocks) {
+                        if (Math.abs(sprite.x - block.x) < 0.85f &&
+                                oldY <= block.y && nextY >= block.y - 0.85f) {
+                            nextY = block.y - 0.85f;
+                            landed = true;
+                        }
+                    }
+                    for (SceneSprite other : sprites) {
+                        if (other != sprite && other.solid &&
+                                Math.abs(sprite.x - other.x) < 0.85f &&
+                                oldY <= other.y && nextY >= other.y - 0.85f) {
+                            nextY = other.y - 0.85f;
+                            landed = true;
+                        }
+                    }
+                    if (nextY >= maxY) {
+                        nextY = maxY;
+                        landed = true;
+                    }
+                }
+                sprite.y = Math.max(0f, Math.min(maxY, nextY));
+                if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
+            }
         }
 
         void persist() {
@@ -1624,6 +1695,53 @@ public class BlockForgeActivity extends Activity {
                 }
             }
         }
+    }
+
+    void downloadSpritePack(final int fps) {
+        final String packUrl = "https://raw.githubusercontent.com/sajgarcia12-crypto/blockforge_android/blockforge/dev-hub-foundation/sprite-packs/pack-" + fps + ".json";
+        Toast.makeText(this, "Descargando paquete " + fps + " FPS…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            java.io.File temp = null;
+            try {
+                java.net.URL url = new java.net.URL(packUrl);
+                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(12000);
+                connection.setReadTimeout(12000);
+                connection.setRequestMethod("GET");
+                if (connection.getResponseCode() != 200)
+                    throw new java.io.IOException("Servidor respondió " + connection.getResponseCode());
+                java.io.InputStream in = connection.getInputStream();
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int count, total = 0;
+                while ((count = in.read(buffer)) != -1) {
+                    total += count;
+                    if (total > 1024 * 1024) throw new java.io.IOException("Paquete demasiado grande");
+                    bytes.write(buffer, 0, count);
+                }
+                in.close();
+                connection.disconnect();
+                org.json.JSONObject pack = new org.json.JSONObject(
+                        new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+                if (pack.optInt("fps") != fps || !pack.optString("name").startsWith("BlockForge"))
+                    throw new java.io.IOException("Paquete no válido");
+                java.io.File folder = new java.io.File(getFilesDir(), "sprite-packs");
+                if (!folder.exists()) folder.mkdirs();
+                java.io.File target = new java.io.File(folder, "pack-" + fps + ".json");
+                try (java.io.FileOutputStream out = new java.io.FileOutputStream(target)) {
+                    out.write(bytes.toByteArray());
+                }
+                runOnUiThread(() -> {
+                    targetAnimationFps = fps;
+                    getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", fps).apply();
+                    Toast.makeText(this, "Pack " + fps + " FPS instalado (" +
+                            (target.length() / 1024) + " KB)", Toast.LENGTH_LONG).show();
+                });
+            } catch (Exception ex) {
+                runOnUiThread(() -> Toast.makeText(this,
+                        "No se pudo descargar el pack: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
     }
 
     void settings() {
