@@ -843,9 +843,9 @@ public class BlockForgeActivity extends Activity {
         tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(5,3,5,3);
         tools.setBackgroundColor(Color.rgb(39,42,47));
-        addWorkspaceTool(tools, sceneToolMode==0?"▣ Seleccionar":"▣", () -> {sceneToolMode=0;openPage(2);});
-        addWorkspaceTool(tools, sceneToolMode==1?"▱ Rectángulo":"▱", () -> {sceneToolMode=1;openPage(2);});
-        addWorkspaceTool(tools, sceneToolMode==2?"▨ Cubeta":"▨", () -> {sceneToolMode=2;openPage(2);});
+        addWorkspaceTool(tools,"↖ Seleccionar / mover", () -> {sceneToolMode=0;});
+        addWorkspaceTool(tools,"✋ Mano", () -> {cameraPanMode=!cameraPanMode;Toast.makeText(this,cameraPanMode?"Arrastra para mover la vista":"Selección activa",Toast.LENGTH_SHORT).show();});
+        addWorkspaceTool(tools,sceneGridVisible?"▦ Cuadrícula":"□ Cuadrícula",()->{sceneGridVisible=!sceneGridVisible;if(scenePreview!=null)scenePreview.invalidate();});
         addWorkspaceTool(tools,"＋ Sprite",()->openSpriteDrawer());
         addWorkspaceTool(tools,"Nodos",()->showNodeGraphPanel());
         addWorkspaceTool(tools,"Animación",()->showTimelinePanel());
@@ -863,7 +863,7 @@ public class BlockForgeActivity extends Activity {
         left.addView(panelHeading("ESCENA"));
         left.addView(editorButton("＋ Nodo raíz",()->showNodePalette()));
         left.addView(editorButton("＋ Sprite",()->openSpriteDrawer()));
-        left.addView(editorButton("＋ Bloque",()->{if(scenePreview!=null)scenePreview.addBlock();}));
+        left.addView(editorButton("＋ Cámara 2D",()->{if(scenePreview!=null){scenePreview.cameraOffsetX=0;scenePreview.cameraOffsetY=0;scenePreview.cameraZoom=1f;scenePreview.saveCamera();scenePreview.invalidate();}}));
         left.addView(editorButton("Árbol de nodos",()->showSceneTreePanel()));
         left.addView(panelHeading("ARCHIVOS"));
         left.addView(editorButton("Importar PNG",()->pickSpriteImage()));
@@ -1949,7 +1949,7 @@ public class BlockForgeActivity extends Activity {
             cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f));
             cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f));
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
-                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
+                @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.12f,Math.min(8f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             loadMobileButtons();
             mapColumns=Math.max(5,Math.min(64,getPreferences(MODE_PRIVATE).getInt("scene_map_w_"+active,10)));
@@ -2436,13 +2436,11 @@ public class BlockForgeActivity extends Activity {
                         runMobileButton(mobileButtons.get(hit));
                         return true;
                     }
-                    float wx=(event.getX(0)-cameraOffsetX)/cameraZoom;
-                    float wy=(event.getY(0)-cameraOffsetY)/cameraZoom;
-                    int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/Math.max(1f,getWidth()/(float)mapColumns))));
-                    int row=Math.max(0,Math.min(mapRows-1,(int)(wy/Math.max(1f,getHeight()/(float)mapRows))));
+                    float wx=(event.getX(0)-cameraOffsetX)/(cameraZoom*64f);
+                    float wy=(event.getY(0)-cameraOffsetY)/(cameraZoom*64f);
                     for(int i=sprites.size()-1;i>=0;i--){
                         SceneSprite sp=sprites.get(i);
-                        if(col>=sp.x-0.25f&&col<=sp.x+sp.width+0.25f&&row>=sp.y-0.25f&&row<=sp.y+sp.height+0.25f){selectedSprite=i;invalidate();break;}
+                        if(wx>=sp.x&&wx<=sp.x+sp.width&&wy>=sp.y&&wy<=sp.y+sp.height){selectedSprite=i;invalidate();break;}
                     }
                     return true;
                 }
@@ -2566,7 +2564,7 @@ public class BlockForgeActivity extends Activity {
                 canvas.restore();
             }
 
-            drawBlockLayer(canvas,2,cellW,cellH);
+
             paint.setColor(white);
             paint.setTextSize(12);
             String active = activeProjectName();
