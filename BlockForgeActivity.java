@@ -859,6 +859,7 @@ public class BlockForgeActivity extends Activity {
     class ScenePreview extends View {
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         java.util.ArrayList<Point> blocks = new java.util.ArrayList<>();
+        java.util.ArrayList<Integer> blockColors = new java.util.ArrayList<>();
 
         ScenePreview() {
             super(BlockForgeActivity.this);
@@ -868,9 +869,11 @@ public class BlockForgeActivity extends Activity {
             if (!saved.isEmpty()) {
                 for (String pair : saved.split(";")) {
                     String[] xy = pair.split(",");
-                    if (xy.length == 2) {
+                    if (xy.length >= 2) {
                         try {
                             blocks.add(new Point(Integer.parseInt(xy[0]), Integer.parseInt(xy[1])));
+                            blockColors.add(xy.length >= 3 ? Integer.parseInt(xy[2]) :
+                                    Color.rgb(55, 135, 90));
                         } catch (NumberFormatException ignored) { }
                     }
                 }
@@ -879,9 +882,11 @@ public class BlockForgeActivity extends Activity {
 
         void persist() {
             StringBuilder data = new StringBuilder();
-            for (Point p : blocks) {
+            for (int i = 0; i < blocks.size(); i++) {
+                Point p = blocks.get(i);
                 if (data.length() > 0) data.append(';');
-                data.append(p.x).append(',').append(p.y);
+                int color = i < blockColors.size() ? blockColors.get(i) : sceneBrushColor;
+                data.append(p.x).append(',').append(p.y).append(',').append(color);
             }
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             getPreferences(MODE_PRIVATE).edit().putString("scene_blocks_" + active, data.toString()).apply();
@@ -890,12 +895,14 @@ public class BlockForgeActivity extends Activity {
         void addBlock() {
             int index = blocks.size();
             blocks.add(new Point(index % 10, (index / 10) % 10));
+            blockColors.add(sceneBrushColor);
             persist();
             invalidate();
         }
 
         void clearBlocks() {
             blocks.clear();
+            blockColors.clear();
             persist();
             invalidate();
         }
@@ -912,11 +919,13 @@ public class BlockForgeActivity extends Activity {
                         Point block = blocks.get(i);
                         if (block.x == col && block.y == row) {
                             blocks.remove(i);
+                            if (i < blockColors.size()) blockColors.remove(i);
                             break;
                         }
                     }
                 } else {
                     blocks.add(new Point(col, row));
+                    blockColors.add(sceneBrushColor);
                 }
                 persist();
                 invalidate();
@@ -945,12 +954,14 @@ public class BlockForgeActivity extends Activity {
             for (int y = 0; y <= 10; y++)
                 canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
 
-            for (Point p : blocks) {
+            for (int blockIndex = 0; blockIndex < blocks.size(); blockIndex++) {
+                Point p = blocks.get(blockIndex);
                 float left = p.x * cellW + 3;
                 float top = p.y * cellH + 3;
                 float right = left + cellW - 6;
                 float bottom = top + cellH - 6;
-                paint.setColor(sceneBrushColor);
+                paint.setColor(blockIndex < blockColors.size() ?
+                        blockColors.get(blockIndex) : sceneBrushColor);
                 canvas.drawRect(left, top, right, bottom, paint);
                 paint.setColor(Color.rgb(175, 220, 255));
                 canvas.drawRect(left, top, right, top + 5, paint);
