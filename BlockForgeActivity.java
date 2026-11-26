@@ -1576,18 +1576,25 @@ public class BlockForgeActivity extends Activity {
             for(int i=0;i<blocks.size();i++){Point p=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(p.x==startX&&p.y==startY&&layer==sceneLayer){targetExists=true;targetColor=i<blockColors.size()?blockColors.get(i):sceneBrushColor;break;}}
             if(sceneEraseMode&&!targetExists)return;
             if(!sceneEraseMode&&targetExists&&targetColor==sceneBrushColor)return;
-            rememberState();
-            java.util.ArrayDeque<Point> queue=new java.util.ArrayDeque<>();java.util.HashSet<Integer> visited=new java.util.HashSet<>();
+            java.util.ArrayDeque<Point> queue=new java.util.ArrayDeque<>();
+            java.util.HashSet<Integer> visited=new java.util.HashSet<>();
+            java.util.ArrayList<Point> region=new java.util.ArrayList<>();
             queue.add(new Point(startX,startY));
             while(!queue.isEmpty()&&visited.size()<mapColumns*mapRows){
-                Point p=queue.removeFirst();if(p.x<0||p.y<0||p.x>=mapColumns||p.y>=mapRows)continue;
+                Point p=queue.removeFirst();
+                if(p.x<0||p.y<0||p.x>=mapColumns||p.y>=mapRows)continue;
                 int key=p.y*mapColumns+p.x;if(!visited.add(key))continue;
-                int found=-1;for(int i=0;i<blocks.size();i++){Point q=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(q.x==p.x&&q.y==p.y&&layer==sceneLayer){found=i;break;}}
+                int found=-1;
+                for(int i=0;i<blocks.size();i++){Point q=blocks.get(i);int layer=i<blockLayers.size()?blockLayers.get(i):1;if(q.x==p.x&&q.y==p.y&&layer==sceneLayer){found=i;break;}}
                 boolean matches=targetExists?(found>=0&&(found>=blockColors.size()?sceneBrushColor:blockColors.get(found))==targetColor):(found<0);
                 if(!matches)continue;
-                applyCellDirect(p.x,p.y);
-                queue.add(new Point(p.x+1,p.y));queue.add(new Point(p.x-1,p.y));queue.add(new Point(p.x,p.y+1));queue.add(new Point(p.x,p.y-1));
+                region.add(p);
+                queue.add(new Point(p.x+1,p.y));queue.add(new Point(p.x-1,p.y));
+                queue.add(new Point(p.x,p.y+1));queue.add(new Point(p.x,p.y-1));
             }
+            if(region.isEmpty())return;
+            rememberState();
+            for(Point p:region)applyCellDirect(p.x,p.y);
             persist();invalidate();
         }
 
