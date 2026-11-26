@@ -149,6 +149,21 @@ jobs:
           echo "Interfaz copiada a: $DEST"
           test -f "$DEST"
 
+      - name: Empaquetar recursos incluidos (SpriteCook)
+        run: |
+          set -e
+          P="$GITHUB_WORKSPACE/project/BlockForge_Android"
+          SOURCE="$GITHUB_WORKSPACE/src/main/assets"
+          DEST="$P/app/src/main/assets"
+          mkdir -p "$DEST"
+          if [ -d "$SOURCE" ]; then
+            cp -R "$SOURCE/." "$DEST/"
+          fi
+          echo "Recursos empaquetados:"
+          find "$DEST" -type f -maxdepth 3 -print
+          test -f "$DEST/spritecook/astronaut-squirrel.webp"
+          test -f "$DEST/spritecook/paladin-knight.webp"
+
       - name: Descargar e instalar SDL2
         run: |
           set -e
