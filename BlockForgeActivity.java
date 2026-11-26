@@ -1123,6 +1123,7 @@ public class BlockForgeActivity extends Activity {
         int draggingSprite = -1;
         int selectedSprite=-1;
         float cameraZoom=1f,cameraOffsetX=0f,cameraOffsetY=0f,lastPanX,lastPanY;
+        boolean multiTouchGesture=false;
         android.view.ScaleGestureDetector scaleDetector;
 
         ScenePreview() {
@@ -1384,6 +1385,8 @@ public class BlockForgeActivity extends Activity {
         @Override
         public boolean onTouchEvent(android.view.MotionEvent event){
             scaleDetector.onTouchEvent(event);
+            if(event.getPointerCount()>1 || scaleDetector.isInProgress()){multiTouchGesture=true;return true;}
+            if(event.getAction()==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
             if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
             float cellW=Math.max(1f,getWidth()/10f),cellH=Math.max(1f,getHeight()/10f);
