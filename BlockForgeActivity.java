@@ -383,6 +383,9 @@ public class BlockForgeActivity extends Activity {
         spriteActions.addView(button("＋ IMPORTAR IMAGEN", () -> pickSpriteImage()),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(spriteActions);
+        LinearLayout mapActions=new LinearLayout(this);mapActions.setOrientation(LinearLayout.HORIZONTAL);
+        mapActions.addView(button("TAMAÑO DEL MAPA",()->showMapSizeDialog()),new LinearLayout.LayoutParams(0,-2,1));
+        mapActions.addView(button("CENTRAR CÁMARA",()->scenePreview.resetCamera()),new LinearLayout.LayoutParams(0,-2,1));content.addView(mapActions);
         LinearLayout mobileActions=new LinearLayout(this);mobileActions.setOrientation(LinearLayout.HORIZONTAL);
         mobileActions.addView(button("＋ CREAR BOTÓN PARA MÓVILES",()->createMobileButtonDialog()),new LinearLayout.LayoutParams(0,-2,2));
         mobileActions.addView(button("BOTONES PREDETERMINADOS",()->{scenePreview.installDefaultMobileButtons();openPage(2);}),new LinearLayout.LayoutParams(0,-2,1));
@@ -1117,6 +1120,13 @@ public class BlockForgeActivity extends Activity {
         MobileButton(String i,String t,String ic,String a){id=i;title=t;icon=ic;action=a;}
     }
 
+    void showMapSizeDialog(){
+        LinearLayout form=vertical();form.setPadding(16,8,16,0);
+        EditText width=new EditText(this);width.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);width.setHint("Ancho (5–64)");width.setText(String.valueOf(scenePreview.mapColumns));form.addView(width);
+        EditText height=new EditText(this);height.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);height.setHint("Alto (5–64)");height.setText(String.valueOf(scenePreview.mapRows));form.addView(height);
+        new android.app.AlertDialog.Builder(this).setTitle("Tamaño del mapa").setMessage("Configura las dimensiones de tu mundo 2D.").setView(form).setNegativeButton("Cancelar",null).setPositiveButton("APLICAR",(d,w)->{try{int c=Integer.parseInt(width.getText().toString()),r=Integer.parseInt(height.getText().toString());if(c<5||c>64||r<5||r>64)throw new NumberFormatException();scenePreview.setMapSize(c,r);openPage(2);}catch(Exception ex){Toast.makeText(this,"Usa valores entre 5 y 64",Toast.LENGTH_LONG).show();}}).show();
+    }
+
     void createMobileButtonDialog() {
         LinearLayout form=vertical(); form.setPadding(16,8,16,0);
         EditText title=new EditText(this); title.setHint("Nombre del botón (ej. Disparar)"); form.addView(title);
@@ -1171,6 +1181,7 @@ public class BlockForgeActivity extends Activity {
         java.util.ArrayList<SceneSprite> sprites = new java.util.ArrayList<>();
         java.util.ArrayList<MobileButton> mobileButtons = new java.util.ArrayList<>();
         int activeMobileButtonPointer=-1;
+        int mapColumns=10,mapRows=10;
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         int draggingSprite = -1;
         int selectedSprite=-1;
@@ -1190,6 +1201,8 @@ public class BlockForgeActivity extends Activity {
                 @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.65f,Math.min(2.5f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
             loadMobileButtons();
+            mapColumns=Math.max(5,Math.min(64,getPreferences(MODE_PRIVATE).getInt("scene_map_w_"+active,10)));
+            mapRows=Math.max(5,Math.min(64,getPreferences(MODE_PRIVATE).getInt("scene_map_h_"+active,10)));
             String saved = getPreferences(MODE_PRIVATE).getString("scene_blocks_" + active, "");
             if (!saved.isEmpty()) {
                 for (String pair : saved.split(";")) {
@@ -1263,6 +1276,8 @@ public class BlockForgeActivity extends Activity {
             for(int i=0;i<mobileButtons.size();i++){float cx=right-(i%3)*(size+gap)-size/2f;float cy=bottom-(i/3)*(size+gap)-size/2f;if(Math.hypot(x-cx,y-cy)<=size/2f)return i;}return -1;
         }
 
+        void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.x=Math.max(0,Math.min(mapColumns-1,sp.x));sp.y=Math.max(0,Math.min(mapRows-1,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
+
         void persistSprites() {
             StringBuilder data = new StringBuilder();
             for (SceneSprite sprite : sprites) {
@@ -1292,7 +1307,7 @@ public class BlockForgeActivity extends Activity {
         void toggleAnimationPlayback(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.size()<2){Toast.makeText(BlockForgeActivity.this,"Añade al menos 2 fotogramas",Toast.LENGTH_SHORT).show();return;}sp.animationPlaying=!sp.animationPlaying;persistSprites();startAnimationTicker();invalidate();}
         void deleteAnimationFrame(){SceneSprite sp=selectedSpriteObject();if(sp==null||sp.animationFrames.isEmpty()){Toast.makeText(BlockForgeActivity.this,"No hay fotogramas para eliminar",Toast.LENGTH_SHORT).show();return;}int index=Math.max(0,Math.min(sp.currentFrameIndex,sp.animationFrames.size()-1));Bitmap removed=sp.animationFrames.remove(index);if(removed!=null&&!removed.isRecycled())removed.recycle();sp.animationFrameNames.remove(index);sp.currentFrameIndex=sp.animationFrames.isEmpty()?0:Math.min(index,sp.animationFrames.size()-1);persistSprites();invalidate();}
         String animationStatus(){SceneSprite sp=selectedSpriteObject();return sp==null?"ANIMACIÓN · selecciona un sprite":"FOTOGRAMA "+(sp.animationFrames.isEmpty()?0:sp.currentFrameIndex+1)+"/"+sp.animationFrames.size()+" · "+sp.animationFps+" FPS";}
-        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(9,sp.x+dx));sp.y=Math.max(0,Math.min(9,sp.y+dy));persistSprites();invalidate();}
+        void moveSelectedSprite(float dx,float dy){if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite en la escena",Toast.LENGTH_SHORT).show();return;}SceneSprite sp=sprites.get(selectedSprite);sp.x=Math.max(0,Math.min(mapColumns-1,sp.x+dx));sp.y=Math.max(0,Math.min(mapRows-1,sp.y+dy));persistSprites();invalidate();}
         void jumpSelectedSprite(){if(selectedSprite<0||selectedSprite>=sprites.size())return;sprites.get(selectedSprite).vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}}
         void saveCamera(){getPreferences(MODE_PRIVATE).edit().putFloat("scene_camera_zoom",cameraZoom).putFloat("scene_camera_x",cameraOffsetX).putFloat("scene_camera_y",cameraOffsetY).apply();}
         void changeZoom(float f){float old=cameraZoom;cameraZoom=Math.max(.65f,Math.min(2.5f,cameraZoom*f));float cx=getWidth()/2f,cy=getHeight()/2f;cameraOffsetX=cx-(cx-cameraOffsetX)*(cameraZoom/old);cameraOffsetY=cy-(cy-cameraOffsetY)*(cameraZoom/old);saveCamera();invalidate();}
@@ -1368,7 +1383,7 @@ public class BlockForgeActivity extends Activity {
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
 
-                float nextX = Math.max(0f, Math.min(9f, oldX + sprite.vx * dt));
+                float nextX = Math.max(0f, Math.min(mapColumns-1f, oldX + sprite.vx * dt));
                 if (sceneCollisionsEnabled && sprite.solid) {
                     boolean horizontalHit = false;
                     for (int i = 0; i < blocks.size(); i++) {
@@ -1406,10 +1421,10 @@ public class BlockForgeActivity extends Activity {
                             landed = true;
                         }
                     }
-                    if (nextY >= 9f) { nextY = 9f; landed = true; }
+                    if (nextY >= mapRows-1f) { nextY = mapRows-1f; landed = true; }
                     if (nextY <= 0f) { nextY = 0f; if (sprite.vy < 0f) sprite.vy = 0f; }
                 }
-                sprite.y = Math.max(0f, Math.min(9f, nextY));
+                sprite.y = Math.max(0f, Math.min(mapRows-1f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
                 sprite.vx *= 0.88f;
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
@@ -1487,7 +1502,7 @@ public class BlockForgeActivity extends Activity {
         void addBlock() {
             rememberState();
             int index = blocks.size();
-            blocks.add(new Point(index % 10, (index / 10) % 10));
+            blocks.add(new Point(index % mapColumns, (index / mapColumns) % mapRows));
             blockColors.add(sceneBrushColor);blockLayers.add(sceneLayer);
             persist();
             invalidate();
@@ -1506,8 +1521,8 @@ public class BlockForgeActivity extends Activity {
             if(event.getAction()==android.view.MotionEvent.ACTION_UP && multiTouchGesture){multiTouchGesture=false;return true;}
             if(cameraPanMode){if(event.getAction()==0){lastPanX=event.getX();lastPanY=event.getY();draggingSprite=-2;return true;}if(event.getAction()==2&&draggingSprite==-2){cameraOffsetX+=event.getX()-lastPanX;cameraOffsetY+=event.getY()-lastPanY;lastPanX=event.getX();lastPanY=event.getY();saveCamera();invalidate();return true;}if(event.getAction()==1){draggingSprite=-1;return true;}}
             float wx=(event.getX()-cameraOffsetX)/cameraZoom,wy=(event.getY()-cameraOffsetY)/cameraZoom;
-            float cellW=Math.max(1f,getWidth()/10f),cellH=Math.max(1f,getHeight()/10f);
-            int col=Math.max(0,Math.min(9,(int)(wx/cellW))),row=Math.max(0,Math.min(9,(int)(wy/cellH)));
+            float cellW=Math.max(1f,getWidth()/(float)mapColumns),cellH=Math.max(1f,getHeight()/(float)mapRows);
+            int col=Math.max(0,Math.min(mapColumns-1,(int)(wx/cellW))),row=Math.max(0,Math.min(mapRows-1,(int)(wy/cellH)));
             if(scenePlayMode){
                 if(event.getAction()==android.view.MotionEvent.ACTION_DOWN){
                     int hit=hitMobileButton(event.getX(),event.getY());
@@ -1598,14 +1613,14 @@ public class BlockForgeActivity extends Activity {
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             canvas.save();canvas.translate(cameraOffsetX,cameraOffsetY);canvas.scale(cameraZoom,cameraZoom);
-            float cellW=getWidth()/10f,cellH=getHeight()/10f;
+            float cellW=getWidth()/(float)mapColumns,cellH=getHeight()/(float)mapRows;
             if (sceneGridVisible) {
                 paint.setColor(Color.rgb(32,45,65));
                 paint.setStrokeWidth(1f);
-                for (int x = 0; x <= 10; x++)
-                    canvas.drawLine(x * cellW, 0, x * cellW, getHeight(), paint);
-                for (int y = 0; y <= 10; y++)
-                    canvas.drawLine(0, y * cellH, getWidth(), y * cellH, paint);
+                for (int x = 0; x <= mapColumns; x++)
+                    canvas.drawLine(x * cellW, 0, x * cellW, mapRows * cellH, paint);
+                for (int y = 0; y <= mapRows; y++)
+                    canvas.drawLine(0, y * cellH, mapColumns * cellW, y * cellH, paint);
             }
 
             drawBlockLayer(canvas,0,cellW,cellH);
@@ -1932,7 +1947,7 @@ public class BlockForgeActivity extends Activity {
     org.json.JSONObject buildSceneJson() throws org.json.JSONException {
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
         org.json.JSONObject rootJson=new org.json.JSONObject();
-        rootJson.put("format","BlockForge2D");rootJson.put("version",1);
+        rootJson.put("format","BlockForge2D");rootJson.put("version",2);rootJson.put("mapWidth",target.mapColumns);rootJson.put("mapHeight",target.mapRows);
         org.json.JSONArray blockArray=new org.json.JSONArray();
         for(int i=0;i<target.blocks.size();i++){
             Point p=target.blocks.get(i);org.json.JSONObject item=new org.json.JSONObject();
@@ -1952,6 +1967,7 @@ public class BlockForgeActivity extends Activity {
             item.put("frames",frames);spriteArray.put(item);
         }
         rootJson.put("sprites",spriteArray);
+        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);buttons.put(item);}rootJson.put("mobileButtons",buttons);
         org.json.JSONObject camera=new org.json.JSONObject();
         camera.put("zoom",target.cameraZoom);camera.put("x",target.cameraOffsetX);camera.put("y",target.cameraOffsetY);
         rootJson.put("camera",camera);
@@ -1975,19 +1991,22 @@ public class BlockForgeActivity extends Activity {
             while((n=in.read(buffer))!=-1){total+=n;if(total>3*1024*1024)throw new java.io.IOException("El nivel supera 3 MB");bytes.write(buffer,0,n);}
         }
         org.json.JSONObject json=new org.json.JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
-        if(!"BlockForge2D".equals(json.optString("format"))||json.optInt("version")!=1)
+        int formatVersion=json.optInt("version",1);
+        if(!"BlockForge2D".equals(json.optString("format"))||(formatVersion!=1&&formatVersion!=2))
             throw new java.io.IOException("Formato o versión no compatible");
         ScenePreview target=scenePreview!=null?scenePreview:new ScenePreview();
+        target.setMapSize(Math.max(5,Math.min(64,json.optInt("mapWidth",10))),Math.max(5,Math.min(64,json.optInt("mapHeight",10))));
         target.blocks.clear();target.blockColors.clear();target.blockLayers.clear();
         org.json.JSONArray blockArray=json.optJSONArray("blocks");
         if(blockArray!=null)for(int i=0;i<blockArray.length();i++){
             org.json.JSONObject item=blockArray.getJSONObject(i);
             int x=item.getInt("x"),y=item.getInt("y"),layer=item.optInt("layer",1);
-            if(x<0||x>9||y<0||y>9||layer<0||layer>2)continue;
+            if(x<0||x>=target.mapColumns||y<0||y>=target.mapRows||layer<0||layer>2)continue;
             target.blocks.add(new Point(x,y));target.blockColors.add(item.optInt("color",sceneBrushColor));target.blockLayers.add(layer);
         }
         for(SceneSprite old:target.sprites){if(old.bitmap!=null)old.bitmap.recycle();for(Bitmap frame:old.animationFrames)if(frame!=null)frame.recycle();}
         target.sprites.clear();target.selectedSprite=-1;
+        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left")));}target.persistMobileButtons();
         org.json.JSONArray spriteArray=json.optJSONArray("sprites");
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
