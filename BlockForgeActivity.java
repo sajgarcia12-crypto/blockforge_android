@@ -403,9 +403,9 @@ public class BlockForgeActivity extends Activity {
         content.addView(physicsActions);
         LinearLayout packActions = new LinearLayout(this);
         packActions.setOrientation(LinearLayout.HORIZONTAL);
-        packActions.addView(button("DESCARGAR PACK 30 FPS", () -> downloadSpritePack(30)),
+        packActions.addView(button("INSTALAR PACK 30 FPS", () -> installSpritePack(30)),
                 new LinearLayout.LayoutParams(0, -2, 1));
-        packActions.addView(button("DESCARGAR PACK 60 FPS", () -> downloadSpritePack(60)),
+        packActions.addView(button("INSTALAR PACK 60 FPS", () -> installSpritePack(60)),
                 new LinearLayout.LayoutParams(0, -2, 1));
         content.addView(packActions);
         LinearLayout spriteTools = new LinearLayout(this);
@@ -1312,7 +1312,7 @@ public class BlockForgeActivity extends Activity {
 
         @Override protected void onAttachedToWindow(){super.onAttachedToWindow();startAnimationTicker();}
         @Override protected void onDetachedFromWindow(){removeCallbacks(animationTicker);removeCallbacks(physicsLoop);persistSprites();persist();saveCamera();super.onDetachedFromWindow();}
-        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;for(SceneSprite sp:sprites)if(sp.animationFrames.size()>1){invalidate();postDelayed(this,100);return;}}};
+        final Runnable animationTicker=new Runnable(){@Override public void run(){if(!isAttachedToWindow())return;for(SceneSprite sp:sprites)if(sp.animationFrames.size()>1){invalidate();postDelayed(this,Math.max(8,1000/targetAnimationFps));return;}}};
         void startAnimationTicker(){removeCallbacks(animationTicker);postDelayed(animationTicker,100);}
 
         void persist() {
@@ -1486,7 +1486,7 @@ public class BlockForgeActivity extends Activity {
                 float top = sprite.y * cellH + 2;
                 float right = left + cellW - 4;
                 float bottom = top + cellH - 4;
-                Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty())shown=sprite.animationFrames.get((int)((android.os.SystemClock.uptimeMillis()/180L)%sprite.animationFrames.size()));
+                Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty())shown=sprite.animationFrames.get((int)((android.os.SystemClock.uptimeMillis()/Math.max(16,1000/targetAnimationFps))%sprite.animationFrames.size()));
                 if(shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
                 } else {
                     paint.setColor(Color.MAGENTA);
@@ -2006,70 +2006,38 @@ public class BlockForgeActivity extends Activity {
         } finally { bitmap.recycle(); }
     }
 
-    void downloadSpritePack(final int fps) {
-        final String packUrl = "https://raw.githubusercontent.com/sajgarcia12-crypto/blockforge_android/blockforge/dev-hub-foundation/sprite-packs/pack-" + fps + ".json";
-        Toast.makeText(this, "Descargando paquete " + fps + " FPS…", Toast.LENGTH_SHORT).show();
-        new Thread(() -> {
-            java.io.File temp = null;
-            try {
-                java.net.URL url = new java.net.URL(packUrl);
-                java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(12000);
-                connection.setReadTimeout(12000);
-                connection.setRequestMethod("GET");
-                if (connection.getResponseCode() != 200)
-                    throw new java.io.IOException("Servidor respondió " + connection.getResponseCode());
-                java.io.InputStream in = connection.getInputStream();
-                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-                byte[] buffer = new byte[4096];
-                int count, total = 0;
-                while ((count = in.read(buffer)) != -1) {
-                    total += count;
-                    if (total > 1024 * 1024) throw new java.io.IOException("Paquete demasiado grande");
-                    bytes.write(buffer, 0, count);
-                }
-                in.close();
-                connection.disconnect();
-                org.json.JSONObject pack = new org.json.JSONObject(
-                        new String(bytes.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
-                if (pack.optInt("fps") != fps || !pack.optString("name").startsWith("BlockForge"))
-                    throw new java.io.IOException("Paquete no válido");
-                java.io.File folder = new java.io.File(getFilesDir(), "sprite-packs");
-                if (!folder.exists()) folder.mkdirs();
-                java.io.File target = new java.io.File(folder, "pack-" + fps + ".json");
-                try (java.io.FileOutputStream out = new java.io.FileOutputStream(target)) {
-                    out.write(bytes.toByteArray());
-                }
-                org.json.JSONArray palette = pack.optJSONArray("palette");
-                int heroColor = Color.rgb(77,155,255);
-                int coinColor = Color.rgb(255,211,77);
-                int platformColor = Color.rgb(84,200,120);
-                if (palette != null && palette.length() >= 3) {
-                    heroColor = Color.parseColor(palette.getString(0));
-                    coinColor = Color.parseColor(palette.getString(1));
-                    platformColor = Color.parseColor(palette.getString(2));
-                }
-                java.io.File spriteFolder = new java.io.File(getFilesDir(), "sprites");
-                if (!spriteFolder.exists()) spriteFolder.mkdirs();
-                savePackPixelSprite(spriteFolder, "pack_hero_" + fps + ".png", heroColor, 0);
-                savePackPixelSprite(spriteFolder, "pack_coin_" + fps + ".png", coinColor, 1);
-                savePackPixelSprite(spriteFolder, "pack_platform_" + fps + ".png", platformColor, 2);
-                runOnUiThread(() -> {
-                    targetAnimationFps = fps;
-                    getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps", fps).apply();
-                    if (scenePreview != null) {
-                        scenePreview.addSprite("pack_hero_" + fps + ".png");
-                        scenePreview.addSprite("pack_coin_" + fps + ".png");
-                        scenePreview.addSprite("pack_platform_" + fps + ".png");
-                    }
-                    Toast.makeText(this, "Pack " + fps + " FPS instalado: 3 sprites pixel art (" +
-                            (target.length() / 1024) + " KB de datos)", Toast.LENGTH_LONG).show();
-                });
-            } catch (Exception ex) {
-                runOnUiThread(() -> Toast.makeText(this,
-                        "No se pudo descargar el pack: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+    void installSpritePack(final int fps) {
+        if(fps!=30 && fps!=60){Toast.makeText(this,"FPS no compatible",Toast.LENGTH_SHORT).show();return;}
+        targetAnimationFps=fps;
+        getPreferences(MODE_PRIVATE).edit().putInt("sprite_fps",fps).apply();
+        try {
+            java.io.File packFolder=new java.io.File(getFilesDir(),"sprite-packs");
+            java.io.File spriteFolder=new java.io.File(getFilesDir(),"sprites");
+            if(!packFolder.exists()&&!packFolder.mkdirs())throw new java.io.IOException("No se pudo crear la carpeta de paquetes");
+            if(!spriteFolder.exists()&&!spriteFolder.mkdirs())throw new java.io.IOException("No se pudo crear la carpeta de sprites");
+            org.json.JSONObject pack=new org.json.JSONObject();
+            pack.put("name","BlockForge Pixel Pack "+fps);pack.put("version",1);pack.put("fps",fps);
+            pack.put("description","Paquete pixel art integrado, instalable sin conexión.");
+            org.json.JSONArray palette=new org.json.JSONArray();
+            if(fps==30){palette.put("#4D9BFF");palette.put("#FFD34D");palette.put("#54C878");}
+            else{palette.put("#9B7BFF");palette.put("#FFF078");palette.put("#49C9C0");}
+            pack.put("palette",palette);
+            java.io.File descriptor=new java.io.File(packFolder,"pack-"+fps+".json");
+            try(java.io.FileOutputStream out=new java.io.FileOutputStream(descriptor)){
+                out.write(pack.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
-        }).start();
+            savePackPixelSprite(spriteFolder,"pack_hero_"+fps+".png",Color.parseColor(palette.getString(0)),0);
+            savePackPixelSprite(spriteFolder,"pack_coin_"+fps+".png",Color.parseColor(palette.getString(1)),1);
+            savePackPixelSprite(spriteFolder,"pack_platform_"+fps+".png",Color.parseColor(palette.getString(2)),2);
+            if(scenePreview!=null){
+                scenePreview.addSprite("pack_hero_"+fps+".png");
+                scenePreview.addSprite("pack_coin_"+fps+".png");
+                scenePreview.addSprite("pack_platform_"+fps+".png");
+            }
+            Toast.makeText(this,"Pack "+fps+" FPS instalado sin conexión: 3 sprites pixel art.",Toast.LENGTH_LONG).show();
+        } catch(Exception ex) {
+            Toast.makeText(this,"No se pudo instalar el pack: "+ex.getMessage(),Toast.LENGTH_LONG).show();
+        }
     }
 
     void settings() {
