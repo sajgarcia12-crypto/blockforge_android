@@ -129,7 +129,11 @@ public class BlockForgeActivity extends Activity {
 
     boolean isLikelyPlayerSprite(String name) {
         String n=name==null?"":name.toLowerCase(java.util.Locale.ROOT);
-        return n.contains("hero")||n.contains("player")||n.contains("personaje")||n.contains("astronaut")||n.contains("paladin")||n.contains("knight")||n.contains("adventur");
+        return n.contains("hero")||n.contains("player")||n.contains("personaje")||n.contains("astronaut")||n.contains("paladin")||n.contains("knight")||n.contains("adventur")||n.contains("builtin_0_")||n.contains("builtin_1_")||n.contains("builtin_7_")||n.contains("builtin_8_")||n.contains("builtin_9_");
+    }
+    boolean isStaticSceneAsset(String name) {
+        String n=name==null?"":name.toLowerCase(java.util.Locale.ROOT);
+        return n.contains("coin")||n.contains("platform")||n.contains("plataforma")||n.contains("builtin_2_")||n.contains("builtin_3_")||n.contains("builtin_4_")||n.contains("builtin_5_")||n.contains("builtin_6_")||n.contains("builtin_10_")||n.contains("builtin_11_")||n.contains("builtin_12_")||n.contains("builtin_13_")||n.contains("builtin_14_")||n.contains("builtin_15_");
     }
 
     String uiText(String spanish, String english) {
@@ -2292,7 +2296,7 @@ public class BlockForgeActivity extends Activity {
             float centerY=(getHeight()*0.5f-cameraOffsetY)/(cameraZoom*64f);
             SceneSprite created = new SceneSprite(name, centerX, centerY, true);
             created.vy = 0f;
-            created.isPlayer = sprites.isEmpty() && isLikelyPlayerSprite(name);
+            created.isPlayer = isLikelyPlayerSprite(name) || (sprites.isEmpty() && !isStaticSceneAsset(name));
             sprites.add(created);
             selectedSprite = sprites.size() - 1;
             persistSprites();
