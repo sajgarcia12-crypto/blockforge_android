@@ -776,7 +776,9 @@ public class BlockForgeActivity extends Activity {
             openPage(2);
         }), new LinearLayout.LayoutParams(0, 46, 1));
         runtime.addView(editorButton("COLISIONES " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
-            sceneCollisionsEnabled = !sceneCollisionsEnabled; openPage(2);
+            sceneCollisionsEnabled = !sceneCollisionsEnabled;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("scene_collisions", sceneCollisionsEnabled).apply();
+            openPage(2);
         }), new LinearLayout.LayoutParams(0, 46, 1));
         content.addView(runtime);
     }
@@ -2084,7 +2086,7 @@ public class BlockForgeActivity extends Activity {
                 }
                 sprite.y = Math.max(0f, Math.min(mapRows - 1f, nextY));
                 if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
-                sprite.vx *= 0.88f;
+                sprite.vx *= (float)Math.pow(0.88f, dt * 60f);
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
                 if (Math.abs(sprite.vy) < 0.025f) sprite.vy = 0f;
             }
@@ -3124,8 +3126,13 @@ public class BlockForgeActivity extends Activity {
 
         void setSize(int value) {
             if (value == size) return;
+            Bitmap previous = exportBitmap();
             size = value;
+            Bitmap scaled = Bitmap.createScaledBitmap(previous, size, size, false);
             pixels = new int[size * size];
+            scaled.getPixels(pixels, 0, size, 0, 0, size, size);
+            scaled.recycle();
+            previous.recycle();
             undo.clear();
             redo.clear();
             invalidate();
@@ -3206,7 +3213,7 @@ public class BlockForgeActivity extends Activity {
             int index = pixelAt(event.getX(), event.getY());
             if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
                 if (index < 0) return false;
-                snapshot();
+                if (tool != 4) snapshot();
                 lineStart = index;
                 lastPaintedPixel = index;
                 if (tool != 3) paintAt(index);
