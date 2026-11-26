@@ -29,6 +29,13 @@ public class BlockForgeActivity extends Activity {
     boolean sceneGridVisible = true;
     boolean sceneCollisionsEnabled = true;
     int sceneToolMode = 0; // 0 lápiz, 1 rectángulo, 2 relleno
+    final java.util.ArrayList<GraphNode> grafisriptNodes = new java.util.ArrayList<>();
+    int selectedGraphNode = -1;
+    static final class GraphNode {
+        String type;
+        float value;
+        GraphNode(String t, float v) { type=t; value=v; }
+    }
 
     boolean physicsRunning = false;
     int targetAnimationFps = 30;
@@ -805,120 +812,209 @@ public class BlockForgeActivity extends Activity {
             return;
         }
 
-        content.setPadding(10, 8, 10, 16);
+        // Editor 2D de escritorio adaptado a móvil horizontal: árbol / viewport / inspector.
+        content.setPadding(0, 0, 0, 0);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setBackgroundColor(Color.rgb(30, 32, 36));
+
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(7, 6, 7, 6);
-        top.setBackground(uiPanel(uiSurface));
-        top.addView(editorButton("‹", () -> openPage(1)), new LinearLayout.LayoutParams(42, 44));
-        LinearLayout titleBox = vertical();
-        titleBox.setPadding(10, 0, 4, 0);
-        titleBox.addView(uiLabel(project, 14, uiInk, true));
-        titleBox.addView(uiLabel("ESCENA 2D  ·  EDITOR", 9, uiMuted, true));
-        top.addView(titleBox, new LinearLayout.LayoutParams(0, -2, 1));
-        top.addView(editorButton("▶", () -> {
-            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
-            if (physicsRunning && scenePreview != null) scenePreview.startPhysics();
-            else if (scenePreview != null) scenePreview.stopPhysics();
+        top.setPadding(8, 4, 8, 4);
+        top.setBackgroundColor(Color.rgb(22, 24, 28));
+        top.addView(editorButton("☰", () -> openPage(1)), new LinearLayout.LayoutParams(42, 42));
+        LinearLayout brand = vertical();
+        brand.setPadding(8, 0, 8, 0);
+        brand.addView(uiLabel("BLOCKFORGE", 12, uiInk, true));
+        brand.addView(uiLabel(project + " · 2D", 9, uiMuted, false));
+        top.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        addWorkspaceTab(top, "2D", true, () -> openPage(2));
+        addWorkspaceTab(top, "SCRIPT", false, () -> openPage(3));
+        addWorkspaceTab(top, "JUEGO", false, () -> { scenePlayMode=true; physicsRunning=true; if(scenePreview!=null)scenePreview.startPhysics(); Toast.makeText(this,"Ejecutando escena 2D",Toast.LENGTH_SHORT).show(); });
+        addWorkspaceTab(top, "ASSETS", false, () -> openPage(4));
+        top.addView(editorButton(scenePlayMode ? "■" : "▶", () -> {
+            scenePlayMode=!scenePlayMode; physicsRunning=scenePlayMode;
+            if(scenePreview!=null){if(physicsRunning)scenePreview.startPhysics();else scenePreview.stopPhysics();}
             openPage(2);
-        }), new LinearLayout.LayoutParams(44, 44));
-        top.addView(editorButton("▣", () -> {
-            if (scenePreview != null) scenePreview.persist();
-            Toast.makeText(this, "Escena guardada", Toast.LENGTH_SHORT).show();
-        }), new LinearLayout.LayoutParams(44, 44));
-        content.addView(top);
+        }), new LinearLayout.LayoutParams(42,42));
+        top.addView(editorButton("💾", () -> { if(scenePreview!=null){scenePreview.persist();scenePreview.persistSprites();} Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show(); }), new LinearLayout.LayoutParams(42,42));
+        content.addView(top, new LinearLayout.LayoutParams(-1, 48));
 
-        LinearLayout panels = new LinearLayout(this);
-        panels.setPadding(0, 7, 0, 5);
-        panels.addView(editorButton("ESCENA", () -> showSceneTreePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("INSPECTOR", () -> showInspectorPanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("CÓDIGO", () -> showCodePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("ANIMAR", () -> showTimelinePanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        panels.addView(editorButton("MÁS", () -> showToolsPanel()), new LinearLayout.LayoutParams(0, 42, 1));
-        content.addView(panels);
+        LinearLayout tools = new LinearLayout(this);
+        tools.setGravity(Gravity.CENTER_VERTICAL);
+        tools.setPadding(5,3,5,3);
+        tools.setBackgroundColor(Color.rgb(39,42,47));
+        addWorkspaceTool(tools, sceneToolMode==0?"▣ Seleccionar":"▣", () -> {sceneToolMode=0;openPage(2);});
+        addWorkspaceTool(tools, sceneToolMode==1?"▱ Rectángulo":"▱", () -> {sceneToolMode=1;openPage(2);});
+        addWorkspaceTool(tools, sceneToolMode==2?"▨ Cubeta":"▨", () -> {sceneToolMode=2;openPage(2);});
+        addWorkspaceTool(tools,"＋ Sprite",()->openSpriteDrawer());
+        addWorkspaceTool(tools,"Nodos",()->showNodeGraphPanel());
+        addWorkspaceTool(tools,"Animación",()->showTimelinePanel());
+        addWorkspaceTool(tools,"Deshacer",()->{if(scenePreview!=null)scenePreview.undo();});
+        addWorkspaceTool(tools,"Rehacer",()->{if(scenePreview!=null)scenePreview.redo();});
+        content.addView(tools,new LinearLayout.LayoutParams(-1,44));
 
-        LinearLayout toolbar = new LinearLayout(this);
-        toolbar.setGravity(Gravity.CENTER_VERTICAL);
-        toolbar.setPadding(4, 5, 4, 5);
-        toolbar.setBackground(uiPanel(Color.rgb(24, 29, 37)));
-        toolbar.addView(editorButton(sceneToolMode == 0 ? "● LÁPIZ" : "LÁPIZ", () -> { sceneToolMode = 0; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton(sceneToolMode == 1 ? "● RECT." : "RECT.", () -> { sceneToolMode = 1; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton(sceneToolMode == 2 ? "● CUBETA" : "CUBETA", () -> { sceneToolMode = 2; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton("DESHACER", () -> scenePreview.undo()), new LinearLayout.LayoutParams(0, 44, 1));
-        toolbar.addView(editorButton("REHACER", () -> scenePreview.redo()), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(toolbar);
+        LinearLayout workspace = new LinearLayout(this);
+        workspace.setOrientation(LinearLayout.HORIZONTAL);
+        workspace.setBackgroundColor(Color.rgb(18,20,24));
+        int sideWidth = Math.max(148, Math.min(205, getResources().getDisplayMetrics().widthPixels / 5));
+        LinearLayout left = vertical();
+        left.setPadding(7,7,7,7);
+        left.setBackgroundColor(Color.rgb(36,39,44));
+        left.addView(panelHeading("ESCENA"));
+        left.addView(editorButton("＋ Nodo raíz",()->showNodePalette()));
+        left.addView(editorButton("＋ Sprite",()->openSpriteDrawer()));
+        left.addView(editorButton("＋ Bloque",()->{if(scenePreview!=null)scenePreview.addBlock();}));
+        left.addView(editorButton("Árbol de nodos",()->showSceneTreePanel()));
+        left.addView(panelHeading("ARCHIVOS"));
+        left.addView(editorButton("Importar PNG",()->pickSpriteImage()));
+        left.addView(editorButton("Recursos",()->openPage(4)));
+        workspace.addView(left,new LinearLayout.LayoutParams(sideWidth,-1));
 
-        LinearLayout viewportFrame = vertical();
-        viewportFrame.setPadding(3, 3, 3, 3);
-        viewportFrame.setBackground(uiPanel(Color.rgb(13, 17, 23)));
-        LinearLayout viewportHeader = new LinearLayout(this);
-        viewportHeader.setGravity(Gravity.CENTER_VERTICAL);
-        viewportHeader.setPadding(9, 7, 9, 7);
-        viewportHeader.addView(uiLabel("VISTA DE ESCENA", 10, uiInk, true), new LinearLayout.LayoutParams(0, -2, 1));
-        viewportHeader.addView(uiLabel("2D  ·  " + scenePreviewStatus(), 9, uiMuted, false));
-        viewportFrame.addView(viewportHeader);
+        LinearLayout center = vertical();
+        center.setPadding(4,4,4,4);
+        center.setBackgroundColor(Color.rgb(27,29,33));
+        LinearLayout viewportBar = new LinearLayout(this);
+        viewportBar.setGravity(Gravity.CENTER_VERTICAL);
+        viewportBar.setPadding(8,4,8,4);
+        viewportBar.addView(uiLabel("VISTA 2D",10,uiInk,true),new LinearLayout.LayoutParams(0,30,1));
+        viewportBar.addView(uiLabel(scenePreviewStatus(),9,uiMuted,false));
+        center.addView(viewportBar);
         scenePreview = new ScenePreview();
-        String savedSceneAudio = getPreferences(MODE_PRIVATE).getString("scene_audio_" + project, "");
-        if (!savedSceneAudio.isEmpty() && sceneAudioPlayer == null) playSceneAudio(savedSceneAudio);
-        int viewportHeight = Math.max(340, Math.min(600, (int)(getResources().getDisplayMetrics().heightPixels * 0.38f)));
-        viewportFrame.addView(scenePreview, new LinearLayout.LayoutParams(-1, viewportHeight));
-        content.addView(viewportFrame);
-        if (physicsRunning) scenePreview.startPhysics();
+        String savedSceneAudio=getPreferences(MODE_PRIVATE).getString("scene_audio_"+project,"");
+        if(!savedSceneAudio.isEmpty()&&sceneAudioPlayer==null)playSceneAudio(savedSceneAudio);
+        center.addView(scenePreview,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout zoom = new LinearLayout(this);
+        zoom.setGravity(Gravity.CENTER_VERTICAL);
+        zoom.addView(editorButton("−",()->scenePreview.changeZoom(0.83f)),new LinearLayout.LayoutParams(42,36));
+        zoom.addView(editorButton("Centrar",()->scenePreview.resetCamera()),new LinearLayout.LayoutParams(75,36));
+        zoom.addView(editorButton("+",()->scenePreview.changeZoom(1.2f)),new LinearLayout.LayoutParams(42,36));
+        zoom.addView(editorButton("Cuadrícula",()->{sceneGridVisible=!sceneGridVisible;scenePreview.invalidate();}),new LinearLayout.LayoutParams(0,36,1));
+        center.addView(zoom);
+        workspace.addView(center,new LinearLayout.LayoutParams(0,-1,1));
 
-        uiSection("PINCEL Y VISTA", "HERRAMIENTAS DEL LIENZO");
-        LinearLayout palette = new LinearLayout(this);
-        palette.addView(editorButton("VERDE", () -> setSceneBrush(Color.rgb(55, 135, 90), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("AZUL", () -> setSceneBrush(Color.rgb(55, 115, 210), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("ROJO", () -> setSceneBrush(Color.rgb(205, 75, 75), false)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("BORRAR", () -> setSceneBrush(sceneBrushColor, true)), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton("HEX", () -> showSceneColorDialog()), new LinearLayout.LayoutParams(0, 44, 1));
-        palette.addView(editorButton(sceneGridVisible ? "CUADRÍCULA ON" : "CUADRÍCULA OFF", () -> { sceneGridVisible = !sceneGridVisible; if (scenePreview != null) scenePreview.invalidate(); openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(palette);
+        LinearLayout inspector = vertical();
+        inspector.setPadding(7,7,7,7);
+        inspector.setBackgroundColor(Color.rgb(36,39,44));
+        inspector.addView(panelHeading("INSPECTOR"));
+        inspector.addView(editorButton("Propiedades",()->showInspectorPanel()));
+        inspector.addView(editorButton("Transformar",()->showInspectorPanel()));
+        inspector.addView(editorButton("Físicas 2D",()->showPhysicsSettings()));
+        inspector.addView(editorButton("Colisiones "+(sceneCollisionsEnabled?"ON":"OFF"),()->{sceneCollisionsEnabled=!sceneCollisionsEnabled;openPage(2);}));
+        inspector.addView(panelHeading("CAPAS"));
+        inspector.addView(editorButton("Fondo",()->{sceneLayer=0;Toast.makeText(this,"Capa Fondo",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(editorButton("Mundo",()->{sceneLayer=1;Toast.makeText(this,"Capa Mundo",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(editorButton("Frente",()->{sceneLayer=2;Toast.makeText(this,"Capa Frente",Toast.LENGTH_SHORT).show();}));
+        inspector.addView(panelHeading("PROYECTO"));
+        inspector.addView(editorButton("Tamaño del mapa",()->showMapSizeDialog()));
+        inspector.addView(editorButton("Exportar escena",()->exportScenePicker()));
+        workspace.addView(inspector,new LinearLayout.LayoutParams(sideWidth,-1));
+        content.addView(workspace,new LinearLayout.LayoutParams(-1,0,1));
 
-        uiSection("TRANSFORMACIÓN", "CÁMARA Y CAPAS");
-        LinearLayout camera = new LinearLayout(this);
-        camera.addView(editorButton("ZOOM +", () -> scenePreview.changeZoom(1.2f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("ZOOM −", () -> scenePreview.changeZoom(0.83f)), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("CENTRAR", () -> scenePreview.resetCamera()), new LinearLayout.LayoutParams(0, 44, 1));
-        camera.addView(editorButton("CAPA " + new String[]{"FONDO", "MUNDO", "FRENTE"}[sceneLayer], () -> { sceneLayer = (sceneLayer + 1) % 3; openPage(2); }), new LinearLayout.LayoutParams(0, 44, 1));
-        content.addView(camera);
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setPadding(7,4,7,5);
+        bottom.setBackgroundColor(Color.rgb(28,30,34));
+        LinearLayout bottomTabs = new LinearLayout(this);
+        bottomTabs.setGravity(Gravity.CENTER_VERTICAL);
+        addWorkspaceTool(bottomTabs,"Salida",()->showRuntimeOutput());
+        addWorkspaceTool(bottomTabs,"Depurador",()->showRuntimeOutput());
+        addWorkspaceTool(bottomTabs,"Animación",()->showTimelinePanel());
+        addWorkspaceTool(bottomTabs,"Grafisript · Nodos",()->showNodeGraphPanel());
+        bottom.addView(bottomTabs);
+        bottom.addView(uiLabel(scenePreview==null?"LISTO":scenePreview.animationStatus(),9,uiMuted,false));
+        content.addView(bottom,new LinearLayout.LayoutParams(-1,92));
+        if(physicsRunning)scenePreview.startPhysics();
+    }
 
-        uiSection("RECURSOS DE ESCENA", "SPRITES Y MAPA");
-        LinearLayout assets = new LinearLayout(this);
-        assets.addView(editorButton("＋ SPRITE", () -> openSpriteDrawer()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(editorButton("IMPORTAR PNG", () -> pickSpriteImage()), new LinearLayout.LayoutParams(0, 46, 1));
-        assets.addView(editorButton("TAMAÑO MAPA", () -> showMapSizeDialog()), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(assets);
+    void addWorkspaceTab(LinearLayout row,String text,boolean active,Runnable action){
+        TextView v=editorButton((active?"● ":"")+text,action);
+        v.setTextSize(10);
+        row.addView(v,new LinearLayout.LayoutParams(-2,40));
+    }
+    void addWorkspaceTool(LinearLayout row,String text,Runnable action){
+        TextView v=editorButton(text,action);v.setTextSize(10);
+        row.addView(v,new LinearLayout.LayoutParams(-2,38));
+    }
+    TextView panelHeading(String text){
+        TextView v=uiLabel(text,10,Color.rgb(145,178,218),true);
+        v.setPadding(5,10,3,7);return v;
+    }
 
-        uiSection("ANIMACIÓN", "FOTOGRAMAS");
-        LinearLayout animation = new LinearLayout(this);
-        animation.addView(editorButton("＋ FRAME", () -> pickAnimationFrame()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("ANTERIOR", () -> scenePreview.selectAnimationFrame(-1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("SIGUIENTE", () -> scenePreview.selectAnimationFrame(1)), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("PLAY / PAUSA", () -> scenePreview.toggleAnimationPlayback()), new LinearLayout.LayoutParams(0, 46, 1));
-        animation.addView(editorButton("FPS", () -> showAnimationFpsDialog()), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(animation);
-        TextView timeline = uiLabel(scenePreview.animationStatus(), 10, Color.rgb(145, 184, 224), false);
-        timeline.setPadding(11, 10, 11, 10);
-        timeline.setBackground(uiPanel(uiSurface));
-        content.addView(timeline);
+    void showNodePalette(){
+        String[] choices={"Personaje 2D","Saltar","Mover horizontal","Activar física","Pausar física"};
+        new android.app.AlertDialog.Builder(this).setTitle("Añadir nodo Grafisript")
+            .setItems(choices,(d,which)->{
+                float value=which==1?6f:(which==2?1f:0f);
+                String[] types={"personaje","saltar","mover","fisica_on","fisica_off"};
+                grafisriptNodes.add(new GraphNode(types[which],value));
+                persistGraphNodes();showNodeGraphPanel();
+            }).setNegativeButton("Cancelar",null).show();
+    }
 
-        uiSection("EJECUCIÓN", "FÍSICA Y COLISIONES");
-        LinearLayout runtime = new LinearLayout(this);
-        runtime.addView(editorButton(scenePlayMode ? "DETENER" : "PROBAR", () -> {
-            scenePlayMode = !scenePlayMode; physicsRunning = scenePlayMode;
-            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
-            openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        runtime.addView(editorButton(physicsRunning ? "PAUSAR FÍSICA" : "ACTIVAR FÍSICA", () -> {
-            physicsRunning = !physicsRunning;
-            if (physicsRunning) scenePreview.startPhysics(); else scenePreview.stopPhysics();
-            openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        runtime.addView(editorButton("COLISIONES " + (sceneCollisionsEnabled ? "ON" : "OFF"), () -> {
-            sceneCollisionsEnabled = !sceneCollisionsEnabled; openPage(2);
-        }), new LinearLayout.LayoutParams(0, 46, 1));
-        content.addView(runtime);
+    void persistGraphNodes(){
+        org.json.JSONArray a=new org.json.JSONArray();
+        for(GraphNode n:grafisriptNodes){org.json.JSONObject o=new org.json.JSONObject();try{o.put("type",n.type);o.put("value",n.value);a.put(o);}catch(Exception ignored){}}
+        getPreferences(MODE_PRIVATE).edit().putString("grafisript_nodes_"+activeProjectName(),a.toString()).apply();
+    }
+    void loadGraphNodes(){
+        grafisriptNodes.clear();
+        try{org.json.JSONArray a=new org.json.JSONArray(getPreferences(MODE_PRIVATE).getString("grafisript_nodes_"+activeProjectName(),"[]"));
+            for(int i=0;i<a.length();i++){org.json.JSONObject o=a.getJSONObject(i);grafisriptNodes.add(new GraphNode(o.optString("type","saltar"),(float)o.optDouble("value",6)));}}
+        catch(Exception ignored){}
+    }
+    String graphToGrafisript(){
+        StringBuilder b=new StringBuilder("# Generado desde el grafo visual de BlockForge\n");
+        for(GraphNode n:grafisriptNodes){
+            if("personaje".equals(n.type))b.append("# Personaje: usa el sprite seleccionado en la escena\n");
+            else if("saltar".equals(n.type))b.append("saltar_sprite(").append(Math.max(0.1f,Math.min(20f,n.value))).append(")\n");
+            else if("mover".equals(n.type))b.append("mover_sprite(").append(n.value).append(", 0)\n");
+            else if("fisica_on".equals(n.type))b.append("fisica.activar()\n");
+            else if("fisica_off".equals(n.type))b.append("fisica.pausar()\n");
+        }
+        return b.toString();
+    }
+    void showNodeGraphPanel(){
+        loadGraphNodes();
+        android.app.Dialog dialog=editorPanel("GRAFISRIPT · GRAFO VISUAL",Gravity.BOTTOM,98);
+        if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(420,getResources().getDisplayMetrics().heightPixels*82/100));
+        LinearLayout p=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        p.addView(label("Añade acciones y ordénalas. Cada bloque conectado genera instrucciones reales de Grafisript.",11,gray));
+        p.addView(editorButton("＋ AÑADIR NODO",()->{dialog.dismiss();showNodePalette();}));
+        if(grafisriptNodes.isEmpty())p.addView(label("El grafo está vacío. Añade Personaje 2D, Saltar o Mover.",12,gray));
+        for(int i=0;i<grafisriptNodes.size();i++){
+            final int index=i;GraphNode n=grafisriptNodes.get(i);
+            String title=("personaje".equals(n.type)?"PERSONAJE 2D":"saltar".equals(n.type)?"SALTAR":"mover".equals(n.type)?"MOVER":"fisica_on".equals(n.type)?"ACTIVAR FÍSICA":"PAUSAR FÍSICA");
+            LinearLayout card=vertical();card.setPadding(9,6,9,6);card.setBackground(uiPanel(Color.rgb(43,53,67)));
+            card.addView(label((i==0?"● INICIO":"↓ CONECTADO DESDE EL BLOQUE ANTERIOR")+"  ·  "+title,12,white));
+            if("saltar".equals(n.type)||"mover".equals(n.type)){
+                EditText value=new EditText(this);value.setSingleLine(true);value.setText(String.valueOf(n.value));value.setTextColor(white);value.setHintTextColor(gray);value.setHint("Valor");
+                card.addView(value);
+                value.setOnFocusChangeListener((v,has)->{if(!has){try{n.value=Float.parseFloat(value.getText().toString());persistGraphNodes();}catch(Exception ignored){}}});
+            }
+            card.addView(editorButton("↑  SUBIR",()->{if(index>0){java.util.Collections.swap(grafisriptNodes,index,index-1);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}}));
+            card.addView(editorButton("↓  BAJAR",()->{if(index<grafisriptNodes.size()-1){java.util.Collections.swap(grafisriptNodes,index,index+1);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}}));
+            card.addView(editorButton("ELIMINAR",()->{grafisriptNodes.remove(index);persistGraphNodes();dialog.dismiss();showNodeGraphPanel();}));
+            p.addView(card);
+            if(i<grafisriptNodes.size()-1){TextView wire=label("│\n▼",18,Color.rgb(75,160,225));wire.setGravity(Gravity.CENTER);p.addView(wire);}
+        }
+        p.addView(editorButton("GENERAR CÓDIGO GRAFISRIPT",()->{
+            String code=graphToGrafisript();getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+activeProjectName(),code).apply();
+            Toast.makeText(this,"Código Grafisript generado desde los nodos",Toast.LENGTH_LONG).show();
+            dialog.dismiss();showCodePanel();
+        }));
+        p.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
+    void showPhysicsSettings(){
+        EditText gravity=new EditText(this);gravity.setSingleLine(true);gravity.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);gravity.setText(String.valueOf(physicsGravity));
+        EditText bounce=new EditText(this);bounce.setSingleLine(true);bounce.setInputType(8194|android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);bounce.setText(String.valueOf(physicsBounce));
+        LinearLayout form=vertical();form.addView(label("Gravedad",12,gray));form.addView(gravity);form.addView(label("Rebote",12,gray));form.addView(bounce);
+        new android.app.AlertDialog.Builder(this).setTitle("Físicas 2D").setView(form).setPositiveButton("Guardar",(d,w)->{try{physicsGravity=Math.max(0,Math.min(100,Float.parseFloat(gravity.getText().toString())));physicsBounce=Math.max(0,Math.min(1,Float.parseFloat(bounce.getText().toString())));getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",physicsGravity).putFloat("physics_bounce",physicsBounce).apply();}catch(Exception e){Toast.makeText(this,"Valores no válidos",Toast.LENGTH_SHORT).show();}}).setNegativeButton("Cancelar",null).show();
+    }
+    void showRuntimeOutput(){
+        new android.app.AlertDialog.Builder(this).setTitle("Salida · BlockForge")
+            .setMessage("Grafisript · "+grafisriptNodes.size()+" nodos visuales\nEscena: "+scenePreviewStatus()+"\nFísica: "+(physicsRunning?"activa":"en pausa"))
+            .setPositiveButton("Aceptar",null).show();
     }
 
     void showSceneAudioPicker() {
