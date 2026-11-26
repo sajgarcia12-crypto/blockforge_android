@@ -968,8 +968,8 @@ public class BlockForgeActivity extends Activity {
                 if (v.length < 2 || v.length > 3) throw new IllegalArgumentException("Uso: crear_bloque2d x y [capa]");
                 int x = Integer.parseInt(v[0]), y = Integer.parseInt(v[1]);
                 int layer = v.length == 3 ? Integer.parseInt(v[2]) : sceneLayer;
-                if (x < 0 || x > 9 || y < 0 || y > 9 || layer < 0 || layer > 2)
-                    throw new IllegalArgumentException("x/y: 0 a 9; capa: 0 fondo, 1 mundo, 2 frente");
+                if (x < 0 || x >= target.mapColumns || y < 0 || y >= target.mapRows || layer < 0 || layer > 2)
+                    throw new IllegalArgumentException("x/y fuera del mapa; capa: 0 fondo, 1 mundo, 2 frente");
                 target.rememberState(); target.blocks.add(new Point(x,y));
                 target.blockColors.add(sceneBrushColor); target.blockLayers.add(layer);
                 target.persist(); target.invalidate();
@@ -987,8 +987,8 @@ public class BlockForgeActivity extends Activity {
                 if(v.length!=2)throw new IllegalArgumentException("Uso: mover_sprite(dx, dy)");
                 if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
                 int index=target.selectedSprite>=0?target.selectedSprite:0; SceneSprite sp=target.sprites.get(index);
-                sp.x=Math.max(0f,Math.min(9f,sp.x+Float.parseFloat(v[0].trim())));
-                sp.y=Math.max(0f,Math.min(9f,sp.y+Float.parseFloat(v[1].trim())));
+                sp.x=Math.max(0f,Math.min(target.mapColumns-1f,sp.x+Float.parseFloat(v[0].trim())));
+                sp.y=Math.max(0f,Math.min(target.mapRows-1f,sp.y+Float.parseFloat(v[1].trim())));
                 target.persistSprites();target.invalidate();output.append("Sprite movido a (").append(sp.x).append(", ").append(sp.y).append(")\n");return true;
             }
             if (line.startsWith("saltar_sprite(") && line.endsWith(")")) {
@@ -1116,11 +1116,12 @@ public class BlockForgeActivity extends Activity {
     }
 
     class MobileButton {
-        String id, title, icon, action, iconFile="";
+        String id, title, icon, action, iconFile="", script="";
         Bitmap iconBitmap;
-        MobileButton(String i,String t,String ic,String a){this(i,t,ic,a,"");}
-        MobileButton(String i,String t,String ic,String a,String file){
-            id=i;title=t;icon=ic;action=a;iconFile=file==null?"":file;
+        MobileButton(String i,String t,String ic,String a){this(i,t,ic,a,"","");}
+        MobileButton(String i,String t,String ic,String a,String file){this(i,t,ic,a,file,"");}
+        MobileButton(String i,String t,String ic,String a,String file,String code){
+            id=i;title=t;icon=ic;action=a;iconFile=file==null?"":file;script=code==null?"":code;
             if(!iconFile.isEmpty())iconBitmap=BitmapFactory.decodeFile(new java.io.File(new java.io.File(getFilesDir(),"sprites"),iconFile).getAbsolutePath());
         }
     }
@@ -1138,8 +1139,10 @@ public class BlockForgeActivity extends Activity {
         EditText title=new EditText(this); title.setHint("Nombre del botón (ej. Disparar)"); form.addView(title);
         EditText icon=new EditText(this); icon.setHint("Icono o emoji (ej. ★, A, ⚔)"); form.addView(icon);
         Spinner action=new Spinner(this);
-        String[] actions={"Mover izquierda","Mover derecha","Mover arriba","Mover abajo","Saltar","Acción: activar evento"};
+        String[] actions={"Mover izquierda","Mover derecha","Mover arriba","Mover abajo","Saltar","Acción: activar evento","Programar con El Grafisript"};
         action.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,actions));form.addView(action);
+        TextView codeLabel=label("Código que se ejecutará al tocar el botón",12,gray);codeLabel.setPadding(0,10,0,4);form.addView(codeLabel);
+        EditText script=new EditText(this);script.setHint("mostrar_mensaje \"¡Botón pulsado!\"\ncamara.zoom(1.2)");script.setMinLines(3);script.setGravity(Gravity.TOP|Gravity.START);script.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE);form.addView(script);
         new android.app.AlertDialog.Builder(this).setTitle("Crear botón para móviles")
             .setMessage("Diseña el nombre y el icono, y elige qué hará al tocarlo.")
             .setView(form).setNegativeButton("Cancelar",null)
@@ -1147,7 +1150,10 @@ public class BlockForgeActivity extends Activity {
                 String n=title.getText().toString().trim();String ic=icon.getText().toString().trim();
                 if(n.isEmpty())n="Botón personalizado";if(ic.isEmpty())ic=n.substring(0,1).toUpperCase(java.util.Locale.ROOT);
                 if(scenePreview==null)scenePreview=new ScenePreview();
-                scenePreview.addMobileButton(n,ic,action.getSelectedItemPosition(),iconFile);
+                String code=script.getText().toString().trim();
+                if(code.length()>4000){Toast.makeText(this,"El código no puede superar 4000 caracteres",Toast.LENGTH_LONG).show();return;}
+                if(action.getSelectedItemPosition()==6&&code.isEmpty()){Toast.makeText(this,"Escribe el código de El Grafisript para este botón",Toast.LENGTH_LONG).show();return;}
+                scenePreview.addMobileButton(n,ic,action.getSelectedItemPosition(),iconFile,code);
                 Toast.makeText(this,"Botón móvil creado: "+n,Toast.LENGTH_SHORT).show();openPage(2);
             }).show();
     }
@@ -1242,15 +1248,15 @@ public class BlockForgeActivity extends Activity {
 
         void loadMobileButtons(){
             mobileButtons.clear();String raw=getPreferences(MODE_PRIVATE).getString("mobile_buttons_"+activeProjectName(),"");
-            try{org.json.JSONArray arr=new org.json.JSONArray(raw);for(int i=0;i<arr.length();i++){org.json.JSONObject o=arr.getJSONObject(i);mobileButtons.add(new MobileButton(o.optString("id"),o.optString("title"),o.optString("icon"),o.optString("action","left"),o.optString("iconFile","")));}}catch(Exception ignored){}
+            try{org.json.JSONArray arr=new org.json.JSONArray(raw);for(int i=0;i<arr.length();i++){org.json.JSONObject o=arr.getJSONObject(i);mobileButtons.add(new MobileButton(o.optString("id"),o.optString("title"),o.optString("icon"),o.optString("action","left"),o.optString("iconFile",""),o.optString("script","")));}}catch(Exception ignored){}
         }
         void persistMobileButtons(){
-            org.json.JSONArray arr=new org.json.JSONArray();for(MobileButton b:mobileButtons){org.json.JSONObject o=new org.json.JSONObject();try{o.put("id",b.id);o.put("title",b.title);o.put("icon",b.icon);o.put("action",b.action);o.put("iconFile",b.iconFile);arr.put(o);}catch(Exception ignored){}}
+            org.json.JSONArray arr=new org.json.JSONArray();for(MobileButton b:mobileButtons){org.json.JSONObject o=new org.json.JSONObject();try{o.put("id",b.id);o.put("title",b.title);o.put("icon",b.icon);o.put("action",b.action);o.put("iconFile",b.iconFile);o.put("script",b.script);arr.put(o);}catch(Exception ignored){}}
             getPreferences(MODE_PRIVATE).edit().putString("mobile_buttons_"+activeProjectName(),arr.toString()).apply();
         }
-        void addMobileButton(String title,String icon,int actionIndex,String iconFile){
-            String[] actions={"left","right","up","down","jump","event"};
-            mobileButtons.add(new MobileButton("btn_"+System.currentTimeMillis(),title,icon,actions[Math.max(0,Math.min(actions.length-1,actionIndex))],iconFile));
+        void addMobileButton(String title,String icon,int actionIndex,String iconFile,String script){
+            String[] actions={"left","right","up","down","jump","event","script"};
+            mobileButtons.add(new MobileButton("btn_"+System.currentTimeMillis(),title,icon,actions[Math.max(0,Math.min(actions.length-1,actionIndex))],iconFile,script));
             persistMobileButtons();invalidate();
         }
         void installDefaultMobileButtons(){
@@ -1259,13 +1265,20 @@ public class BlockForgeActivity extends Activity {
             persistMobileButtons();invalidate();Toast.makeText(BlockForgeActivity.this,"Controles predeterminados instalados",Toast.LENGTH_SHORT).show();
         }
         void runMobileButton(MobileButton b){
+            if("script".equals(b.action)){
+                StringBuilder output=new StringBuilder();
+                String[] lines=b.script.split("\\r?\\n");
+                executeGrafisriptBlock(lines,new int[]{0},new java.util.HashMap<String,Double>(),new java.util.HashMap<String,String[]>(),output,0);
+                if(output.length()>0)Toast.makeText(BlockForgeActivity.this,output.toString().trim(),Toast.LENGTH_LONG).show();
+                refreshScenePreview();persistSprites();invalidate();return;
+            }
+            if("event".equals(b.action)){Toast.makeText(BlockForgeActivity.this,"Evento activado: "+b.title,Toast.LENGTH_SHORT).show();return;}
             if(selectedSprite<0||selectedSprite>=sprites.size()){Toast.makeText(BlockForgeActivity.this,"Selecciona un sprite para controlar",Toast.LENGTH_SHORT).show();return;}
             SceneSprite sp=sprites.get(selectedSprite);
             switch(b.action){
                 case "left":sp.vx=-5f;break;case "right":sp.vx=5f;break;
                 case "up":sp.vy=-5f;break;case "down":sp.vy=5f;break;
                 case "jump":sp.vy=-9f;if(!physicsRunning){physicsRunning=true;startPhysics();}break;
-                case "event":Toast.makeText(BlockForgeActivity.this,"Evento del botón: "+b.title,Toast.LENGTH_SHORT).show();break;
             }
             persistSprites();invalidate();
         }
@@ -1973,7 +1986,7 @@ public class BlockForgeActivity extends Activity {
             item.put("frames",frames);spriteArray.put(item);
         }
         rootJson.put("sprites",spriteArray);
-        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);buttons.put(item);}rootJson.put("mobileButtons",buttons);
+        org.json.JSONArray buttons=new org.json.JSONArray();for(MobileButton b:target.mobileButtons){org.json.JSONObject item=new org.json.JSONObject();item.put("id",b.id);item.put("title",b.title);item.put("icon",b.icon);item.put("action",b.action);item.put("iconFile",b.iconFile);item.put("script",b.script);buttons.put(item);}rootJson.put("mobileButtons",buttons);
         org.json.JSONObject camera=new org.json.JSONObject();
         camera.put("zoom",target.cameraZoom);camera.put("x",target.cameraOffsetX);camera.put("y",target.cameraOffsetY);
         rootJson.put("camera",camera);
@@ -2012,7 +2025,7 @@ public class BlockForgeActivity extends Activity {
         }
         for(SceneSprite old:target.sprites){if(old.bitmap!=null)old.bitmap.recycle();for(Bitmap frame:old.animationFrames)if(frame!=null)frame.recycle();}
         target.sprites.clear();target.selectedSprite=-1;
-        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left"),b.optString("iconFile","")));}target.persistMobileButtons();
+        target.mobileButtons.clear();org.json.JSONArray savedButtons=json.optJSONArray("mobileButtons");if(savedButtons!=null)for(int i=0;i<savedButtons.length();i++){org.json.JSONObject b=savedButtons.getJSONObject(i);target.mobileButtons.add(new MobileButton(b.optString("id"),b.optString("title"),b.optString("icon"),b.optString("action","left"),b.optString("iconFile",""),b.optString("script","")));}target.persistMobileButtons();
         org.json.JSONArray spriteArray=json.optJSONArray("sprites");
         if(spriteArray!=null)for(int i=0;i<spriteArray.length();i++){
             org.json.JSONObject item=spriteArray.getJSONObject(i);String name=item.optString("file","");
