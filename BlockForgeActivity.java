@@ -338,6 +338,8 @@ public class BlockForgeActivity extends Activity {
         heading("Editor de escenas 2D",
                 "Editor táctil por cuadrícula. Toca una celda para colocar un bloque.");
         scenePreview = new ScenePreview();
+        String savedSceneAudio=getPreferences(MODE_PRIVATE).getString("scene_audio_"+project,"");
+        if(!savedSceneAudio.isEmpty() && sceneAudioPlayer==null) playSceneAudio(savedSceneAudio);
         content.addView(scenePreview, new LinearLayout.LayoutParams(-1, 390));
         if (physicsRunning) scenePreview.startPhysics();
         LinearLayout actions = new LinearLayout(this);
@@ -424,7 +426,8 @@ public class BlockForgeActivity extends Activity {
             Toast.makeText(this, "Escena y sprites guardados", Toast.LENGTH_SHORT).show();
         }));
         card("Sprites", "Dibuja un sprite de 16×16 píxeles o importa una imagen PNG/JPG. Toca y arrastra un sprite para moverlo.");
-        card("Físicas 2D", "Simulación continua con paso fijo, gravedad, velocidad, plataformas, límites de escena y rebote. Usa el botón para iniciar o pausar.");
+        card("Físicas 2D", "Simulación continua con gravedad, velocidad, plataformas, límites, rebote y colisiones básicas. Usa el botón para iniciar o pausar.");
+        card("Herramientas 2D", "Tres capas, cámara con zoom y desplazamiento, animación por fotogramas, controles de sprites, audio en bucle y exportación/importación JSON del nivel. Las imágenes deben estar disponibles en la biblioteca del dispositivo al importar.");
         card("Paquetes de sprites", "Descarga desde BlockForge los recursos predeterminados optimizados a 30 o 60 FPS. El paquete se instala localmente dentro de la app.");
     }
 
@@ -442,6 +445,7 @@ public class BlockForgeActivity extends Activity {
         try {
             sceneAudioPlayer=new android.media.MediaPlayer();sceneAudioPrepared=false;
             java.io.File file=new java.io.File(new java.io.File(getFilesDir(),"resources"),name);
+            if(!file.isFile())throw new java.io.IOException("El audio no existe en Recursos");
             sceneAudioPlayer.setDataSource(file.getAbsolutePath());sceneAudioPlayer.setLooping(true);
             sceneAudioPlayer.setOnPreparedListener(mp->{sceneAudioPrepared=true;if(activityResumed)mp.start();});
             sceneAudioPlayer.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"No se pudo reproducir el audio",Toast.LENGTH_SHORT).show();stopSceneAudio();return true;});
