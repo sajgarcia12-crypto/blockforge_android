@@ -2138,7 +2138,7 @@ public class BlockForgeActivity extends Activity {
                 if (line.isEmpty() || line.startsWith("#")) continue;
                 int colon = line.indexOf(':');
                 if (colon > 0) {
-                    String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_");
+                    String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")\n                        .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
                     String v = line.substring(colon+1).trim().replace("(","").replace(")","");
                     if (h.startsWith("crear_personaje") || h.equals("personaje")) { parent="personaje"; name=v.isEmpty()?"Jugador":v; event=""; }
                     else if (h.equals("enemigo") || h.startsWith("crear_enemigo")) { parent="enemigo"; name=v.isEmpty()?"Enemigo":v; event=""; }
