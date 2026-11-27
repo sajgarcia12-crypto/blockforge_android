@@ -2863,6 +2863,8 @@ public class BlockForgeActivity extends Activity {
         float gravityScale = 1f, jumpScale = 1f;
         int fallQuality = 80, jumpQuality = 100;
         boolean liquidSurface = false;
+        String liquidName = "";
+        float liquidSplash = 0f;
         int liquidRealism = 50;
         float liquidViscosity = 50f, liquidFlow = 50f, liquidDamagePerSecond = 0f;
         float liquidWavePhase = 0f, liquidDamageRemainder = 0f;
@@ -3131,7 +3133,7 @@ public class BlockForgeActivity extends Activity {
                     String cfgPrefix=savedKey.substring(0,savedKey.length()-5);
                     try {
                         org.json.JSONObject cfg=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(cfgPrefix+"_properties","{}"));
-                        created.liquidSurface=true; created.solid=false;
+                        created.liquidSurface=true; created.liquidName=savedName; created.solid=false;
                         created.liquidRealism=Math.max(0,Math.min(100,getPreferences(MODE_PRIVATE).getInt(cfgPrefix+"_real",50)));
                         created.liquidViscosity=Math.max(0f,Math.min(100f,getPreferences(MODE_PRIVATE).getFloat(cfgPrefix+"_viscosidad",50f)));
                         created.liquidFlow=Math.max(0f,Math.min(100f,getPreferences(MODE_PRIVATE).getFloat(cfgPrefix+"_fluidez",50f)));
@@ -3261,7 +3263,14 @@ public class BlockForgeActivity extends Activity {
                 else sprite.vy = 0f;
                 SceneSprite touchingLiquid=null;
                 for(SceneSprite liquid:sprites) if(liquid.liquidSurface && sprite.x<liquid.x+liquid.width && sprite.x+sprite.width>liquid.x && sprite.y<liquid.y+liquid.height && sprite.y+sprite.height>liquid.y){touchingLiquid=liquid;break;}
+                String nowLiquid=touchingLiquid==null?"":touchingLiquid.liquidName;
+                if(!nowLiquid.equals(sprite.activeLiquidName)){
+                    if(!sprite.activeLiquidName.isEmpty())dispatchGrafisriptEvent("liquido",sprite.activeLiquidName,"al_salir",0);
+                    if(!nowLiquid.isEmpty()){touchingLiquid.liquidSplash=1f;dispatchGrafisriptEvent("liquido",nowLiquid,"al_entrar",0);}
+                    sprite.activeLiquidName=nowLiquid;
+                }
                 if(touchingLiquid!=null){
+                    touchingLiquid.liquidSplash=Math.max(0f,touchingLiquid.liquidSplash-dt*1.8f);
                     float viscosity=Math.max(0f,Math.min(100f,touchingLiquid.liquidViscosity))/100f;
                     float flow=Math.max(0f,Math.min(100f,touchingLiquid.liquidFlow))/100f;
                     sprite.vx*=Math.max(0.2f,1f-(0.10f+viscosity*0.45f)*dt*10f);
@@ -3696,6 +3705,7 @@ public class BlockForgeActivity extends Activity {
                     paint.setColor(Color.argb(95,35,145,220));canvas.drawRect(left,top,right,bottom,paint);
                     int waves=1+sprite.liquidRealism/20;paint.setColor(Color.argb(170,190,235,255));paint.setStrokeWidth(Math.max(1f,worldUnit*0.018f));
                     for(int wi=0;wi<waves;wi++){float yy=top+worldUnit*(0.08f+wi*0.13f);float amp=worldUnit*(0.012f+sprite.liquidRealism*0.0003f);float px=left,py=(float)(yy+Math.sin(sprite.liquidWavePhase+wi)*amp);for(int q=1;q<=12;q++){float nx=left+(right-left)*q/12f,ny=(float)(yy+Math.sin(sprite.liquidWavePhase+q*0.65f+wi)*amp);canvas.drawLine(px,py,nx,ny,paint);px=nx;py=ny;}}
+                    if(sprite.liquidSplash>0f){paint.setColor(Color.argb((int)(180*sprite.liquidSplash),210,245,255));float radius=worldUnit*(0.08f+sprite.liquidSplash*0.20f);canvas.drawCircle(centerX,top+worldUnit*0.04f,radius,paint);canvas.drawCircle(centerX-radius*1.5f,top+worldUnit*0.04f,radius*.55f,paint);canvas.drawCircle(centerX+radius*1.5f,top+worldUnit*0.04f,radius*.55f,paint);}
                     paint.setStrokeWidth(1f);
                 }
                 if (sprite.environmentObject && scenePlayMode) {paint.setColor(Color.WHITE);paint.setTextSize(10f);paint.setTextAlign(Paint.Align.CENTER);canvas.drawText("HP "+sprite.environmentHealth,centerX,top-5f,paint);}
