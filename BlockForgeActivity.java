@@ -1940,6 +1940,28 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
+            if ((line.startsWith("mientras ") || line.startsWith("while ")) && line.endsWith("{")) {
+                int prefix=line.startsWith("while ")?6:8;
+                String condition=line.substring(prefix,line.length()-1).trim();
+                int bodyStart=cursor[0], bodyEnd=findGrafisriptBlockEnd(lines,bodyStart);
+                if(bodyEnd<0){output.append("Línea ").append(lineNumber).append(": falta cerrar mientras.\\n");return executed;}
+                String[] body=java.util.Arrays.copyOfRange(lines,bodyStart,bodyEnd);
+                int iterations=0;
+                while(iterations<1000){
+                    boolean keepGoing;
+                    try{keepGoing=evaluateGrafisriptCondition(condition,variables);}
+                    catch(Exception ex){output.append("Línea ").append(lineNumber).append(": condición mientras inválida: ").append(ex.getMessage()).append('\\n');break;}
+                    if(!keepGoing)break;
+                    int[] nestedCursor=new int[]{0};
+                    executed+=executeGrafisriptBlock(body,nestedCursor,variables,functions,output,depth+1);
+                    iterations++;
+                    if(executed>10000){output.append("Límite de seguridad: 10000 instrucciones.\\n");break;}
+                }
+                if(iterations==1000)output.append("Línea ").append(lineNumber).append(": mientras detenido tras 1000 iteraciones.\\n");
+                cursor[0]=bodyEnd+1;
+                continue;
+            }
+
             if (line.startsWith("repetir ") && line.endsWith("{")) {
                 String amountText = line.substring(8, line.length() - 1).trim();
                 int bodyStart = cursor[0];
@@ -2085,7 +2107,7 @@ public class BlockForgeActivity extends Activity {
         int nesting = 1;
         for (int i = start; i < lines.length; i++) {
             String line = lines[i].trim();
-            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.startsWith("funcion ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
+            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.startsWith("mientras ") || line.startsWith("while ") || line.startsWith("funcion ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
             if (line.equals("}") || line.equals("fin")) {
                 nesting--;
                 if (nesting == 0) return i;
@@ -2095,12 +2117,19 @@ public class BlockForgeActivity extends Activity {
     }
 
     boolean evaluateGrafisriptCondition(String condition, java.util.Map<String, Double> variables) {
+        String c=condition.trim();
+        int split=findGrafisriptLogicalOperator(c," o "," OR ");
+        if(split>=0)return evaluateGrafisriptCondition(c.substring(0,split),variables)||evaluateGrafisriptCondition(c.substring(split+3),variables);
+        split=findGrafisriptLogicalOperator(c," y "," AND ");
+        if(split>=0)return evaluateGrafisriptCondition(c.substring(0,split),variables)&&evaluateGrafisriptCondition(c.substring(split+3),variables);
+        if(c.startsWith("no "))return !evaluateGrafisriptCondition(c.substring(3),variables);
+        if(c.startsWith("not "))return !evaluateGrafisriptCondition(c.substring(4),variables);
         String[] operators = {">=", "<=", "==", "!=", ">", "<"};
         for (String operator : operators) {
-            int at = condition.indexOf(operator);
+            int at = c.indexOf(operator);
             if (at > 0) {
-                double left = evaluateGrafisriptExpression(condition.substring(0, at).trim(), variables);
-                double right = evaluateGrafisriptExpression(condition.substring(at + operator.length()).trim(), variables);
+                double left = evaluateGrafisriptExpression(c.substring(0, at).trim(), variables);
+                double right = evaluateGrafisriptExpression(c.substring(at + operator.length()).trim(), variables);
                 switch (operator) {
                     case ">=": return left >= right;
                     case "<=": return left <= right;
@@ -2111,7 +2140,12 @@ public class BlockForgeActivity extends Activity {
                 }
             }
         }
-        return evaluateGrafisriptExpression(condition, variables) != 0;
+        return evaluateGrafisriptExpression(c, variables) != 0;
+    }
+
+    int findGrafisriptLogicalOperator(String source,String spanish,String english){
+        int at=source.indexOf(spanish);
+        return at>=0?at:source.indexOf(english);
     }
 
     double evaluateGrafisriptExpression(String expression, java.util.Map<String, Double> variables) {
@@ -2142,16 +2176,26 @@ public class BlockForgeActivity extends Activity {
             }
         }
         double multiplyDivide() {
-            double value = atom();
+            double value = power();
             while (true) {
                 skipSpaces();
-                if (take('*')) value *= atom();
+                if (take('*')) value *= power();
                 else if (take('/')) {
-                    double divisor = atom();
+                    double divisor = power();
                     if (divisor == 0) throw new IllegalArgumentException("división por cero");
                     value /= divisor;
+                } else if (take('%')) {
+                    double divisor=power();
+                    if(divisor==0)throw new IllegalArgumentException("módulo por cero");
+                    value%=divisor;
                 } else return value;
             }
+        }
+        double power() {
+            double value=atom();
+            skipSpaces();
+            if(take('^'))value=Math.pow(value,power());
+            return value;
         }
         double atom() {
             skipSpaces();
@@ -2170,8 +2214,34 @@ public class BlockForgeActivity extends Activity {
                     (Character.isLetterOrDigit(source.charAt(position)) || source.charAt(position) == '_')) position++;
             if (position == begin) throw new IllegalArgumentException("se esperaba un número o variable");
             String name = source.substring(begin, position);
+            skipSpaces();
+            if(take('(')){
+                java.util.ArrayList<Double> args=new java.util.ArrayList<>();
+                skipSpaces();
+                if(!take(')')){
+                    do{args.add(addSubtract());skipSpaces();}while(take(','));
+                    if(!take(')'))throw new IllegalArgumentException("falta ) en función matemática");
+                }
+                return evaluateMathFunction(name,args);
+            }
             if (!variables.containsKey(name)) throw new IllegalArgumentException("variable no definida: " + name);
             return variables.get(name);
+        }
+        double evaluateMathFunction(String name,java.util.ArrayList<Double> a){
+            String n=name.toLowerCase(java.util.Locale.ROOT);
+            if("abs".equals(n)||"absoluto".equals(n)){requireArgs(n,a,1);return Math.abs(a.get(0));}
+            if("sqrt".equals(n)||"raiz".equals(n)){requireArgs(n,a,1);if(a.get(0)<0)throw new IllegalArgumentException("raíz de número negativo");return Math.sqrt(a.get(0));}
+            if("sin".equals(n)||"sen".equals(n)){requireArgs(n,a,1);return Math.sin(Math.toRadians(a.get(0)));}
+            if("cos".equals(n)){requireArgs(n,a,1);return Math.cos(Math.toRadians(a.get(0)));}
+            if("tan".equals(n)){requireArgs(n,a,1);return Math.tan(Math.toRadians(a.get(0)));}
+            if("floor".equals(n)||"piso".equals(n)){requireArgs(n,a,1);return Math.floor(a.get(0));}
+            if("ceil".equals(n)||"techo".equals(n)){requireArgs(n,a,1);return Math.ceil(a.get(0));}
+            if("round".equals(n)||"redondear".equals(n)){requireArgs(n,a,1);return Math.round(a.get(0));}
+            if("min".equals(n)||"max".equals(n)){requireArgs(n,a,2);return "min".equals(n)?Math.min(a.get(0),a.get(1)):Math.max(a.get(0),a.get(1));}
+            throw new IllegalArgumentException("función matemática desconocida: "+name);
+        }
+        void requireArgs(String name,java.util.ArrayList<Double> args,int count){
+            if(args.size()!=count)throw new IllegalArgumentException(name+" necesita "+count+" argumento(s)");
         }
         void skipSpaces() {
             while (position < source.length() && Character.isWhitespace(source.charAt(position))) position++;
@@ -2481,6 +2551,11 @@ public class BlockForgeActivity extends Activity {
                 if (scenePreview != null && spriteFile.isFile()) {
                     SceneSprite object = new SceneSprite(spriteFile.getName(), Math.max(0, scenePreview.mapColumns * 0.5f), Math.max(0, scenePreview.mapRows * 0.5f), collision);
                     object.environmentObject = true; object.environmentHealth = hp;
+                    String bodyValue=props.getOrDefault("fisica","no");
+                    object.physicsBody="si".equalsIgnoreCase(bodyValue)||"true".equalsIgnoreCase(bodyValue)||"1".equals(bodyValue);
+                    object.physicsEnabled=object.physicsBody;
+                    object.mass=Math.max(0.05f,Math.min(1000f,Float.parseFloat(props.getOrDefault("masa","1"))));
+                    object.restitution=Math.max(0f,Math.min(1f,Float.parseFloat(props.getOrDefault("rebote","0.15"))));
                     for (java.util.Map.Entry<String,String> p : props.entrySet()) if (p.getKey().startsWith("drop:")) object.environmentDrops.put(p.getKey().substring(5), Integer.parseInt(p.getValue()));
                     scenePreview.sprites.add(object); scenePreview.selectedSprite = scenePreview.sprites.size() - 1; scenePreview.persistSprites(); scenePreview.invalidate();
                     output.append("Sprite '").append(name).append("' colocado en el mapa.\\n");
@@ -2860,6 +2935,8 @@ public class BlockForgeActivity extends Activity {
         boolean environmentObject = false;
         int environmentHealth = 5;
         boolean physicsEnabled = true;
+        boolean physicsBody = false;
+        float mass = 1f, restitution = 0.15f;
         float gravityScale = 1f, jumpScale = 1f;
         int fallQuality = 80, jumpQuality = 100;
         boolean liquidSurface = false;
@@ -2971,6 +3048,9 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>21)loaded.liquidFlow=Math.max(0f,Math.min(100f,Float.parseFloat(parts[21])));
                     if(parts.length>22)loaded.liquidDamagePerSecond=Math.max(0f,Math.min(1000f,Float.parseFloat(parts[22])));
                     if(parts.length>23)loaded.liquidDensity=Math.max(0f,Math.min(500f,Float.parseFloat(parts[23])));
+                    if(parts.length>24)loaded.physicsBody=Boolean.parseBoolean(parts[24]);
+                    if(parts.length>25)loaded.mass=Math.max(0.05f,Math.min(1000f,Float.parseFloat(parts[25])));
+                    if(parts.length>26)loaded.restitution=Math.max(0f,Math.min(1f,Float.parseFloat(parts[26])));
                     loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
                     loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
@@ -3109,7 +3189,7 @@ public class BlockForgeActivity extends Activity {
                         .append('|').append(sprite.environmentObject).append('|').append(sprite.environmentHealth).append('|');
                 boolean firstDrop = true;
                 for (java.util.Map.Entry<String,Integer> drop : sprite.environmentDrops.entrySet()) { if (!firstDrop) data.append(','); firstDrop = false; data.append(drop.getKey()).append(':').append(drop.getValue()); }
-                data.append('|').append(sprite.liquidSurface).append('|').append(sprite.liquidRealism).append('|').append(sprite.liquidViscosity).append('|').append(sprite.liquidFlow).append('|').append(sprite.liquidDamagePerSecond).append('|').append(sprite.liquidDensity);
+                data.append('|').append(sprite.liquidSurface).append('|').append(sprite.liquidRealism).append('|').append(sprite.liquidViscosity).append('|').append(sprite.liquidFlow).append('|').append(sprite.liquidDamagePerSecond).append('|').append(sprite.liquidDensity).append('|').append(sprite.physicsBody).append('|').append(sprite.mass).append('|').append(sprite.restitution);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -3151,7 +3231,7 @@ public class BlockForgeActivity extends Activity {
                 String savedName=String.valueOf(saved.get(savedKey)); String savedBase=savedName.contains(".")?savedName.substring(0,savedName.lastIndexOf('.')):savedName;
                 if(savedName.equals(name)||savedBase.equalsIgnoreCase(targetBase)) {
                     String cfgPrefix=savedKey.substring(0,savedKey.length()-5);
-                    try { org.json.JSONObject cfg=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(cfgPrefix+"_properties","{}")); created.environmentObject=true;created.environmentHealth=Math.max(1,cfg.optInt("vida",5));String col=cfg.optString("colision","no");created.solid="si".equalsIgnoreCase(col)||"true".equalsIgnoreCase(col);for(java.util.Iterator<String> it=cfg.keys();it.hasNext();){String k=it.next();if(k.startsWith("drop:"))created.environmentDrops.put(k.substring(5),Math.max(0,Math.min(100,cfg.optInt(k,0))));} } catch(Exception ignored) {}
+                    try { org.json.JSONObject cfg=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(cfgPrefix+"_properties","{}")); created.environmentObject=true;created.environmentHealth=Math.max(1,cfg.optInt("vida",5));String col=cfg.optString("colision","no");created.solid="si".equalsIgnoreCase(col)||"true".equalsIgnoreCase(col);String body=cfg.optString("fisica","no");created.physicsBody="si".equalsIgnoreCase(body)||"true".equalsIgnoreCase(body)||"1".equals(body);created.physicsEnabled=created.physicsBody;created.mass=Math.max(0.05f,Math.min(1000f,(float)cfg.optDouble("masa",1d)));created.restitution=Math.max(0f,Math.min(1f,(float)cfg.optDouble("rebote",0.15d)));for(java.util.Iterator<String> it=cfg.keys();it.hasNext();){String k=it.next();if(k.startsWith("drop:"))created.environmentDrops.put(k.substring(5),Math.max(0,Math.min(100,cfg.optInt(k,0))));} } catch(Exception ignored) {}
                     break;
                 }
             }
@@ -3269,7 +3349,7 @@ public class BlockForgeActivity extends Activity {
 
         void physicsStepInternal(float dt) {
             for (SceneSprite sprite : sprites) {
-                if (!sprite.isPlayer) continue; // Plataformas, monedas y decoraciones permanecen fijas.
+                if (!sprite.isPlayer && !sprite.physicsBody) continue; // Solo se simulan cuerpos dinámicos configurados; el resto permanece fijo.
                 float oldX = sprite.x, oldY = sprite.y;
                 if(scenePlayMode && sprite==selectedSpriteObject()){
                     if("left".equals(heldMobileAction))sprite.vx=-6.5f;
@@ -3364,7 +3444,10 @@ public class BlockForgeActivity extends Activity {
                     if (sprite.vy < 0f) sprite.vy = 0f;
                 }
                 sprite.y = Math.max(0f, Math.min(mapRows - 1f, nextY));
-                if (landed) sprite.vy = sprite.vy > 3f ? -sprite.vy * physicsBounce : 0f;
+                if (landed) {
+                    float bounce=Math.max(0f,Math.min(1f,sprite.physicsBody?sprite.restitution:physicsBounce));
+                    sprite.vy = sprite.vy > 3f ? -sprite.vy * bounce : 0f;
+                }
                 if(!(scenePlayMode && sprite==selectedSpriteObject() &&
                         ("left".equals(heldMobileAction)||"right".equals(heldMobileAction)))) sprite.vx *= 0.88f;
                 if (Math.abs(sprite.vx) < 0.025f) sprite.vx = 0f;
