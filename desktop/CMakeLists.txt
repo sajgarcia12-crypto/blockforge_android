@@ -24,9 +24,6 @@ elseif(TARGET SDL2main)
     target_link_libraries(BlockForge PRIVATE SDL2main)
 endif()
 
-if(WIN32)
-    target_compile_definitions(BlockForge PRIVATE SDL_MAIN_HANDLED=0)
-endif()
 
 set_target_properties(BlockForge PROPERTIES
     OUTPUT_NAME "BlockForge"
