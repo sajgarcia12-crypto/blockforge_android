@@ -435,19 +435,30 @@ public class BlockForgeActivity extends Activity {
         content.addView(row, lp);
     }
 
-    void saveProjectFile(String relativePath,String value) {
+    boolean saveProjectTextFile(String project,String relativePath,String value) {
+        java.io.FileOutputStream out=null;
         try {
-            String project=activeProjectName();
+            if(project==null||project.trim().isEmpty()||relativePath==null||relativePath.isEmpty())return false;
             String folderPath=getPreferences(MODE_PRIVATE).getString("project_folder_"+project,"");
-            if(folderPath.isEmpty())return;
+            if(folderPath.isEmpty())return false;
             java.io.File root=new java.io.File(folderPath).getCanonicalFile();
             java.io.File target=new java.io.File(root,relativePath).getCanonicalFile();
-            if(!target.getPath().startsWith(root.getPath()+java.io.File.separator))return;
+            if(!target.getPath().startsWith(root.getPath()+java.io.File.separator))return false;
             java.io.File parent=target.getParentFile();
-            if(parent!=null&&!parent.exists()&&!parent.mkdirs())return;
-            java.io.FileOutputStream out=new java.io.FileOutputStream(target);
-            out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));out.close();
-        } catch(Exception ignored) { }
+            if(parent!=null&&!parent.exists()&&!parent.mkdirs())return false;
+            out=new java.io.FileOutputStream(target,false);
+            out.write(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            out.getFD().sync();
+            out.close();out=null;
+            return target.isFile()&&target.length()==value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        } catch(Exception ex) {
+            android.util.Log.e("BlockForge","No se pudo guardar "+relativePath,ex);
+            return false;
+        } finally { if(out!=null)try{out.close();}catch(Exception ignored){} }
+    }
+
+    void saveProjectFile(String relativePath,String value) {
+        saveProjectTextFile(activeProjectName(),relativePath,value);
     }
 
     void copyProjectAsset(String sourceFolder,String fileName,String targetFolder) {
@@ -1726,10 +1737,16 @@ public class BlockForgeActivity extends Activity {
         String script=codeEditor.getText().toString();
         getPreferences(MODE_PRIVATE).edit()
                 .putString("grafisript_" + project,script).apply();
+        boolean textSaved=saveProjectTextFile(project,"scripts/main.txt",script);
+        // Conserva también el formato nativo para futuras herramientas del editor.
+        boolean nativeSaved=saveProjectTextFile(project,"scripts/main.bf",script);
+        if(review && !textSaved){
+            Toast.makeText(this,"Script conservado en BlockForge, pero no se pudo escribir scripts/main.txt en la carpeta del proyecto.",Toast.LENGTH_LONG).show();
+        }
         if (!review) return;
         java.util.ArrayList<String> problems=validateGrafisript(script);
         if(problems.isEmpty()){
-            Toast.makeText(this,"Script guardado. No se detectaron errores comunes.",Toast.LENGTH_LONG).show();
+            Toast.makeText(this,textSaved?"Script guardado en "+project+"/scripts/main.txt. Sin errores comunes detectados.":"Script guardado en BlockForge. No se detectaron errores comunes.",Toast.LENGTH_LONG).show();
         }else{
             showGrafisriptValidation(problems);
         }
