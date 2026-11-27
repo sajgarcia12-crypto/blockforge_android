@@ -1661,9 +1661,90 @@ public class BlockForgeActivity extends Activity {
                         codeEditor.getText().toString()).apply();
     }
 
+    static final class GrafisriptCorrection {
+        final String script; final int count; final boolean changed;
+        GrafisriptCorrection(String value,int corrections){script=value;count=corrections;changed=corrections>0;}
+    }
+
+    GrafisriptCorrection correctGrafisriptScript(String source) {
+        final String[] commands={
+            "crear_personaje","crear_mundo","crear_bloque","crear_ambiente",
+            "crear_enemigo","crear_espada","crear_moneda","crear_piedra",
+            "mover_personaje","mostrar_mensaje","ver_bloques","repetir",
+            "funcion","llamar","saltar","establecer_vida","aplicar_danio",
+            "crear_cofre","crear_objeto","activar_fisica","pausar_fisica",
+            "centrar_camara","zoom_camara","mover_sprite","girar_personaje"
+        };
+        String[] lines=source.split("\\n",-1);
+        int fixes=0;
+        for(int i=0;i<lines.length;i++){
+            String line=lines[i];
+            int comment=line.indexOf('#');
+            int codeEnd=comment>=0?comment:line.length();
+            boolean quoted=false; char quote=0;
+            StringBuilder out=new StringBuilder();
+            for(int p=0;p<codeEnd;){
+                char ch=line.charAt(p);
+                if((ch=='"' || ch=='\\'') && (!quoted || ch==quote)){
+                    quoted=!quoted; quote=quoted?ch:0; out.append(ch); p++; continue;
+                }
+                if(!quoted && (Character.isLetter(ch)||ch=='_')){
+                    int start=p++;
+                    while(p<codeEnd && (Character.isLetterOrDigit(line.charAt(p))||line.charAt(p)=='_')) p++;
+                    String token=line.substring(start,p);
+                    String best=token; int bestDistance=3;
+                    for(String command:commands){
+                        int d=grafisriptEditDistance(token.toLowerCase(java.util.Locale.ROOT),command);
+                        if(d<bestDistance){bestDistance=d;best=command;}
+                    }
+                    if(bestDistance<=2 && !token.equalsIgnoreCase(best)){
+                        out.append(best); fixes++;
+                    }else out.append(token);
+                }else{out.append(ch);p++;}
+            }
+            if(comment>=0) out.append(line.substring(comment));
+            lines[i]=out.toString();
+        }
+        return new GrafisriptCorrection(android.text.TextUtils.join("\\n",lines),fixes);
+    }
+
+    static int grafisriptEditDistance(String a,String b) {
+        int[] previous=new int[b.length()+1], current=new int[b.length()+1];
+        for(int j=0;j<=b.length();j++) previous[j]=j;
+        for(int i=1;i<=a.length();i++){
+            current[0]=i; int rowMin=current[0];
+            for(int j=1;j<=b.length();j++){
+                int cost=a.charAt(i-1)==b.charAt(j-1)?0:1;
+                current[j]=Math.min(Math.min(current[j-1]+1,previous[j]+1),previous[j-1]+cost);
+                rowMin=Math.min(rowMin,current[j]);
+            }
+            int[] swap=previous;previous=current;current=swap;
+            if(rowMin>2) return 3;
+        }
+        return previous[b.length()];
+    }
+
     void runGrafisript() {
         if (codeEditor == null || runtimeOutput == null) return;
-        String[] lines = codeEditor.getText().toString().split("\\r?\\n");
+        String originalScript=codeEditor.getText().toString();
+        boolean autocorrect=getPreferences(MODE_PRIVATE).getBoolean("grafisript_autocorrect",false);
+        GrafisriptCorrection correction=correctGrafisriptScript(originalScript);
+        if(autocorrect && correction.changed){
+            int oldStart=codeEditor.getSelectionStart(), oldEnd=codeEditor.getSelectionEnd();
+            codeEditor.setText(correction.script);
+            int length=codeEditor.getText().length();
+            codeEditor.setSelection(Math.min(oldStart,length),Math.min(oldEnd,length));
+            saveCurrentScript();
+            Toast.makeText(this,"Autocorrector: "+correction.count+" corrección(es) aplicada(s)",Toast.LENGTH_SHORT).show();
+        }else if(!autocorrect && correction.count>0){
+            int mistakes=getPreferences(MODE_PRIVATE).getInt("grafisript_spelling_mistakes",0)+correction.count;
+            getPreferences(MODE_PRIVATE).edit().putInt("grafisript_spelling_mistakes",mistakes).apply();
+            if(mistakes>=3){
+                getPreferences(MODE_PRIVATE).edit().putInt("grafisript_spelling_mistakes",0).apply();
+                Toast.makeText(this,"Oye bro, mejora tu escrito, anda a Configuración y activa Autocorrector plis",Toast.LENGTH_LONG).show();
+            }
+        }
+        String[] lines = (autocorrect && correction.changed ? correction.script : originalScript).split("\\r?\\n");
         grafisriptEasyContext = "";
         grafisriptEnemyDamage = 20;
 
@@ -4465,6 +4546,19 @@ public class BlockForgeActivity extends Activity {
         uiSection(uiText("EDITOR Y COMODIDAD","EDITOR & COMFORT"), uiText("PREFERENCIAS DE EDICIÓN","EDITING PREFERENCES"));
         int fontSize=getPreferences(MODE_PRIVATE).getInt("editor_font_size",14);
         content.addView(uiSecondary(uiText("Aa  Tamaño del texto · ","Aa  Editor text size · ")+fontSize+" sp", () -> showEditorFontSizeDialog()));
+        boolean autoCorrect=getPreferences(MODE_PRIVATE).getBoolean("grafisript_autocorrect",false);
+        content.addView(uiSecondary(
+                uiText("✍️  Autocorrector · ","✍️  Autocorrector · ")+(autoCorrect?uiText("Activado","On"):uiText("Desactivado","Off")),
+                () -> {
+                    boolean next=!getPreferences(MODE_PRIVATE).getBoolean("grafisript_autocorrect",false);
+                    getPreferences(MODE_PRIVATE).edit().putBoolean("grafisript_autocorrect",next).apply();
+                    Toast.makeText(this,next?"Autocorrector activado":"Autocorrector desactivado",Toast.LENGTH_SHORT).show();
+                    settings();
+                }));
+        card(uiText("Autocorrector de Grafisript","Grafisript autocorrect"),
+                uiText("Corrige nombres de instrucciones parecidos al ejecutar. Desactivado por defecto para ayudarte a aprender la sintaxis.",
+                       "Corrects similar instruction names when running code. Off by default so you can learn the syntax."));
+
         boolean haptics=getPreferences(MODE_PRIVATE).getBoolean("ui_haptics",true);
         content.addView(uiSecondary(uiText("Vibración al tocar · ","Touch vibration · ")+(haptics?uiText("Activada","On"):uiText("Desactivada","Off")), () -> {
             boolean next=!getPreferences(MODE_PRIVATE).getBoolean("ui_haptics",true);
