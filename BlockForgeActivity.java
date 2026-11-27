@@ -15,6 +15,7 @@ import android.graphics.Typeface;
 public class BlockForgeActivity extends Activity {
 
     LinearLayout root, content, navigation;
+    int currentPage = 0;
     int background = Color.rgb(12,16,26);
     int panel = Color.rgb(24,32,47);
     int blue = Color.rgb(55,135,255);
@@ -79,6 +80,14 @@ public class BlockForgeActivity extends Activity {
         if (scene3DView != null) scene3DView.onPause();
         if (scenePreview != null) scenePreview.stopPhysics();
         super.onPause();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (scenePlayMode) { stopSceneGame(); return; }
+        if (currentPage == 2 || currentPage == 3) { openPage(1); return; }
+        if (currentPage != 0) { openPage(0); return; }
+        super.onBackPressed();
     }
 
     @Override
@@ -210,7 +219,7 @@ public class BlockForgeActivity extends Activity {
         for (int i=0;i<scenePreview.sprites.size();i++) {
             final int index=i;
             SceneSprite sprite=scenePreview.sprites.get(i);
-            TextView item=editorButton((scenePreview.selectedSprite==i?"● ":"○ ") + sprite.fileName, () -> {
+            TextView item=editorButton((scenePreview.selectedSprite==i?"● ":"○ ") + spriteDisplayName(sprite), () -> {
                 scenePreview.selectedSprite=index;
                 scenePreview.invalidate();
                 dialog.dismiss();
@@ -223,6 +232,34 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("CERRAR", dialog::dismiss));
     }
 
+    String spriteDisplayName(SceneSprite sprite) {
+        if (sprite == null) return "Objeto";
+        return getPreferences(MODE_PRIVATE).getString("sprite_label_" + activeProjectName() + "_" + sprite.fileName, sprite.fileName);
+    }
+
+    void renameSelectedSprite() {
+        if (scenePreview == null) return;
+        SceneSprite sprite = scenePreview.selectedSpriteObject();
+        if (sprite == null) return;
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setHint("Nombre visible del objeto");
+        name.setText(spriteDisplayName(sprite));
+        new android.app.AlertDialog.Builder(this).setTitle("Renombrar sprite o personaje").setView(name)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Guardar", (d,w) -> {
+                String value = name.getText().toString().trim();
+                if (value.isEmpty() || value.length() > 48 || value.contains("|") || value.contains(";")) {
+                    Toast.makeText(this, "Usa un nombre de 1 a 48 caracteres.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                getPreferences(MODE_PRIVATE).edit().putString("sprite_label_" + activeProjectName() + "_" + sprite.fileName, value).apply();
+                scenePreview.invalidate();
+                Toast.makeText(this, "Nombre actualizado: " + value, Toast.LENGTH_SHORT).show();
+                showInspectorPanel();
+            }).show();
+    }
+
     void showInspectorPanel() {
         if (scenePreview == null) return;
         android.app.Dialog dialog = editorPanel(uiText("INSPECTOR","INSPECTOR"), Gravity.RIGHT, 88);
@@ -233,7 +270,8 @@ public class BlockForgeActivity extends Activity {
             panelView.addView(label("Selecciona un sprite desde el árbol o tocándolo en el lienzo.",13,gray));
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
-            panelView.addView(label(sprite.fileName,17,white));
+            panelView.addView(label(spriteDisplayName(sprite),17,white));
+            panelView.addView(editorButton("CAMBIAR NOMBRE", () -> renameSelectedSprite()));
             panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No")+" · "+(sprite.isPlayer?"PERSONAJE":"OBJETO FIJO"),13,gray));
             panelView.addView(editorButton(sprite.isPlayer?"✓ PERSONAJE DEL JUEGO":"DESIGNAR COMO PERSONAJE",()->{scenePreview.designateSelectedAsPlayer();dialog.dismiss();}));
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
@@ -286,11 +324,11 @@ public class BlockForgeActivity extends Activity {
             saveProjectFile("scripts/main.bf",editor.getText().toString());
             Toast.makeText(this,"Código guardado",Toast.LENGTH_SHORT).show();
         }));
-        panelView.addView(editorButton("ABRIR EDITOR Y EJECUTAR",()->{
+        panelView.addView(editorButton("GUARDAR Y CERRAR",()->{
             getPreferences(MODE_PRIVATE).edit().putString("grafisript_"+project,editor.getText().toString()).apply();
             saveProjectFile("scripts/main.bf",editor.getText().toString());
-            if (codeEditor != null) { codeEditorProjectName = project; codeEditor.setText(editor.getText().toString()); }
-            dialog.dismiss();openPage(3);
+            dialog.dismiss();
+            Toast.makeText(this,"Script guardado en el proyecto",Toast.LENGTH_SHORT).show();
         }));
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
     }
@@ -654,12 +692,13 @@ public class BlockForgeActivity extends Activity {
                 scene3DView = null;
             }
             content.removeAllViews();
-            if (navigation != null) navigation.setVisibility(page == 2 ? View.GONE : View.VISIBLE);
+            currentPage = page;
+            if (navigation != null) navigation.setVisibility((page == 2 || page == 3) ? View.GONE : View.VISIBLE);
             switch(page) {
                 case 0: home(); break;
                 case 1: projects(); break;
                 case 2: scenes(); break;
-                case 3: grafisript(); break;
+                case 3: scenes(); content.post(() -> showCodePanel()); break;
                 case 4: resources(); break;
                 case 5: settings(); break;
                 case 6: marketplace(); break;
@@ -1378,11 +1417,15 @@ public class BlockForgeActivity extends Activity {
             HorizontalScrollView quickScroll=new HorizontalScrollView(this);
             quickScroll.setHorizontalScrollBarEnabled(false);
             LinearLayout quick=new LinearLayout(this);quick.setPadding(6,5,6,5);quick.setGravity(Gravity.CENTER_VERTICAL);
-            String[] names={"＋ Sprite","Fondo","Propiedades","Árbol","Física","Capas","Recursos","Nodos","Animación","Deshacer","Rehacer"};
+            String[] names={"＋ Añadir sprite","Fondo de escena","Propiedades del objeto","Árbol de la escena","Físicas 2D","Capas","Recursos del proyecto","Nodos visuales","Animación","Deshacer","Rehacer","Cámara adelantada","Cámara centrada","Cámara libre","Líquidos y superficies"};
             Runnable[] actions={
                 ()->openSpriteDrawer(),()->showBackgroundPicker(),()->showInspectorPanel(),()->showSceneTreePanel(),
                 ()->showPhysicsSettingsDialog(),()->showEditorExtrasDialog(),()->openPage(4),()->showNodeGraphPanel(),
-                ()->showTimelinePanel(),()->{if(scenePreview!=null)scenePreview.undo();},()->{if(scenePreview!=null)scenePreview.redo();}
+                ()->showTimelinePanel(),()->{if(scenePreview!=null)scenePreview.undo();},()->{if(scenePreview!=null)scenePreview.redo();},
+                ()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(1);},
+                ()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(2);},
+                ()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(0);},
+                ()->showLiquidManager()
             };
             for(int i=0;i<names.length;i++){TextView b=editorButton(names[i],actions[i]);b.setTextSize(12);b.setMinHeight(54);b.setPadding(14,10,14,10);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,54);lp.setMargins(3,0,3,0);quick.addView(b,lp);}
             quickScroll.addView(quick);content.addView(quickScroll,new LinearLayout.LayoutParams(-1,64));
@@ -3305,6 +3348,7 @@ public class BlockForgeActivity extends Activity {
         int mapColumns=10,mapRows=10;
         java.util.ArrayList<String> undoHistory = new java.util.ArrayList<>();
         java.util.ArrayList<String> redoHistory = new java.util.ArrayList<>();
+        int cameraFollowMode = 1; // 0 libre, 1 jugador adelantado, 2 jugador centrado
         int draggingSprite = -1;
         float spriteDragOffsetX = 0f, spriteDragOffsetY = 0f;
         int selectedSprite=-1;
@@ -3322,6 +3366,7 @@ public class BlockForgeActivity extends Activity {
             cameraZoom=getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_zoom",1f));
             cameraOffsetX=getPreferences(MODE_PRIVATE).getFloat("scene_camera_x_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_x",0f));
             cameraOffsetY=getPreferences(MODE_PRIVATE).getFloat("scene_camera_y_"+activeProjectName(),getPreferences(MODE_PRIVATE).getFloat("scene_camera_y",0f));
+            cameraFollowMode=getPreferences(MODE_PRIVATE).getInt("scene_camera_follow_"+activeProjectName(),1);
             scaleDetector=new android.view.ScaleGestureDetector(BlockForgeActivity.this,new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener(){
                 @Override public boolean onScale(android.view.ScaleGestureDetector d){float old=cameraZoom;cameraZoom=Math.max(0.12f,Math.min(8f,cameraZoom*d.getScaleFactor()));float q=cameraZoom/old;cameraOffsetX=d.getFocusX()-(d.getFocusX()-cameraOffsetX)*q;cameraOffsetY=d.getFocusY()-(d.getFocusY()-cameraOffsetY)*q;saveCamera();invalidate();return true;}});
             String active = getPreferences(MODE_PRIVATE).getString("active_project", "Mi primer proyecto");
@@ -3666,6 +3711,27 @@ public class BlockForgeActivity extends Activity {
             for(SceneSprite liquid:sprites) if(liquid.liquidSurface){float flow=Math.max(0f,Math.min(100f,liquid.liquidFlow))/100f;liquid.liquidWavePhase+=dt*(1f+flow*5f);liquid.liquidSplash=Math.max(0f,liquid.liquidSplash-dt*1.8f);}
             float subDt=dt/substeps;
             for(int i=0;i<substeps;i++) physicsStepInternal(subDt);
+            updateCameraFollow(dt);
+        }
+
+        void setCameraFollowMode(int mode) {
+            cameraFollowMode=Math.max(0,Math.min(2,mode));
+            getPreferences(MODE_PRIVATE).edit().putInt("scene_camera_follow_"+activeProjectName(),cameraFollowMode).apply();
+            if(cameraFollowMode==0) Toast.makeText(BlockForgeActivity.this,"Seguimiento desactivado",Toast.LENGTH_SHORT).show();
+            else if(cameraFollowMode==1) Toast.makeText(BlockForgeActivity.this,"Cámara adelantada: verás más espacio delante del personaje",Toast.LENGTH_SHORT).show();
+            else Toast.makeText(BlockForgeActivity.this,"Cámara centrada: personaje en mitad de la pantalla",Toast.LENGTH_SHORT).show();
+        }
+
+        void updateCameraFollow(float dt) {
+            if(!scenePlayMode || cameraFollowMode==0 || getWidth()<=0 || getHeight()<=0) return;
+            SceneSprite player=findPlayerSprite();
+            if(player==null) return;
+            float zoom=Math.max(0.12f,cameraZoom);
+            float desiredX=(cameraFollowMode==1?getWidth()*0.36f:getWidth()*0.5f)-(player.x+player.width*0.5f)*64f*zoom;
+            float desiredY=getHeight()*0.5f-(player.y+player.height*0.5f)*64f*zoom;
+            float blend=Math.min(1f,Math.max(0.02f,dt*7f));
+            cameraOffsetX+=(desiredX-cameraOffsetX)*blend;
+            cameraOffsetY+=(desiredY-cameraOffsetY)*blend;
         }
 
         void physicsStepInternal(float dt) {
