@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <variant>
-#include <vector>
+#include <vector>\n#include "engine_2d.hpp"
 namespace blockforge::grafisript {
 using Lista=std::vector<std::string>;
 using Valor=std::variant<double,std::string,bool,Lista>;
@@ -21,9 +21,9 @@ public:
  explicit Runtime(std::filesystem::path root="Proyecto",Salida out={}):root_(std::filesystem::weakly_canonical(std::filesystem::absolute(root))),out_(out?std::move(out):[](const std::string&s){std::cout<<s<<'\n';}){std::filesystem::create_directories(root_);}
  void set_entrada(std::function<std::string(const std::string&)> f){input_=std::move(f);}
  void ejecutar(const std::string&src){std::vector<std::string> l;std::istringstream in(src);std::string s;while(std::getline(in,s))l.push_back(s);paso(l,0,l.size(),0);}
- const std::map<std::string,Valor>& variables()const{return vars_;}
+ const std::map<std::string,Valor>& variables()const{return vars_;}\n const dosd::Mundo& mundo_2d()const{return mundo_;}
 private:
- std::filesystem::path root_;Salida out_;std::function<std::string(const std::string&)> input_=[](const std::string&q){std::cout<<q<<' ';std::string s;std::getline(std::cin,s);return s;};std::map<std::string,Valor>vars_;std::size_t pasos_=0;
+ std::filesystem::path root_;Salida out_;std::function<std::string(const std::string&)> input_=[](const std::string&q){std::cout<<q<<' ';std::string s;std::getline(std::cin,s);return s;};std::map<std::string,Valor>vars_;dosd::Mundo mundo_;std::size_t pasos_=0;
  static std::string trim(std::string s){auto a=s.find_first_not_of(" \t\r\n");if(a==s.npos)return{};return s.substr(a,s.find_last_not_of(" \t\r\n")-a+1);}
  static bool starts(const std::string&s,const std::string&p){return s.rfind(p,0)==0;}
  static std::string unq(std::string s){s=trim(s);if(s.size()>1&&s.front()=='"'&&s.back()=='"')return s.substr(1,s.size()-2);return s;}
@@ -49,6 +49,18 @@ private:
  if(starts(s,"Leer ")){auto p=s.find(" y guardar en ");if(p==s.npos)throw std::runtime_error("Leer archivo y guardar en Variable");std::ifstream f(path(unq(s.substr(5,p-5))),std::ios::binary);if(!f)throw std::runtime_error("No se pudo leer");std::ostringstream v;v<<f.rdbuf();vars_[trim(s.substr(p+14))]=v.str();continue;}
  if(starts(s,"Crear carpeta ")){std::filesystem::create_directories(path(unq(s.substr(14))));continue;}
  if(starts(s,"Usar modulo ")){auto m=trim(s.substr(12));if(m!="Matematicas"&&m!="Archivos"&&m!="Datos")throw std::runtime_error("Módulo no disponible: "+m);continue;}
+ if(starts(s,"Crear escena ")){mundo_.nombre=unq(s.substr(13));continue;}
+ if(starts(s,"Crear objeto ")){mundo_.crear(trim(s.substr(13)));continue;}
+ if(starts(s,"Posicion ")){auto r=s.substr(9);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Posicion Objeto = X, Y");auto q=r.find(',',p+1);if(q==r.npos)throw std::runtime_error("La posición requiere X, Y");mundo_.posicion(trim(r.substr(0,p)),math(trim(r.substr(p+1,q-p-1))),math(trim(r.substr(q+1))));continue;}
+ if(starts(s,"Tamaño ")){auto r=s.substr(7);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Tamaño Objeto = Ancho, Alto");auto q=r.find(',',p+1);if(q==r.npos)throw std::runtime_error("El tamaño requiere ancho, alto");mundo_.tamano(trim(r.substr(0,p)),math(trim(r.substr(p+1,q-p-1))),math(trim(r.substr(q+1))));continue;}
+ if(starts(s,"Velocidad ")){auto r=s.substr(10);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Velocidad Objeto = X, Y");auto q=r.find(',',p+1);if(q==r.npos)throw std::runtime_error("La velocidad requiere X, Y");mundo_.velocidad(trim(r.substr(0,p)),math(trim(r.substr(p+1,q-p-1))),math(trim(r.substr(q+1))));continue;}
+ if(starts(s,"Color ")){auto r=s.substr(6);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Color Objeto = #RRGGBB");auto v=unq(r.substr(p+1));if(v.size()!=7||v[0]!='#')throw std::runtime_error("Color debe ser #RRGGBB");try{dosd::Color k{(std::uint8_t)std::stoul(v.substr(1,2),nullptr,16),(std::uint8_t)std::stoul(v.substr(3,2),nullptr,16),(std::uint8_t)std::stoul(v.substr(5,2),nullptr,16),255};mundo_.color(trim(r.substr(0,p)),k);}catch(...){throw std::runtime_error("Color hexadecimal inválido");}continue;}
+ if(starts(s,"Sprite ")){auto r=s.substr(7);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Sprite Objeto = \"archivo.png\"");auto n=trim(r.substr(0,p));auto asset=unq(r.substr(p+1));path(asset);mundo_.sprite(n,asset);continue;}
+ if(starts(s,"Fisica ")){auto r=s.substr(7);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Fisica Objeto = Verdadero o Falso");auto v=trim(r.substr(p+1));if(v!="Verdadero"&&v!="Falso")throw std::runtime_error("Fisica acepta Verdadero o Falso");mundo_.activar_fisica(trim(r.substr(0,p)),v=="Verdadero");continue;}
+ if(starts(s,"Solido ")){auto r=s.substr(7);auto p=r.find('=');if(p==r.npos)throw std::runtime_error("Usa Solido Objeto = Verdadero o Falso");auto v=trim(r.substr(p+1));if(v!="Verdadero"&&v!="Falso")throw std::runtime_error("Solido acepta Verdadero o Falso");mundo_.activar_solido(trim(r.substr(0,p)),v=="Verdadero");continue;}
+ if(starts(s,"Gravedad =")){mundo_.gravedad=math(trim(s.substr(10)));if(mundo_.gravedad<0||mundo_.gravedad>5000)throw std::runtime_error("Gravedad fuera de rango");continue;}
+ if(starts(s,"Camara seguir ")){mundo_.seguir(trim(s.substr(14)));continue;}
+
  throw std::runtime_error("Instrucción aún no implementada o desconocida: "+s);
  }catch(const Error&){throw;}catch(const std::exception&x){throw Error(i+1,x.what());}}}
 };
