@@ -2118,7 +2118,10 @@ public class BlockForgeActivity extends Activity {
     void dispatchGrafisriptEvent(String objectType, String objectName, String eventName, int damage) {
         String project = activeProjectName();
         String prefix = "grafisript_" + objectType + "_" + project + "_" + objectName;
-        String raw = getPreferences(MODE_PRIVATE).getString(prefix + "_events", "{}");
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        String propertiesRaw = prefs.getString(prefix + "_properties", "{}");
+        if (eventName.equalsIgnoreCase("al_morir") || eventName.equalsIgnoreCase("al_abrir") || eventName.equalsIgnoreCase("al_romper")) grantGrafisriptDropsFromProperties(propertiesRaw);
+        String raw = prefs.getString(prefix + "_events", "{}");
         try {
             org.json.JSONObject all = new org.json.JSONObject(raw);
             org.json.JSONObject actions = all.optJSONObject(eventName.toLowerCase(java.util.Locale.ROOT));
@@ -2610,6 +2613,10 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    void grantGrafisriptDropsFromProperties(String rawProperties) {
+        try { org.json.JSONObject props=new org.json.JSONObject(rawProperties); java.util.ArrayList<String> got=new java.util.ArrayList<>(); for(java.util.Iterator<String> it=props.keys();it.hasNext();){String key=it.next();if(!key.startsWith("drop:"))continue;int chance=Math.max(0,Math.min(100,props.optInt(key,0)));if(java.util.concurrent.ThreadLocalRandom.current().nextInt(100)<chance){String item=key.substring(5);grantGrafisriptInventoryItem(item,1);got.add(item);}} if(!got.isEmpty())Toast.makeText(this,"Botín: + "+android.text.TextUtils.join(", ",got),Toast.LENGTH_LONG).show(); } catch(Exception ignored) { }
+    }
+
     void grantGrafisriptInventoryItem(String item, int amount) {
         if(item==null||item.trim().isEmpty()||amount<=0)return;
         String project=activeProjectName();String key="grafisript_inventory_"+project;
@@ -2873,6 +2880,17 @@ public class BlockForgeActivity extends Activity {
             float centerX=(getWidth()*0.5f-cameraOffsetX)/(cameraZoom*64f);
             float centerY=(getHeight()*0.5f-cameraOffsetY)/(cameraZoom*64f);
             SceneSprite created = new SceneSprite(name, centerX, centerY, true);
+            String project=activeProjectName();
+            String targetBase=name.contains(".")?name.substring(0,name.lastIndexOf('.')):name;
+            java.util.Map<String,?> saved=getPreferences(MODE_PRIVATE).getAll();
+            for(String savedKey:saved.keySet()) if(savedKey.startsWith("grafisript_ambiente_"+project+"_")&&savedKey.endsWith("_name")) {
+                String savedName=String.valueOf(saved.get(savedKey)); String savedBase=savedName.contains(".")?savedName.substring(0,savedName.lastIndexOf('.')):savedName;
+                if(savedName.equals(name)||savedBase.equalsIgnoreCase(targetBase)) {
+                    String cfgPrefix=savedKey.substring(0,savedKey.length()-5);
+                    try { org.json.JSONObject cfg=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(cfgPrefix+"_properties","{}")); created.environmentObject=true;created.environmentHealth=Math.max(1,cfg.optInt("vida",5));String col=cfg.optString("colision","no");created.solid="si".equalsIgnoreCase(col)||"true".equalsIgnoreCase(col);for(java.util.Iterator<String> it=cfg.keys();it.hasNext();){String k=it.next();if(k.startsWith("drop:"))created.environmentDrops.put(k.substring(5),Math.max(0,Math.min(100,cfg.optInt(k,0))));} } catch(Exception ignored) {}
+                    break;
+                }
+            }
             created.vy = 0f;
             created.isPlayer = isLikelyPlayerSprite(name) || (sprites.isEmpty() && !isStaticSceneAsset(name));
             sprites.add(created);
