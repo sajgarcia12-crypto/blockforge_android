@@ -1,29 +1,26 @@
-# BlockForge PC — base de escritorio independiente
+# BlockForge PC — Studio independiente
 
-Esta carpeta es una raíz separada para Windows. No reemplaza ni modifica el proyecto Android.
+BlockForge PC vive en esta carpeta y en su propia rama. No reemplaza, modifica ni compila sobre el proyecto Android.
 
-## Estado honesto de esta entrega
+## Interfaz de escritorio
 
-Esta rama ya contiene un **núcleo inicial de Grafisript en C++20**, un ejecutable de consola para correr archivos `.grafi`, pruebas automatizadas y un flujo de compilación Windows.
+En Windows, el objetivo `BlockForge_PC.exe` abre **BlockForge Studio** con:
+- Acciones Nuevo, Abrir, Guardar y Ejecutar.
+- Editor de archivos `.grafi` y panel de salida.
+- Marketplace visible como **Próximamente** (desactivada; no distrae del editor).
+- Consola con errores de Grafisript y número de línea.
 
-**Todavía no es BlockForge Studio completo ni el motor gráfico final.** Aún faltan el editor visual de escenas, renderizado integrado con sprites/sonidos, inspector, importador de recursos, sistema completo de eventos y funciones, módulos de plataforma y la paridad completa con Android.
+En sistemas que no sean Windows se conserva un ejecutor de consola para poder desarrollar y probar el núcleo.
 
-## Lo que ya implementa el núcleo PC
+## Estado real — trabajo en progreso
 
-- Variables: `Crear variable`, `Cambiar`, `Sumar`, `Restar`.
-- Texto: `Poner_texto:`, `Mostrar` e interpolación `{Variable}`.
-- Entrada: `Preguntar ... y guardar en ...`.
-- Listas: crear, añadir y quitar elementos.
-- Condiciones: `Si`, `Si_no`, `Fin_si`, comparaciones y lógica básica.
-- Bucles: `Repetir` y `Mientras`, con límites de seguridad.
-- Archivos: `Guardar`, `Leer` y `Crear carpeta`, restringidos a la carpeta del proyecto.
-- Comentarios con `#` y mensajes de error en español con número de línea.
+La interfaz de Windows es el primer esqueleto funcional de Studio, no el editor final. Aún faltan resaltado de sintaxis, autocompletado, árbol de proyecto, inspector, escenas, renderizador 2D/3D, importación de sprites/sonidos, sistema de eventos completo, depurador y empaquetador de juegos.
 
-Las funciones, eventos, automatización avanzada y módulos gráficos/sonoros no están implementados todavía. No se deben anunciar como disponibles.
+El runtime C++20 implementa actualmente variables, texto/interpolación, entrada por callback, listas de texto, condiciones básicas, bucles con límites, operaciones aritméticas básicas, comentarios y operaciones de archivos confinadas a la carpeta del proyecto. Funciones, eventos de juego, concatenación completa, expresiones generales, categorías declarativas con semántica y módulos gráficos todavía necesitan implementación y pruebas.
 
 ## Compilar en Windows
 
-Requisitos: CMake 3.24+ y Visual Studio 2022 con herramientas C++.
+Requisitos: CMake 3.24+ y Visual Studio 2022 con el componente de desarrollo de escritorio con C++.
 
 ```powershell
 cmake -S BlockForge_PC -B build -A x64
@@ -31,18 +28,11 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-El workflow `.github/workflows/build-windows.yml` compila, ejecuta las pruebas y publica un ZIP como artefacto de GitHub Actions si todo pasa.
+En Windows, CMake genera una aplicación gráfica `BlockForge_PC.exe`. El flujo de GitHub Actions también debe completar la compilación y las pruebas antes de considerar distribuible el ejecutable.
 
-## Ejecutar un proyecto
+## Seguridad
 
-```powershell
-.\build\Release\BlockForge_PC.exe BlockForge_PC\ejemplos\primer_proyecto.grafi
-```
-
-## Reglas de seguridad y arquitectura
-
-- No editar ni borrar Android al desarrollar PC.
-- Mantener el núcleo del lenguaje separado de la interfaz gráfica.
-- No ejecutar rutas de archivos fuera de la carpeta del proyecto.
-- No evaluar código C++ arbitrario ni ejecutar comandos del sistema desde Grafisript.
-- Toda nueva función del lenguaje debe incluir pruebas.
+- No ejecutar C++ arbitrario, comandos del sistema ni scripts externos desde Grafisript.
+- Las rutas de `Guardar`, `Leer` y `Crear carpeta` se restringen al directorio del proyecto.
+- Mantener límites de instrucciones, repeticiones y profundidad para evitar bucles o recursión descontrolados.
+- No introducir dependencias ni cambios en Android desde esta carpeta.
