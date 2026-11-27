@@ -226,7 +226,7 @@ public class BlockForgeActivity extends Activity {
     void showInspectorPanel() {
         if (scenePreview == null) return;
         android.app.Dialog dialog = editorPanel(uiText("INSPECTOR","INSPECTOR"), Gravity.RIGHT, 88);
-        LinearLayout panelView = (LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        LinearLayout panelView = (LinearLayout)dialog.findViewById(0x00bf0011);
         if (panelView == null) return;
         SceneSprite sprite=scenePreview.selectedSpriteObject();
         if(sprite==null) {
@@ -273,7 +273,7 @@ public class BlockForgeActivity extends Activity {
         String project=activeProjectName();
         android.app.Dialog dialog=editorPanel("EL GRAFISRIPT",Gravity.BOTTOM,96);
         if(dialog.getWindow()!=null) dialog.getWindow().setLayout(-1,Math.max(420,getResources().getDisplayMetrics().heightPixels*72/100));
-        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        LinearLayout panelView=(LinearLayout)dialog.findViewById(0x00bf0011);
         if(panelView==null)return;
         panelView.addView(label("Código del proyecto · se guarda en el editor principal",12,gray));
         EditText editor=new EditText(this);
@@ -331,7 +331,7 @@ public class BlockForgeActivity extends Activity {
 
     void showToolsPanel() {
         android.app.Dialog dialog=editorPanel("HERRAMIENTAS DE ESCENA",Gravity.RIGHT,88);
-        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        LinearLayout panelView=(LinearLayout)dialog.findViewById(0x00bf0011);
         if(panelView==null)return;
         panelView.addView(label("FÍSICA Y COLISIONES",11,Color.rgb(135,180,235)));
         panelView.addView(label("ILUMINACIÓN Y RENDER 2D",11,Color.rgb(135,180,235)));
@@ -358,7 +358,7 @@ public class BlockForgeActivity extends Activity {
         if(scenePreview==null)return;
         android.app.Dialog dialog=editorPanel("ANIMACIÓN · TIMELINE",Gravity.BOTTOM,96);
         if(dialog.getWindow()!=null)dialog.getWindow().setLayout(-1,Math.max(320,getResources().getDisplayMetrics().heightPixels*55/100));
-        LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
+        LinearLayout panelView=(LinearLayout)dialog.findViewById(0x00bf0011);
         if(panelView==null)return;
         panelView.addView(label(scenePreview.animationStatus(),13,gray));
         LinearLayout row=new LinearLayout(this);
