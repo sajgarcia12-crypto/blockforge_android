@@ -1349,22 +1349,25 @@ public class BlockForgeActivity extends Activity {
         top.addView(editorButton("💾", () -> { if(scenePreview!=null){scenePreview.persist();scenePreview.persistSprites();} Toast.makeText(this,"Escena guardada",Toast.LENGTH_SHORT).show(); }), new LinearLayout.LayoutParams(42,42));
         content.addView(top, new LinearLayout.LayoutParams(-1, 48));
 
-        HorizontalScrollView toolsScroll = new HorizontalScrollView(this);
-        toolsScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout tools = new LinearLayout(this);
-        tools.setGravity(Gravity.CENTER_VERTICAL);
-        tools.setPadding(5,3,5,3);
+        ScrollView toolsScroll = new ScrollView(this);
+        toolsScroll.setVerticalScrollBarEnabled(true);
+        LinearLayout tools = vertical();
+        tools.setPadding(8,5,8,5);
         tools.setBackgroundColor(Color.rgb(39,42,47));
         addWorkspaceTool(tools,"↖ Seleccionar / mover", () -> {sceneToolMode=0;});
         addWorkspaceTool(tools,"✋ Mano", () -> {cameraPanMode=!cameraPanMode;Toast.makeText(this,cameraPanMode?"Arrastra para mover la vista":"Selección activa",Toast.LENGTH_SHORT).show();});
         addWorkspaceTool(tools,sceneGridVisible?"▦ Cuadrícula":"□ Cuadrícula",()->{sceneGridVisible=!sceneGridVisible;if(scenePreview!=null)scenePreview.invalidate();});
         addWorkspaceTool(tools,"＋ Sprite",()->openSpriteDrawer());
         addWorkspaceTool(tools,"Nodos",()->showNodeGraphPanel());
-        addWorkspaceTool(tools,"Animación",()->showTimelinePanel());
-        addWorkspaceTool(tools,"Deshacer",()->{if(scenePreview!=null)scenePreview.undo();});
-        addWorkspaceTool(tools,"Rehacer",()->{if(scenePreview!=null)scenePreview.redo();});
+        addWorkspaceTool(tools,"Animación y fotogramas",()->showTimelinePanel());
+        addWorkspaceTool(tools,"Deshacer último cambio",()->{if(scenePreview!=null)scenePreview.undo();});
+        addWorkspaceTool(tools,"Rehacer último cambio",()->{if(scenePreview!=null)scenePreview.redo();});
+        addWorkspaceTool(tools,"Cámara: personaje adelantado",()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(1);});
+        addWorkspaceTool(tools,"Cámara: personaje centrado",()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(2);});
+        addWorkspaceTool(tools,"Cámara: modo libre",()->{if(scenePreview!=null)scenePreview.setCameraFollowMode(0);});
+        addWorkspaceTool(tools,"Líquidos y superficies",()->showLiquidManager());
         toolsScroll.addView(tools);
-        content.addView(toolsScroll,new LinearLayout.LayoutParams(-1,52));
+        content.addView(toolsScroll,new LinearLayout.LayoutParams(-1,-2));
 
         LinearLayout workspace = new LinearLayout(this);
         workspace.setOrientation(LinearLayout.HORIZONTAL);
@@ -1472,8 +1475,15 @@ public class BlockForgeActivity extends Activity {
         row.addView(v,lp);
     }
     void addWorkspaceTool(LinearLayout row,String text,Runnable action){
-        TextView v=editorButton(text,action);v.setTextSize(10);
-        row.addView(v,new LinearLayout.LayoutParams(-2,38));
+        TextView v=editorButton(text,action);
+        v.setTextSize(13);
+        v.setGravity(Gravity.CENTER_VERTICAL | Gravity.LEFT);
+        v.setSingleLine(false);
+        v.setPadding(14,10,14,10);
+        v.setMinHeight(48);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+        lp.bottomMargin=5;
+        row.addView(v,lp);
     }
     TextView panelHeading(String text){
         TextView v=uiLabel(text,10,Color.rgb(145,178,218),true);
