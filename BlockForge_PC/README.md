@@ -1,43 +1,48 @@
-# BlockForge PC — raíz independiente
+# BlockForge PC — base de escritorio independiente
 
-Esta carpeta es el proyecto de escritorio. No reemplaza ni modifica los archivos Android.
+Esta carpeta es una raíz separada para Windows. No reemplaza ni modifica el proyecto Android.
 
-## Estado real
-- El prototipo SDL2 existente vive en `BlockForge_Studio.cpp` y todavía tiene un intérprete muy limitado.
-- Esta carpeta define la nueva raíz de trabajo para PC y el contrato que debe implementar el equipo.
-- **Aún no existe paridad completa Android/PC ni un .exe validado.** No anunciarlo como terminado hasta compilar y ejecutar las pruebas.
+## Estado honesto de esta entrega
 
-## Objetivo de arquitectura
-1. Mantener Android intacto.
-2. Portar el núcleo real de Grafisript desde Android a `src/core/` después de identificar sus fuentes reales en el proyecto Android.
-3. Separar adaptadores de plataforma: `src/platform/windows/` y `src/ui/`.
-4. Compartir una misma gramática, reglas de tipos, errores y pruebas entre Android y PC. No mantener dos intérpretes divergentes.
-5. Leer y guardar los mismos archivos de proyecto `.grafi`.
+Esta rama ya contiene un **núcleo inicial de Grafisript en C++20**, un ejecutable de consola para correr archivos `.grafi`, pruebas automatizadas y un flujo de compilación Windows.
 
-## Estructura prevista
-```
-BlockForge_PC/
-  CMakeLists.txt
-  README.md
-  CONTRATO_GRAFISRIPT.md
-  src/
-    core/       # copia/adaptación del núcleo Android, pendiente de port real
-    platform/   # APIs específicas de Windows
-    ui/         # editor, paneles y ventanas de PC
-  tests/
-    casos/      # programas .grafi de prueba
-```
+**Todavía no es BlockForge Studio completo ni el motor gráfico final.** Aún faltan el editor visual de escenas, renderizado integrado con sprites/sonidos, inspector, importador de recursos, sistema completo de eventos y funciones, módulos de plataforma y la paridad completa con Android.
 
-## Compilación
-Requisitos: CMake 3.24+, compilador C++20 y SDL2 (si el equipo conserva SDL2 para la interfaz).
+## Lo que ya implementa el núcleo PC
+
+- Variables: `Crear variable`, `Cambiar`, `Sumar`, `Restar`.
+- Texto: `Poner_texto:`, `Mostrar` e interpolación `{Variable}`.
+- Entrada: `Preguntar ... y guardar en ...`.
+- Listas: crear, añadir y quitar elementos.
+- Condiciones: `Si`, `Si_no`, `Fin_si`, comparaciones y lógica básica.
+- Bucles: `Repetir` y `Mientras`, con límites de seguridad.
+- Archivos: `Guardar`, `Leer` y `Crear carpeta`, restringidos a la carpeta del proyecto.
+- Comentarios con `#` y mensajes de error en español con número de línea.
+
+Las funciones, eventos, automatización avanzada y módulos gráficos/sonoros no están implementados todavía. No se deben anunciar como disponibles.
+
+## Compilar en Windows
+
+Requisitos: CMake 3.24+ y Visual Studio 2022 con herramientas C++.
+
 ```powershell
-cmake -S BlockForge_PC -B BlockForge_PC/build
-cmake --build BlockForge_PC/build --config Release
+cmake -S BlockForge_PC -B build -A x64
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
-El ejecutable solo se considera entregable cuando el workflow de Windows termine correctamente y el .exe se pruebe en Windows limpio.
 
-## Reglas para el equipo
-- No editar ni borrar el proyecto Android para hacer el port.
-- Antes de copiar, localizar el intérprete y sus dependencias Android reales; documentar cada archivo copiado y cada adaptación.
-- No simular funciones no implementadas. Si una API de Android no tiene equivalente, crear un adaptador Windows o reportarla como no disponible.
-- Mantener pruebas de compatibilidad con los mismos archivos .grafi en ambas plataformas.
+El workflow `.github/workflows/build-windows.yml` compila, ejecuta las pruebas y publica un ZIP como artefacto de GitHub Actions si todo pasa.
+
+## Ejecutar un proyecto
+
+```powershell
+.`build`\Release\BlockForge_PC.exe BlockForge_PC\ejemplos\primer_proyecto.grafi
+```
+
+## Reglas de seguridad y arquitectura
+
+- No editar ni borrar Android al desarrollar PC.
+- Mantener el núcleo del lenguaje separado de la interfaz gráfica.
+- No ejecutar rutas de archivos fuera de la carpeta del proyecto.
+- No evaluar código C++ arbitrario ni ejecutar comandos del sistema desde Grafisript.
+- Toda nueva función del lenguaje debe incluir pruebas.
