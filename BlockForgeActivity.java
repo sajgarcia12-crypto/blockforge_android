@@ -2367,6 +2367,16 @@ public class BlockForgeActivity extends Activity {
     }
 
     // Sintaxis amigable: Crear_mundo: / fondo_color = negro_con_rojo, etc.
+    void applyGrafisriptCharacterDamage(int damage) {
+        if(damage<=0)return;
+        String project=activeProjectName(); android.content.SharedPreferences prefs=getPreferences(MODE_PRIVATE);
+        String playerName=prefs.getString("character_name_"+project,"Jugador");
+        int health=Math.max(0,prefs.getInt("character_health_"+project,100)-damage);
+        prefs.edit().putInt("character_health_"+project,health).apply();
+        dispatchGrafisriptEvent("personaje",playerName,"al_recibir_dano",damage);
+        if(health==0)dispatchGrafisriptEvent("personaje",playerName,"al_morir",0);
+    }
+
     boolean executeEasyGrafisriptDefinition(String[] body, StringBuilder output, int lineIndex) {
         String parent = "", name = "", event = "";
         boolean readingDrops = false, dropsClosed = false;
@@ -2852,6 +2862,10 @@ public class BlockForgeActivity extends Activity {
         boolean physicsEnabled = true;
         float gravityScale = 1f, jumpScale = 1f;
         int fallQuality = 80, jumpQuality = 100;
+        boolean liquidSurface = false;
+        int liquidRealism = 50;
+        float liquidViscosity = 50f, liquidFlow = 50f, liquidDamagePerSecond = 0f;
+        float liquidWavePhase = 0f, liquidDamageRemainder = 0f;
         java.util.LinkedHashMap<String,Integer> environmentDrops = new java.util.LinkedHashMap<>();
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
@@ -2948,6 +2962,11 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>15)loaded.environmentObject=Boolean.parseBoolean(parts[15]);
                     if(parts.length>16)loaded.environmentHealth=Math.max(1,Integer.parseInt(parts[16]));
                     if(parts.length>17&&!parts[17].isEmpty())for(String drop:parts[17].split(",")){int cut=drop.lastIndexOf(':');if(cut>0)loaded.environmentDrops.put(drop.substring(0,cut),Math.max(0,Math.min(100,Integer.parseInt(drop.substring(cut+1)))));}
+                    if(parts.length>18)loaded.liquidSurface=Boolean.parseBoolean(parts[18]);
+                    if(parts.length>19)loaded.liquidRealism=Math.max(0,Math.min(100,Integer.parseInt(parts[19])));
+                    if(parts.length>20)loaded.liquidViscosity=Math.max(0f,Math.min(100f,Float.parseFloat(parts[20])));
+                    if(parts.length>21)loaded.liquidFlow=Math.max(0f,Math.min(100f,Float.parseFloat(parts[21])));
+                    if(parts.length>22)loaded.liquidDamagePerSecond=Math.max(0f,Math.min(1000f,Float.parseFloat(parts[22])));
                     loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
                     loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
@@ -3087,6 +3106,7 @@ public class BlockForgeActivity extends Activity {
                         .append('|').append(sprite.environmentObject).append('|').append(sprite.environmentHealth).append('|');
                 boolean firstDrop = true;
                 for (java.util.Map.Entry<String,Integer> drop : sprite.environmentDrops.entrySet()) { if (!firstDrop) data.append(','); firstDrop = false; data.append(drop.getKey()).append(':').append(drop.getValue()); }
+                data.append('|').append(sprite.liquidSurface).append('|').append(sprite.liquidRealism).append('|').append(sprite.liquidViscosity).append('|').append(sprite.liquidFlow).append('|').append(sprite.liquidDamagePerSecond);
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
@@ -3105,6 +3125,23 @@ public class BlockForgeActivity extends Activity {
             String project=activeProjectName();
             String targetBase=name.contains(".")?name.substring(0,name.lastIndexOf('.')):name;
             java.util.Map<String,?> saved=getPreferences(MODE_PRIVATE).getAll();
+            for(String savedKey:saved.keySet()) if(savedKey.startsWith("grafisript_liquido_"+project+"_")&&savedKey.endsWith("_name")) {
+                String savedName=String.valueOf(saved.get(savedKey)); String savedBase=savedName.contains(".")?savedName.substring(0,savedName.lastIndexOf('.')):savedName;
+                if(savedName.equals(name)||savedBase.equalsIgnoreCase(targetBase)) {
+                    String cfgPrefix=savedKey.substring(0,savedKey.length()-5);
+                    try {
+                        org.json.JSONObject cfg=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(cfgPrefix+"_properties","{}"));
+                        created.liquidSurface=true; created.solid=false;
+                        created.liquidRealism=Math.max(0,Math.min(100,getPreferences(MODE_PRIVATE).getInt(cfgPrefix+"_real",50)));
+                        created.liquidViscosity=Math.max(0f,Math.min(100f,getPreferences(MODE_PRIVATE).getFloat(cfgPrefix+"_viscosidad",50f)));
+                        created.liquidFlow=Math.max(0f,Math.min(100f,getPreferences(MODE_PRIVATE).getFloat(cfgPrefix+"_fluidez",50f)));
+                        String toxin=cfg.optString("veneno","0/s"); int split=toxin.lastIndexOf(':'); if(split>=0)toxin=toxin.substring(split+1);
+                        toxin=toxin.replace("/s","").replace("/S","").trim();
+                        try{created.liquidDamagePerSecond=Math.max(0f,Math.min(1000f,Float.parseFloat(toxin)));}catch(Exception ignoredDamage){}
+                    } catch(Exception ignored) {}
+                    break;
+                }
+            }
             for(String savedKey:saved.keySet()) if(savedKey.startsWith("grafisript_ambiente_"+project+"_")&&savedKey.endsWith("_name")) {
                 String savedName=String.valueOf(saved.get(savedKey)); String savedBase=savedName.contains(".")?savedName.substring(0,savedName.lastIndexOf('.')):savedName;
                 if(savedName.equals(name)||savedBase.equalsIgnoreCase(targetBase)) {
@@ -3222,6 +3259,17 @@ public class BlockForgeActivity extends Activity {
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
                 if(characterPhysics) sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * gravityScale * dt));
                 else sprite.vy = 0f;
+                SceneSprite touchingLiquid=null;
+                for(SceneSprite liquid:sprites) if(liquid.liquidSurface && sprite.x<liquid.x+liquid.width && sprite.x+sprite.width>liquid.x && sprite.y<liquid.y+liquid.height && sprite.y+sprite.height>liquid.y){touchingLiquid=liquid;break;}
+                if(touchingLiquid!=null){
+                    float viscosity=Math.max(0f,Math.min(100f,touchingLiquid.liquidViscosity))/100f;
+                    float flow=Math.max(0f,Math.min(100f,touchingLiquid.liquidFlow))/100f;
+                    sprite.vx*=Math.max(0.2f,1f-(0.10f+viscosity*0.45f)*dt*10f);
+                    sprite.vy*=Math.max(0.15f,1f-(0.25f+viscosity*0.55f)*dt*10f);
+                    sprite.vy-=physicsGravity*(0.18f+flow*0.32f)*dt;
+                    touchingLiquid.liquidWavePhase+=dt*(1f+flow*5f);
+                    if(touchingLiquid.liquidDamagePerSecond>0f){touchingLiquid.liquidDamageRemainder+=touchingLiquid.liquidDamagePerSecond*dt;int liquidDamage=(int)touchingLiquid.liquidDamageRemainder;if(liquidDamage>0){touchingLiquid.liquidDamageRemainder-=liquidDamage;applyGrafisriptCharacterDamage(liquidDamage);}}
+                }
 
                 float nextX = Math.max(0f, Math.min(mapColumns - sprite.width, oldX + sprite.vx * dt));
                 boolean horizontalHit = false;
@@ -3643,6 +3691,12 @@ public class BlockForgeActivity extends Activity {
                 } else {
                     paint.setColor(Color.MAGENTA);
                     canvas.drawRect(left, top, right, bottom, paint);
+                }
+                if(sprite.liquidSurface){
+                    paint.setColor(Color.argb(95,35,145,220));canvas.drawRect(left,top,right,bottom,paint);
+                    int waves=1+sprite.liquidRealism/20;paint.setColor(Color.argb(170,190,235,255));paint.setStrokeWidth(Math.max(1f,worldUnit*0.018f));
+                    for(int wi=0;wi<waves;wi++){float yy=top+worldUnit*(0.08f+wi*0.13f);float amp=worldUnit*(0.012f+sprite.liquidRealism*0.0003f);float px=left,py=(float)(yy+Math.sin(sprite.liquidWavePhase+wi)*amp);for(int q=1;q<=12;q++){float nx=left+(right-left)*q/12f,ny=(float)(yy+Math.sin(sprite.liquidWavePhase+q*0.65f+wi)*amp);canvas.drawLine(px,py,nx,ny,paint);px=nx;py=ny;}}
+                    paint.setStrokeWidth(1f);
                 }
                 if (sprite.environmentObject && scenePlayMode) {paint.setColor(Color.WHITE);paint.setTextSize(10f);paint.setTextAlign(Paint.Align.CENTER);canvas.drawText("HP "+sprite.environmentHealth,centerX,top-5f,paint);}
                 if (!scenePlayMode && sprites.indexOf(sprite)==selectedSprite) {paint.setColor(Color.YELLOW);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3f);canvas.drawRect(left-2,top-2,right+2,bottom+2,paint);paint.setStyle(Paint.Style.FILL);}
