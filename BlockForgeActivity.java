@@ -1999,6 +1999,21 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
+            if (line.matches("/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ_]+/") && cursor[0] < lines.length && lines[cursor[0]].trim().equals("{")) {
+                String category = line.substring(1, line.length() - 1).trim();
+                cursor[0]++;
+                int bodyStart = cursor[0];
+                int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) {
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar la categoría ").append(category).append(".\\n");
+                    return executed;
+                }
+                String[] categoryBody = java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd);
+                executed += executeEasyGrafisriptCategory(category, categoryBody, output, lineNumber);
+                cursor[0] = bodyEnd + 1;
+                continue;
+            }
+
             if (line.equals("{")) {
                 int bodyStart = cursor[0];
                 int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
@@ -2460,6 +2475,53 @@ public class BlockForgeActivity extends Activity {
         prefs.edit().putInt("character_health_"+project,health).apply();
         dispatchGrafisriptEvent("personaje",playerName,"al_recibir_dano",damage);
         if(health==0)dispatchGrafisriptEvent("personaje",playerName,"al_morir",0);
+    }
+
+    boolean executeEasyGrafisriptCategory(String rawCategory, String[] body, StringBuilder output, int lineIndex) {
+        String category = rawCategory.toLowerCase(java.util.Locale.ROOT)
+                .replace("í","i").replace("á","a").replace("é","e").replace("ó","o").replace("ú","u").replace("ñ","n");
+        String command;
+        if (category.equals("enemigo") || category.equals("enemigos")) command = "Crear_enemigo";
+        else if (category.equals("dinero") || category.equals("moneda") || category.equals("monedas")) command = "Crear_moneda";
+        else if (category.equals("personaje") || category.equals("personajes")) command = "Crear_personaje";
+        else if (category.equals("interfaz") || category.equals("interfas") || category.equals("texto")) command = "Crear_interfaz";
+        else if (category.equals("arma") || category.equals("armas")) command = "Crear_arma";
+        else if (category.equals("liquido") || category.equals("liquidos")) command = "Crear_liquido";
+        else if (category.equals("cofre") || category.equals("cofres")) command = "Crear_cofre";
+        else if (category.equals("ambiente")) command = "Crear_ambiente";
+        else {
+            output.append("Línea ").append(lineIndex).append(": categoría no reconocida: /").append(rawCategory).append("/.\\n");
+            return 0;
+        }
+        int executed = 0;
+        java.util.ArrayList<String> current = null;
+        for (String raw : body) {
+            String value = raw.trim();
+            if (value.isEmpty() || value.startsWith("#")) continue;
+            // Una línea formada únicamente por comillas es una anotación: no se ejecuta.
+            if (value.length() >= 2 && value.startsWith("\\\"") && value.endsWith("\\\"") && value.indexOf('=', 0) < 0) continue;
+            boolean property = value.contains("=") || value.contains(":") || value.startsWith("¿Que_suelta") || value.equals("?");
+            if (!property) {
+                if (current != null && !current.isEmpty()) {
+                    executeEasyGrafisriptDefinition(current.toArray(new String[0]), output, lineIndex - 1);
+                    executed++;
+                }
+                current = new java.util.ArrayList<>();
+                current.add(command + ": (" + value.replace("(", "").replace(")", "") + ")");
+            } else {
+                if (current == null) {
+                    output.append("Línea ").append(lineIndex).append(": escribe primero el nombre del elemento dentro de /").append(rawCategory).append("/.\\n");
+                    continue;
+                }
+                current.add(value);
+            }
+        }
+        if (current != null && !current.isEmpty()) {
+            executeEasyGrafisriptDefinition(current.toArray(new String[0]), output, lineIndex - 1);
+            executed++;
+        }
+        if (executed == 0) output.append("La categoría /").append(rawCategory).append("/ no contiene elementos.\\n");
+        return executed;
     }
 
     boolean executeEasyGrafisriptDefinition(String[] body, StringBuilder output, int lineIndex) {
