@@ -36,3 +36,35 @@ En Windows, CMake genera una aplicación gráfica `BlockForge_PC.exe`. El flujo 
 - Las rutas de `Guardar`, `Leer` y `Crear carpeta` se restringen al directorio del proyecto.
 - Mantener límites de instrucciones, repeticiones y profundidad para evitar bucles o recursión descontrolados.
 - No introducir dependencias ni cambios en Android desde esta carpeta.
+
+## Primer bloque del creador 2D
+
+Se añadió un modelo de escena 2D independiente de la interfaz y conectado a Grafisript:
+- Escenas y objetos con posición, tamaño y color.
+- Velocidad, gravedad y física básica.
+- Colisiones rectangulares (AABB) y objetos sólidos.
+- Cámara que sigue a un objeto.
+- Ruta de sprite guardada como recurso del objeto (la carga y el dibujo real de texturas aún están pendientes).
+- Vista previa nativa de Windows con movimiento de Jugador mediante A/D o flechas y salto con Espacio.
+
+### Sintaxis 2D disponible en esta etapa
+
+```text
+Crear escena "Aventura"
+Crear objeto Jugador
+Posicion Jugador = 80, 80
+Tamaño Jugador = 32, 48
+Color Jugador = #42A5F5
+Fisica Jugador = Verdadero
+Camara seguir Jugador
+
+Crear objeto Suelo
+Posicion Suelo = 0, 360
+Tamaño Suelo = 900, 48
+Solido Suelo = Verdadero
+Gravedad = 980
+```
+
+Ejemplo completo: `BlockForge_PC/ejemplos/aventura_2d.grafi`.
+
+**Limitaciones actuales del 2D:** el render de vista previa dibuja rectángulos de color; todavía no carga PNG/JPG como texturas. No hay editor visual de escenas con selección/arrastre, tilesets, animaciones, audio, partículas, iluminación, exportador de juego ni eventos de colisión programables. La física es inicial y debe ampliarse y probarse antes de producción.
