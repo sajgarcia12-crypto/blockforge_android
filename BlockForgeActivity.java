@@ -2380,7 +2380,7 @@ public class BlockForgeActivity extends Activity {
                 } else if (header.equals("enemigo")) {
                     grafisriptEasyContext = "enemigo";
                     grafisriptEnemyName = remainder.isEmpty() ? "Enemigo" : unquote(remainder);
-                    output.append("Enemigo configurado: ").append(grafisriptEnemyName).append('\\n');
+                    output.append("Enemigo configurado: ").append(grafisriptEnemyName).append('\n');
                     return true;
                 } else if (header.equals("ese_enemigo") || header.equals("eseenemigo")) {
                     grafisriptEasyContext = "objetivo_enemigo";
@@ -2411,7 +2411,7 @@ public class BlockForgeActivity extends Activity {
                 else throw new IllegalArgumentException("Color no reconocido. Usa negro, rojo, negro_con_rojo, azul, verde, blanco o #RRGGBB");
                 prefs.edit().putInt("scene_bg_color_" + project, parsed).apply();
                 if (scenePreview != null) scenePreview.invalidate();
-                output.append("Fondo del mundo actualizado: ").append(value).append('\\n');
+                output.append("Fondo del mundo actualizado: ").append(value).append('\n');
                 return true;
             }
             if ("personaje".equals(grafisriptEasyContext)) {
@@ -2419,14 +2419,14 @@ public class BlockForgeActivity extends Activity {
                     int hp = Integer.parseInt(value);
                     if (hp < 0 || hp > 100000) throw new IllegalArgumentException("La vida debe estar entre 0 y 100000");
                     prefs.edit().putInt("character_health_" + project, hp).apply();
-                    output.append("Vida del jugador = ").append(hp).append('\\n');
+                    output.append("Vida del jugador = ").append(hp).append('\n');
                     return true;
                 }
                 if (key.equals("velocidad")) {
                     float speed = Float.parseFloat(value);
                     if (speed < 0 || speed > 1000) throw new IllegalArgumentException("Velocidad permitida: 0 a 1000");
                     prefs.edit().putFloat("character_speed_" + project, speed).apply();
-                    output.append("Velocidad del jugador = ").append(speed).append('\\n');
+                    output.append("Velocidad del jugador = ").append(speed).append('\n');
                     return true;
                 }
             }
@@ -2436,7 +2436,7 @@ public class BlockForgeActivity extends Activity {
                     throw new IllegalArgumentException("Daño permitido: 0 a 100000");
                 prefs.edit().putInt("enemy_damage_" + project, grafisriptEnemyDamage)
                         .putString("enemy_name_" + project, grafisriptEnemyName).apply();
-                output.append(grafisriptEnemyName).append(" · daño = ").append(grafisriptEnemyDamage).append('\\n');
+                output.append(grafisriptEnemyName).append(" · daño = ").append(grafisriptEnemyDamage).append('\n');
                 return true;
             }
             if ("objetivo_enemigo".equals(grafisriptEasyContext) &&
@@ -2447,12 +2447,12 @@ public class BlockForgeActivity extends Activity {
                 hp = Math.max(0, hp - damage);
                 prefs.edit().putInt("character_health_" + project, hp).apply();
                 output.append(grafisriptEnemyName).append(" golpeó al jugador por ").append(damage)
-                        .append(" · vida restante: ").append(hp).append('\\n');
+                        .append(" · vida restante: ").append(hp).append('\n');
                 return true;
             }
         } catch (Exception ex) {
             output.append("Línea ").append(lineIndex + 1).append(": ")
-                    .append(ex.getMessage() == null ? "valor no válido" : ex.getMessage()).append('\\n');
+                    .append(ex.getMessage() == null ? "valor no válido" : ex.getMessage()).append('\n');
             return true;
         }
         return false;
