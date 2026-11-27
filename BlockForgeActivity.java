@@ -2628,7 +2628,7 @@ public class BlockForgeActivity extends Activity {
         if(health==0)dispatchGrafisriptEvent("personaje",playerName,"al_morir",0);
     }
 
-    boolean executeEasyGrafisriptCategory(String rawCategory, String[] body, StringBuilder output, int lineIndex) {
+    int executeEasyGrafisriptCategory(String rawCategory, String[] body, StringBuilder output, int lineIndex) {
         String category = rawCategory.toLowerCase(java.util.Locale.ROOT)
                 .replace("í","i").replace("á","a").replace("é","e").replace("ó","o").replace("ú","u").replace("ñ","n");
         String command;
