@@ -4671,6 +4671,10 @@ public class BlockForgeActivity extends Activity {
         String[] sizes = {"16 × 16", "32 × 32", "64 × 64", "128 × 128"};
         sizePicker.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, sizes));
         top.addView(sizePicker, new LinearLayout.LayoutParams(126, 42));
+        TextView done = uiPrimary("LISTO ✓", () -> { });
+        LinearLayout.LayoutParams readyParams = new LinearLayout.LayoutParams(-2, 42);
+        readyParams.leftMargin = 8;
+        top.addView(done, readyParams);
         wrap.addView(top);
 
         SpriteDrawView drawing = new SpriteDrawView();
@@ -4757,8 +4761,6 @@ public class BlockForgeActivity extends Activity {
         bottom.addView(options, new LinearLayout.LayoutParams(0, 48, 1));
         TextView cancel = editorButton("CANCELAR", () -> { });
         bottom.addView(cancel, new LinearLayout.LayoutParams(0, 48, 1));
-        TextView done = uiPrimary("LISTO ✓", () -> { });
-        bottom.addView(done, new LinearLayout.LayoutParams(0, 48, 1));
         wrap.addView(bottom);
 
         android.app.Dialog dialog = new android.app.Dialog(this);
