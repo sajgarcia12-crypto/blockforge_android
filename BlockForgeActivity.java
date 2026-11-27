@@ -294,11 +294,48 @@ public class BlockForgeActivity extends Activity {
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
     }
 
+    void showSceneLightingDialog() {
+        boolean enabled=getPreferences(MODE_PRIVATE).getBoolean("scene_shadows_enabled_"+activeProjectName(),true);
+        int opacity=getPreferences(MODE_PRIVATE).getInt("scene_shadow_opacity_"+activeProjectName(),90);
+        LinearLayout form=vertical();
+        TextView state=label("Sombras 2D: "+(enabled?"ACTIVADAS":"DESACTIVADAS"),14,white);
+        form.addView(state);
+        android.widget.SeekBar strength=new android.widget.SeekBar(this);
+        strength.setMax(180); strength.setProgress(opacity);
+        TextView strengthLabel=label("Opacidad: "+opacity+" / 180",13,gray);
+        strength.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(android.widget.SeekBar b,int p,boolean u){strengthLabel.setText("Opacidad: "+p+" / 180");}
+            public void onStartTrackingTouch(android.widget.SeekBar b){}
+            public void onStopTrackingTouch(android.widget.SeekBar b){}
+        });
+        form.addView(strengthLabel);form.addView(strength);
+        new android.app.AlertDialog.Builder(this).setTitle("ILUMINACIÓN Y SOMBRAS 2D")
+            .setMessage("Sombras proyectadas sencillas debajo de los sprites. Ajusta su intensidad para dar profundidad a la escena.")
+            .setView(form)
+            .setPositiveButton("GUARDAR",(d,w)->{
+                getPreferences(MODE_PRIVATE).edit()
+                    .putBoolean("scene_shadows_enabled_"+activeProjectName(),enabled)
+                    .putInt("scene_shadow_opacity_"+activeProjectName(),strength.getProgress()).apply();
+                if(scenePreview!=null)scenePreview.invalidate();
+                Toast.makeText(this,"Iluminación 2D guardada",Toast.LENGTH_SHORT).show();
+            })
+            .setNeutralButton(enabled?"DESACTIVAR":"ACTIVAR",(d,w)->{
+                getPreferences(MODE_PRIVATE).edit()
+                    .putBoolean("scene_shadows_enabled_"+activeProjectName(),!enabled)
+                    .putInt("scene_shadow_opacity_"+activeProjectName(),strength.getProgress()).apply();
+                if(scenePreview!=null)scenePreview.invalidate();
+                showSceneLightingDialog();
+            }).setNegativeButton("CERRAR",null).show();
+    }
+
     void showToolsPanel() {
         android.app.Dialog dialog=editorPanel("HERRAMIENTAS DE ESCENA",Gravity.RIGHT,88);
         LinearLayout panelView=(LinearLayout)((android.view.ViewGroup)dialog.findViewById(android.R.id.content)).getChildAt(0);
         if(panelView==null)return;
         panelView.addView(label("FÍSICA Y COLISIONES",11,Color.rgb(135,180,235)));
+        panelView.addView(label("ILUMINACIÓN Y RENDER 2D",11,Color.rgb(135,180,235)));
+        panelView.addView(editorButton("SOMBRAS 2D · INTENSIDAD",()->showSceneLightingDialog()));
+        panelView.addView(editorButton("EFECTOS DE COLOR · SPRITES",()->openSpritePixelEditor()));
         panelView.addView(editorButton("CONFIGURAR FÍSICA",()->showPhysicsSettingsDialog()));
         panelView.addView(editorButton("CAPAS, CÁMARA Y PACKS",()->showEditorExtrasDialog()));
         panelView.addView(editorButton("AÑADIR BOTÓN MÓVIL",()->createMobileButtonDialog()));
@@ -3270,6 +3307,16 @@ public class BlockForgeActivity extends Activity {
                 float left=sprite.x*worldUnit,top=sprite.y*worldUnit;
                 float right=left+worldUnit*sprite.width,bottom=top+worldUnit*sprite.height;
                 float centerX = (left + right) * 0.5f, centerY = (top + bottom) * 0.5f;
+                boolean shadows=getPreferences(MODE_PRIVATE).getBoolean("scene_shadows_enabled_"+activeProjectName(),true);
+                if(shadows){
+                    int alpha=Math.max(0,Math.min(180,getPreferences(MODE_PRIVATE).getInt("scene_shadow_opacity_"+activeProjectName(),90)));
+                    paint.setColor(Color.argb(alpha,0,0,0));
+                    paint.setStyle(Paint.Style.FILL);
+                    float shadowY=bottom-worldUnit*0.025f;
+                    float shadowWidth=Math.max(worldUnit*0.18f,(right-left)*0.72f);
+                    float shadowHeight=Math.max(3f,worldUnit*0.10f);
+                    canvas.drawOval(centerX-shadowWidth/2f,shadowY-shadowHeight/2f,centerX+shadowWidth/2f,shadowY+shadowHeight/2f,paint);
+                }
                 canvas.save();
                 canvas.rotate(sprite.rotation, centerX, centerY);
                 Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty()){int frame=Math.max(0,Math.min(sprite.currentFrameIndex,sprite.animationFrames.size()-1));shown=sprite.animationFrames.get(frame);}
