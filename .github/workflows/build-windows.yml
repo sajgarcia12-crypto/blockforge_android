@@ -1,0 +1,56 @@
+name: Construir BlockForge para Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - blockforge/desktop-cross-platform
+    paths:
+      - "BlockForge_Studio.cpp"
+      - "desktop/**"
+      - ".github/workflows/build-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    name: BlockForge Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar SDL2
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch release-2.32.10 https://github.com/libsdl-org/SDL.git third_party/SDL
+
+      - name: Configurar CMake
+        run: cmake -S desktop -B build -DSDL2_SOURCE_DIR="$env:GITHUB_WORKSPACE/third_party/SDL" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar BlockForge.exe
+        run: cmake --build build --config Release --parallel
+
+      - name: Preparar archivos para Windows
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem build -Filter BlockForge.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "No se encontró BlockForge.exe después de compilar." }
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item $exe.FullName dist/BlockForge.exe
+
+          $dll = Get-ChildItem build -Filter SDL2.dll -Recurse | Select-Object -First 1
+          if (-not $dll) { throw "No se encontró SDL2.dll; no se puede distribuir el ejecutable sin su biblioteca." }
+          Copy-Item $dll.FullName dist/SDL2.dll
+          Copy-Item desktop/LEEME-WINDOWS.txt dist/LEEME.txt
+          Compress-Archive -Path dist/* -DestinationPath BlockForge-Windows-x64.zip -Force
+          Get-ChildItem dist
+
+      - name: Publicar paquete descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockForge-Windows-x64
+          path: BlockForge-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
