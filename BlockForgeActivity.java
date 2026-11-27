@@ -934,25 +934,25 @@ public class BlockForgeActivity extends Activity {
         codeEditorProjectName = project;
         codeEditor.setText(getPreferences(MODE_PRIVATE).getString(
             "grafisript_" + project,
-            "# Grafisript · ejemplo general en español\\n"+
-            "Crear variable Nombre = \\"Ari\\"\\n"+
-            "Crear variable Puntos = 2 + 3\\n"+
-            "Poner_texto: (\\"Hola, {Nombre}\\")\\n"+
-            "Si Puntos > 3 {\\n"+
-            "    Poner_texto: (\\"Puntos: {Puntos} · ¡Muy bien!\\")\\n"+
-            "} Sino {\\n"+
-            "    Poner_texto: (\\"Sigue intentando\\")\\n"+
-            "}\\n"+
-            "Crear lista Inventario = [\\"Llave\\", \\"Mapa\\"]\\n"+
-            "Añadir \\"Poción\\" a Inventario\\n"+
-            "Mostrar Inventario\\n"+
-            "Repetir 2 {\\n"+
-            "    Poner_texto: (\\"Una acción repetida\\")\\n"+
-            "}\\n"+
-            "Funcion Saludar {\\n"+
-            "    Poner_texto: (\\"¡Hola desde una función!\\")\\n"+
-            "}\\n"+
-            "Llamar Saludar\\n"
+            "# Grafisript · ejemplo general en español\n"+
+            "Crear variable Nombre = \"Ari\"\n"+
+            "Crear variable Puntos = 2 + 3\n"+
+            "Poner_texto: (\"Hola, {Nombre}\")\n"+
+            "Si Puntos > 3 {\n"+
+            "    Poner_texto: (\"Puntos: {Puntos} · ¡Muy bien!\")\n"+
+            "} Sino {\n"+
+            "    Poner_texto: (\"Sigue intentando\")\n"+
+            "}\n"+
+            "Crear lista Inventario = [\"Llave\", \"Mapa\"]\n"+
+            "Añadir \"Poción\" a Inventario\n"+
+            "Mostrar Inventario\n"+
+            "Repetir 2 {\n"+
+            "    Poner_texto: (\"Una acción repetida\")\n"+
+            "}\n"+
+            "Funcion Saludar {\n"+
+            "    Poner_texto: (\"¡Hola desde una función!\")\n"+
+            "}\n"+
+            "Llamar Saludar\n"
         ));
 
         content.addView(button("＋ CREAR CÓDIGO", () -> showGrafisriptCreator()));
@@ -978,20 +978,20 @@ public class BlockForgeActivity extends Activity {
         content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
 
         card("Sintaxis fácil · programación general",
-                "Crear variable Nombre = \\"Ari\\"\\n"+
-                "Poner_texto: (\\"Hola, {Nombre}\\")\\n"+
-                "Si Edad >= 18 {\\n"+
-                "    Mostrar \\"Acceso permitido\\"\\n"+
-                "} Sino {\\n"+
-                "    Mostrar \\"Acceso restringido\\"\\n"+
-                "}\\n"+
-                "Crear lista Tareas = [\\"Estudiar\\", \\"Crear\\"]\\n"+
-                "Añadir \\"Probar\\" a Tareas\\n"+
-                "Repetir 3 {\\n"+
-                "    Mostrar \\"¡Hola!\\"\\n"+
-                "}\\n"+
-                "Mientras Puntos > 0 {\\n"+
-                "    Restar 1 a Puntos\\n"+
+                "Crear variable Nombre = \"Ari\"\n"+
+                "Poner_texto: (\"Hola, {Nombre}\")\n"+
+                "Si Edad >= 18 {\n"+
+                "    Mostrar \"Acceso permitido\"\n"+
+                "} Sino {\n"+
+                "    Mostrar \"Acceso restringido\"\n"+
+                "}\n"+
+                "Crear lista Tareas = [\"Estudiar\", \"Crear\"]\n"+
+                "Añadir \"Probar\" a Tareas\n"+
+                "Repetir 3 {\n"+
+                "    Mostrar \"¡Hola!\"\n"+
+                "}\n"+
+                "Mientras Puntos > 0 {\n"+
+                "    Restar 1 a Puntos\n"+
                 "}");
     }
 
