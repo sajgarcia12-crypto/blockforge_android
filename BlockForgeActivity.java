@@ -1653,12 +1653,83 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    java.util.ArrayList<String> validateGrafisript(String source) {
+        java.util.ArrayList<String> errors=new java.util.ArrayList<>();
+        String[] commands={"crear_personaje","crear_mundo","crear_bloque","crear_ambiente",
+            "crear_enemigo","crear_espada","crear_moneda","crear_piedra","mover_personaje",
+            "mostrar_mensaje","ver_bloques","repetir","funcion","llamar","saltar",
+            "establecer_vida","aplicar_danio","crear_cofre","crear_objeto","activar_fisica",
+            "pausar_fisica","centrar_camara","zoom_camara","mover_sprite","girar_personaje",
+            "crear_mundo","imprimir","variable","si","sino"};
+        String[] lines=source.split("\\r?\\n",-1);
+        java.util.ArrayDeque<Integer> braces=new java.util.ArrayDeque<>();
+        for(int i=0;i<lines.length;i++){
+            String raw=lines[i], line=raw.trim();
+            if(line.isEmpty()||line.startsWith("#")) continue;
+            boolean quoted=false; char quote=0; int comment=line.indexOf('#');
+            String code=comment>=0?line.substring(0,comment):line;
+            for(int p=0;p<code.length();p++){
+                char c=code.charAt(p);
+                if((c=='"'||c=='\'')&&(!quoted||c==quote)){quoted=!quoted;quote=quoted?c:0;continue;}
+                if(!quoted&&c=='{') braces.push(i+1);
+                if(!quoted&&c=='}'){
+                    if(braces.isEmpty()) errors.add("Línea "+(i+1)+": sobra una llave de cierre '}'.\nCómo arreglarlo: elimina esa llave o abre el bloque correspondiente con '{'.");
+                    else braces.pop();
+                }
+            }
+            if(line.equals("{")||line.startsWith("si ")||line.startsWith("repetir ")||
+                    line.startsWith("funcion ")||line.startsWith("sino ")) continue;
+            if(line.equals("}")||line.equals("fin")) continue;
+            String first=line.split("\\s+",2)[0];
+            int colon=first.indexOf(':'); if(colon>=0) first=first.substring(0,colon);
+            int paren=first.indexOf('('); if(paren>=0) first=first.substring(0,paren);
+            if(first.contains("_") && !first.contains("=") && !first.endsWith(":")){
+                int best=99; String suggestion="";
+                for(String command:commands){
+                    int d=grafisriptEditDistance(first.toLowerCase(java.util.Locale.ROOT),command);
+                    if(d<best){best=d;suggestion=command;}
+                }
+                if(best<=3 && !first.equalsIgnoreCase(suggestion)){
+                    errors.add("Línea "+(i+1)+": '"+first+"' no parece una instrucción válida.\nQuizá quisiste escribir: "+suggestion+"\nCómo arreglarlo: reemplaza '"+first+"' por '"+suggestion+"'.");
+                }
+            }
+        }
+        while(!braces.isEmpty()){
+            int line=braces.removeLast();
+            errors.add("Línea "+line+": falta cerrar un bloque con '}'.\nCómo arreglarlo: añade '}' al final del bloque.");
+        }
+        return errors;
+    }
+
+    void showGrafisriptValidation(java.util.ArrayList<String> errors) {
+        StringBuilder message=new StringBuilder();
+        for(int i=0;i<errors.size();i++){
+            if(i>0) message.append("\n\n────────────────────\n\n");
+            message.append(errors.get(i));
+        }
+        TextView report=label(message.toString(),14,Color.rgb(235,235,235));
+        report.setPadding(18,16,18,16);
+        report.setTextIsSelectable(true);
+        ScrollView scroll=new ScrollView(this); scroll.addView(report);
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Revisión de tu Grafisript · "+errors.size()+" posible(s) error(es)")
+            .setView(scroll)
+            .setPositiveButton("ENTENDIDO",null)
+            .show();
+    }
+
     void saveCurrentScript() {
         if (codeEditor == null) return;
         String project = codeEditorProjectName != null ? codeEditorProjectName : activeProjectName();
+        String script=codeEditor.getText().toString();
         getPreferences(MODE_PRIVATE).edit()
-                .putString("grafisript_" + project,
-                        codeEditor.getText().toString()).apply();
+                .putString("grafisript_" + project,script).apply();
+        java.util.ArrayList<String> problems=validateGrafisript(script);
+        if(problems.isEmpty()){
+            Toast.makeText(this,"Script guardado. No se detectaron errores comunes.",Toast.LENGTH_LONG).show();
+        }else{
+            showGrafisriptValidation(problems);
+        }
     }
 
     static final class GrafisriptCorrection {
@@ -1697,7 +1768,7 @@ public class BlockForgeActivity extends Activity {
                         int d=grafisriptEditDistance(token.toLowerCase(java.util.Locale.ROOT),command);
                         if(d<bestDistance){bestDistance=d;best=command;}
                     }
-                    if(bestDistance<=2 && !token.equalsIgnoreCase(best)){
+                    if(bestDistance<=(token.contains("_")?3:2) && !token.equalsIgnoreCase(best)){
                         out.append(best); fixes++;
                     }else out.append(token);
                 }else{out.append(ch);p++;}
