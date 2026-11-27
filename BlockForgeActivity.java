@@ -2190,7 +2190,8 @@ public class BlockForgeActivity extends Activity {
                 }
                 int colon = line.indexOf(':');
                 if (colon > 0) {
-                    String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")\n                        .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
+                    String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")
+                        .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
                     String v = line.substring(colon+1).trim().replace("(","").replace(")","");
                     if (h.equals("colision") || h.equals("collision")) { if (parent.isEmpty()) throw new IllegalArgumentException("Colisión necesita un objeto padre"); props.put("colision", v); continue; }
                     if (h.equals("ambiente") || h.equals("crear_ambiente")) { parent="ambiente"; name=v.isEmpty()?"Ambiente":v; event=""; }
