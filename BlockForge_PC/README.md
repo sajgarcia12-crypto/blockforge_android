@@ -45,7 +45,7 @@ Se añadió un modelo de escena 2D independiente de la interfaz y conectado a Gr
 - Colisiones rectangulares (AABB) y objetos sólidos.
 - Cámara que sigue a un objeto.
 - Ruta de sprite guardada como recurso del objeto (la carga y el dibujo real de texturas aún están pendientes).
-- Vista previa nativa de Windows con movimiento de Jugador mediante A/D o flechas y salto con Espacio.
+- Vista previa nativa de Windows con movimiento de Jugador mediante A/D o flechas y salto con Espacio.\n- Selección y arrastre de objetos con el ratón; al cerrar la vista, sus posiciones se escriben de vuelta en las líneas `Posicion` del editor para poder guardarlas.
 
 ### Sintaxis 2D disponible en esta etapa
 
@@ -67,4 +67,4 @@ Gravedad = 980
 
 Ejemplo completo: `BlockForge_PC/ejemplos/aventura_2d.grafi`.
 
-**Limitaciones actuales del 2D:** el render de vista previa dibuja rectángulos de color; todavía no carga PNG/JPG como texturas. No hay editor visual de escenas con selección/arrastre, tilesets, animaciones, audio, partículas, iluminación, exportador de juego ni eventos de colisión programables. La física es inicial y debe ampliarse y probarse antes de producción.
+**Limitaciones actuales del 2D:** el render de vista previa dibuja rectángulos de color; todavía no carga PNG/JPG como texturas. La vista de escena permite selección y arrastre básicos, pero todavía no hay un panel de jerarquía/inspector completo, tilesets, animaciones, audio, partículas, iluminación, exportador de juego ni eventos de colisión programables. La física es inicial y debe ampliarse y probarse antes de producción.
