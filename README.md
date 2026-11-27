@@ -4,6 +4,7 @@ Prototipo de un entorno móvil para crear juegos con El Grafisript.
 
 ## Documentación
 
+- [Guía de El Grafisript](docs/GRAFISRIPT_GENERAL.md): sintaxis general en español, variables, listas, condiciones, bucles, funciones y categorías.
 - [Marketplace y BlockForge Wallet](docs/BLOCKFORGE_MARKETPLACE_WALLET.md): reparto objetivo 95/5, billetera, retiros automáticos, seguridad y etapas de integración.
 - [Integración prevista con Stripe Connect](docs/BLOCKFORGE_STRIPE_CONNECT.md): arquitectura, onboarding, webhooks y requisitos para producción.
 - [Backend Stripe de pruebas](backend/README.md): servidor Node.js aislado en modo test, endpoints de onboarding y Checkout, y límites pendientes antes de producción.
