@@ -24,9 +24,9 @@ public:
  double gravedad=980.0, escala=1.0;
  std::vector<Objeto> objetos;
  std::vector<Colision> colisiones;
- Objeto& crear(const std::string& nombre){if(nombre.empty())throw std::runtime_error("Nombre de objeto vacío");if(buscar(nombre))throw std::runtime_error("Ya existe el objeto: "+nombre);objetos.push_back({});objetos.back().nombre=nombre;return objetos.back();}
- Objeto* buscar(const std::string& nombre){auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==nombre;});return i==objetos.end()?nullptr:&*i;}
- const Objeto* buscar(const std::string& nombre)const{auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==nombre;});return i==objetos.end()?nullptr:&*i;}
+ Objeto& crear(const std::string& objectName){if(objectName.empty())throw std::runtime_error("Nombre de objeto vacío");if(buscar(nombre))throw std::runtime_error("Ya existe el objeto: "+objectName);objetos.push_back({});objetos.back().nombre=objectName;return objetos.back();}
+ Objeto* buscar(const std::string& objectName){auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==objectName;});return i==objetos.end()?nullptr:&*i;}
+ const Objeto* buscar(const std::string& objectName)const{auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==objectName;});return i==objetos.end()?nullptr:&*i;}
  void posicion(const std::string& n,double x,double y){exigir(n).posicion={x,y};}
  void tamano(const std::string& n,double w,double h){if(w<=0||h<=0||w>8192||h>8192)throw std::runtime_error("Tamaño 2D fuera de rango");exigir(n).tamano={w,h};}
  void velocidad(const std::string& n,double x,double y){exigir(n).velocidad={x,y};}
