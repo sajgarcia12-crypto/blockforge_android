@@ -8,7 +8,10 @@
 namespace {
 using namespace blockforge::grafisript;
 HWND editor{}, output{}, status{}, mainWindow{}, inputEdit{}, gameWindow{};
-blockforge::dosd::Mundo previewWorld;\nstd::string previewSelected;\nbool previewDragging=false;\nblockforge::dosd::Vector2 dragOffset{};
+blockforge::dosd::Mundo previewWorld;
+std::string previewSelected;
+bool previewDragging=false;
+blockforge::dosd::Vector2 dragOffset{};
 std::wstring inputResult;
 bool inputFinished=false;
 HFONT font{};
