@@ -272,7 +272,7 @@ public class BlockForgeActivity extends Activity {
         } else {
             panelView.addView(label("OBJETO",11,Color.rgb(135,180,235)));
             panelView.addView(label(spriteDisplayName(sprite),17,white));
-            panelView.addView(editorButton("CAMBIAR NOMBRE", () -> renameSelectedSprite()));
+            panelView.addView(editorButton("CAMBIAR NOMBRE", () -> { dialog.dismiss(); renameSelectedSprite(); }));
             panelView.addView(label("X: "+sprite.x+" · Y: "+sprite.y+"\nTamaño: "+sprite.width+" × "+sprite.height+" · Giro: "+sprite.rotation+"°\nSólido: "+(sprite.solid?"Sí":"No")+" · "+(sprite.isPlayer?"PERSONAJE":"OBJETO FIJO"),13,gray));
             panelView.addView(editorButton(sprite.isPlayer?"✓ PERSONAJE DEL JUEGO":"DESIGNAR COMO PERSONAJE",()->{scenePreview.designateSelectedAsPlayer();dialog.dismiss();}));
             panelView.addView(editorButton("TRANSFORMAR · POSICIÓN / TAMAÑO / GIRO", () -> {
@@ -1980,7 +1980,7 @@ public class BlockForgeActivity extends Activity {
             "crear_enemigo","crear_espada","crear_moneda","crear_piedra","mover_personaje",
             "mostrar_mensaje","ver_bloques","repetir","funcion","llamar","saltar",
             "establecer_vida","aplicar_danio","crear_cofre","crear_objeto","activar_fisica",
-            "pausar_fisica","centrar_camara","zoom_camara","mover_sprite","girar_personaje",
+            "pausar_fisica","centrar_camara","zoom_camara","seguir_jugador","mover_sprite","girar_personaje",
             "crear_mundo","imprimir","variable","si","sino"};
         String[] lines=source.split("\\r?\\n",-1);
         java.util.ArrayDeque<Integer> braces=new java.util.ArrayDeque<>();
@@ -2074,7 +2074,7 @@ public class BlockForgeActivity extends Activity {
             "mover_personaje","mostrar_mensaje","ver_bloques","repetir",
             "funcion","llamar","saltar","establecer_vida","aplicar_danio",
             "crear_cofre","crear_objeto","activar_fisica","pausar_fisica",
-            "centrar_camara","zoom_camara","mover_sprite","girar_personaje"
+            "centrar_camara","zoom_camara","seguir_jugador","mover_sprite","girar_personaje"
         };
         String[] lines=source.split("\\n",-1);
         int fixes=0;
@@ -2412,7 +2412,7 @@ public class BlockForgeActivity extends Activity {
                     break;
                 case "ayuda":
                     output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
-                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
+                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, capa, camara.zoom, camara.centrar, camara.seguir_jugador(adelante|centro|libre), fisica.activar, fisica.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
                     executed++;
                     break;
                 default:
@@ -2679,6 +2679,14 @@ public class BlockForgeActivity extends Activity {
                 if(target.sprites.isEmpty())throw new IllegalArgumentException("No hay sprites en la escena");
                 int index=target.selectedSprite>=0?target.selectedSprite:0;target.sprites.get(index).vy=-force;
                 target.persistSprites();physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Salto 2D iniciado\n");return true;
+            }
+            if (line.startsWith("camara.seguir_jugador(") && line.endsWith(")")) {
+                String mode=line.substring(21,line.length()-1).trim().replace("\\\"","").replace("'","").toLowerCase(java.util.Locale.ROOT);
+                if(mode.equals("adelante")||mode.equals("anticipada")) target.setCameraFollowMode(1);
+                else if(mode.equals("centro")||mode.equals("centrado")) target.setCameraFollowMode(2);
+                else if(mode.equals("libre")||mode.equals("desactivado")) target.setCameraFollowMode(0);
+                else throw new IllegalArgumentException("Usa camara.seguir_jugador(adelante), (centro) o (libre)");
+                output.append("Seguimiento de cámara: ").append(mode).append('\\n');return true;
             }
             if (line.startsWith("camara.zoom(") && line.endsWith(")")) {
                 float factor=Float.parseFloat(line.substring(12,line.length()-1).trim());
