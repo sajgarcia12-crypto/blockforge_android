@@ -2077,6 +2077,56 @@ public class BlockForgeActivity extends Activity {
     }
 
 
+    // Ejecuta los eventos hijos registrados por los bloques declarativos de Grafisript.
+    void dispatchGrafisriptEvent(String objectType, String objectName, String eventName, int damage) {
+        String project = activeProjectName();
+        String prefix = "grafisript_" + objectType + "_" + project + "_" + objectName;
+        String raw = getPreferences(MODE_PRIVATE).getString(prefix + "_events", "{}");
+        try {
+            org.json.JSONObject all = new org.json.JSONObject(raw);
+            org.json.JSONObject actions = all.optJSONObject(eventName.toLowerCase(java.util.Locale.ROOT));
+            if (actions == null) return;
+            android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+            android.content.SharedPreferences.Editor edit = prefs.edit();
+            for (java.util.Iterator<String> it = actions.keys(); it.hasNext();) {
+                String key = it.next().toLowerCase(java.util.Locale.ROOT);
+                String value = actions.optString(key, "").trim();
+                if (key.equals("vida") || key.equals("salud")) {
+                    int hp = prefs.getInt("character_health_" + project, 100);
+                    int amount = 0;
+                    try { amount = (int)evaluateGrafisriptExpression(value.replace("(", "").replace(")", ""), new java.util.HashMap<String,Double>()); }
+                    catch (Exception ignored) { amount = damage; }
+                    if (value.startsWith("-")) hp -= Math.abs(amount);
+                    else if (value.startsWith("+")) hp += Math.abs(amount);
+                    else hp = amount;
+                    edit.putInt("character_health_" + project, Math.max(0, Math.min(100000, hp)));
+                } else if (eventName.equals("al_saltar") && (key.equals("fuerza") || key.equals("potencia"))) {
+                    try {
+                        float force = Float.parseFloat(value);
+                        if (scenePreview != null) {
+                            SceneSprite player = scenePreview.findPlayerSprite();
+                            if (player != null) player.vy = -Math.max(0.5f, Math.min(30f, force));
+                        }
+                    } catch (Exception ignored) { }
+                } else if (key.equals("reproducir_animacion") || key.equals("animacion")) {
+                    if (scenePreview != null) {
+                        SceneSprite player = scenePreview.findPlayerSprite();
+                        if (player != null && !player.animationFrames.isEmpty()) {
+                            player.currentFrameIndex = 0;
+                            player.animationPlaying = true;
+                            player.lastFrameAdvance = android.os.SystemClock.uptimeMillis();
+                            scenePreview.startAnimationTicker();
+                        }
+                    }
+                }
+            }
+            edit.apply();
+            if (scenePreview != null) { scenePreview.persistSprites(); scenePreview.invalidate(); }
+        } catch (Exception ex) {
+            android.util.Log.e("BlockForge", "Evento Grafisript inválido: " + eventName, ex);
+        }
+    }
+
     // Sintaxis amigable: Crear_mundo: / fondo_color = negro_con_rojo, etc.
     boolean executeEasyGrafisriptDefinition(String[] body, StringBuilder output, int lineIndex) {
         String parent = "", name = "", event = "";
@@ -2309,6 +2359,9 @@ public class BlockForgeActivity extends Activity {
                 int health = prefs.getInt("character_health_" + project, 100);
                 health = Math.max(0, health - damage);
                 prefs.edit().putInt("character_health_" + project, health).apply();
+                String playerName = prefs.getString("character_name_" + project, "Jugador");
+                dispatchGrafisriptEvent("personaje", playerName, "al_recibir_dano", damage);
+                if (health == 0) dispatchGrafisriptEvent("personaje", playerName, "al_morir", 0);
                 output.append("Daño aplicado: ").append(damage)
                         .append(" · vida restante: ").append(health).append("\n");
                 return true;
@@ -2621,6 +2674,9 @@ public class BlockForgeActivity extends Activity {
             selectedSprite=playerIndex;
             SceneSprite player=sprites.get(playerIndex);
             player.vy=-9f;
+            String project = activeProjectName();
+            String playerName = getPreferences(MODE_PRIVATE).getString("character_name_" + project, player.fileName);
+            dispatchGrafisriptEvent("personaje", playerName, "al_saltar", 0);
             if(!physicsRunning){physicsRunning=true;startPhysics();}
             invalidate();
         }
@@ -2715,6 +2771,7 @@ public class BlockForgeActivity extends Activity {
         }
 
         SceneSprite selectedSpriteObject(){return selectedSprite>=0&&selectedSprite<sprites.size()?sprites.get(selectedSprite):null;}
+        SceneSprite findPlayerSprite(){for(SceneSprite sp:sprites)if(sp.isPlayer)return sp;return null;}
         void designateSelectedAsPlayer(){
             SceneSprite chosen=selectedSpriteObject();
             if(chosen==null){Toast.makeText(BlockForgeActivity.this,"Selecciona primero el personaje",Toast.LENGTH_SHORT).show();return;}
