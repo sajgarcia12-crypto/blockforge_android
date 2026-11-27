@@ -798,8 +798,10 @@ public class BlockForgeActivity extends Activity {
                 String type = mimeType == null ? connection.getContentType() : mimeType;
                 String lower = fileName.toLowerCase(java.util.Locale.ROOT);
                 boolean zip = lower.endsWith(".zip") || (type != null && type.toLowerCase(java.util.Locale.ROOT).contains("zip"));
-                boolean image = lower.matches(".*\\\\.(png|jpe?g|webp|gif|bmp)$") || (type != null && type.toLowerCase(java.util.Locale.ROOT).startsWith("image/"));
-                if (!zip && !image) throw new java.io.IOException("Solo se admiten imágenes y paquetes ZIP");
+                boolean image = lower.matches(".*\\.(png|jpe?g|webp|gif|bmp)$") || (type != null && type.toLowerCase(java.util.Locale.ROOT).startsWith("image/"));
+                boolean audio = lower.matches(".*\\.(mp3|wav|ogg|m4a|aac|flac|opus)$") || (type != null && type.toLowerCase(java.util.Locale.ROOT).startsWith("audio/"));
+                if (!zip && !image && !audio) throw new java.io.IOException("Formato no compatible: usa imagen, audio o ZIP");
+                if (audio && !lower.matches(".*\\.(mp3|wav|ogg|m4a|aac|flac|opus)$")) fileName += ".mp3";
                 if (zip && !lower.endsWith(".zip")) fileName += ".zip";
                 if (image && !lower.matches(".*\\\\.(png|jpe?g|webp|gif|bmp)$")) {
                     String ext = "image/png".equalsIgnoreCase(type) ? ".png" : "image/jpeg".equalsIgnoreCase(type) ? ".jpg" : "image/webp".equalsIgnoreCase(type) ? ".webp" : ".img";
@@ -822,7 +824,6 @@ public class BlockForgeActivity extends Activity {
                     int count;
                     while ((count = in.read(buffer)) != -1) {
                         total += count;
-                        if (total > 50L * 1024L * 1024L) throw new java.io.IOException("El archivo supera el límite de 50 MB");
                         out.write(buffer, 0, count);
                     }
                     out.flush();
