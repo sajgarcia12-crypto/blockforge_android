@@ -2250,9 +2250,11 @@ public class BlockForgeActivity extends Activity {
                 int hp = Math.max(1, Integer.parseInt(props.getOrDefault("vida", "5")));
                 String collisionValue = props.getOrDefault("colision", "no");
                 boolean collision = "si".equalsIgnoreCase(collisionValue) || "true".equalsIgnoreCase(collisionValue);
-                java.io.File spriteFile = new java.io.File(new java.io.File(getFilesDir(), "sprites"), name);
+                java.io.File spriteFolder = new java.io.File(getFilesDir(), "sprites");
+                java.io.File spriteFile = new java.io.File(spriteFolder, name);
+                if (!spriteFile.isFile()) { java.io.File[] candidates=spriteFolder.listFiles(); if(candidates!=null) for(java.io.File candidate:candidates){String base=candidate.getName();int dot=base.lastIndexOf('.');if(dot>0)base=base.substring(0,dot);if(base.equalsIgnoreCase(name)){spriteFile=candidate;break;}} }
                 if (scenePreview != null && spriteFile.isFile()) {
-                    SceneSprite object = new SceneSprite(name, Math.max(0, scenePreview.mapColumns * 0.5f), Math.max(0, scenePreview.mapRows * 0.5f), collision);
+                    SceneSprite object = new SceneSprite(spriteFile.getName(), Math.max(0, scenePreview.mapColumns * 0.5f), Math.max(0, scenePreview.mapRows * 0.5f), collision);
                     object.environmentObject = true; object.environmentHealth = hp;
                     for (java.util.Map.Entry<String,String> p : props.entrySet()) if (p.getKey().startsWith("drop:")) object.environmentDrops.put(p.getKey().substring(5), Integer.parseInt(p.getValue()));
                     scenePreview.sprites.add(object); scenePreview.selectedSprite = scenePreview.sprites.size() - 1; scenePreview.persistSprites(); scenePreview.invalidate();
@@ -3406,7 +3408,8 @@ public class BlockForgeActivity extends Activity {
                 canvas.save();
                 canvas.rotate(sprite.rotation, centerX, centerY);
                 Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty()){int frame=Math.max(0,Math.min(sprite.currentFrameIndex,sprite.animationFrames.size()-1));shown=sprite.animationFrames.get(frame);}
-                if(sprite.environmentObject){
+                if(sprite.environmentObject && shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
+                } else if(sprite.environmentObject){
                     paint.setColor(Color.rgb(105,68,38));canvas.drawRoundRect(new RectF(centerX-worldUnit*.10f,top+worldUnit*.42f,centerX+worldUnit*.10f,bottom),worldUnit*.04f,worldUnit*.04f,paint);
                     paint.setColor(Color.rgb(42,125,62));canvas.drawCircle(centerX,top+worldUnit*.28f,worldUnit*.30f,paint);
                     paint.setColor(Color.rgb(64,155,72));canvas.drawCircle(centerX-worldUnit*.13f,top+worldUnit*.34f,worldUnit*.19f,paint);
@@ -3416,6 +3419,7 @@ public class BlockForgeActivity extends Activity {
                     paint.setColor(Color.MAGENTA);
                     canvas.drawRect(left, top, right, bottom, paint);
                 }
+                if (sprite.environmentObject && scenePlayMode) {paint.setColor(Color.WHITE);paint.setTextSize(10f);paint.setTextAlign(Paint.Align.CENTER);canvas.drawText("HP "+sprite.environmentHealth,centerX,top-5f,paint);}
                 if (!scenePlayMode && sprites.indexOf(sprite)==selectedSprite) {paint.setColor(Color.YELLOW);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(3f);canvas.drawRect(left-2,top-2,right+2,bottom+2,paint);paint.setStyle(Paint.Style.FILL);}
                 if (sprite.solid) {
                     paint.setColor(Color.WHITE);
