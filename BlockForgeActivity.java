@@ -1950,7 +1950,7 @@ public class BlockForgeActivity extends Activity {
                 while(iterations<1000){
                     boolean keepGoing;
                     try{keepGoing=evaluateGrafisriptCondition(condition,variables);}
-                    catch(Exception ex){output.append("Línea ").append(lineNumber).append(": condición mientras inválida: ").append(ex.getMessage()).append('\\n');break;}
+                    catch(Exception ex){output.append("Línea ").append(lineNumber).append(": condición mientras inválida: ").append(ex.getMessage()).append('\n');break;}
                     if(!keepGoing)break;
                     int[] nestedCursor=new int[]{0};
                     executed+=executeGrafisriptBlock(body,nestedCursor,variables,functions,output,depth+1);
