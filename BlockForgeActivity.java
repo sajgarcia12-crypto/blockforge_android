@@ -2357,10 +2357,17 @@ public class BlockForgeActivity extends Activity {
                 int damage = Integer.parseInt(line.substring(22, line.length() - 1).trim());
                 if (damage < 0 || damage > 1000) throw new IllegalArgumentException("Daño permitido: 0 a 1000");
                 int health = prefs.getInt("character_health_" + project, 100);
-                health = Math.max(0, health - damage);
-                prefs.edit().putInt("character_health_" + project, health).apply();
                 String playerName = prefs.getString("character_name_" + project, "Jugador");
+                String eventPrefix = "grafisript_personaje_" + project + "_" + playerName + "_events";
+                boolean hasDamageEvent = false;
+                try { hasDamageEvent = new org.json.JSONObject(prefs.getString(eventPrefix, "{}"))
+                        .has("al_recibir_dano"); } catch (Exception ignored) { }
+                if (!hasDamageEvent) {
+                    health = Math.max(0, health - damage);
+                    prefs.edit().putInt("character_health_" + project, health).apply();
+                }
                 dispatchGrafisriptEvent("personaje", playerName, "al_recibir_dano", damage);
+                health = prefs.getInt("character_health_" + project, health);
                 if (health == 0) dispatchGrafisriptEvent("personaje", playerName, "al_morir", 0);
                 output.append("Daño aplicado: ").append(damage)
                         .append(" · vida restante: ").append(health).append("\n");
