@@ -1,0 +1,10 @@
+BLOCKFORGE PARA WINDOWS — PRIMERA COMPILACIÓN
+
+1. Descarga y extrae BlockForge-Windows-x64.zip.
+2. Mantén BlockForge.exe y SDL2.dll juntos en la misma carpeta.
+3. Abre BlockForge.exe.
+4. Para salir, pulsa ESC o cierra la ventana.
+
+Este paquete es una primera compilación experimental para Windows x64.
+El motor actual es un prototipo; no representa todavía todas las funciones previstas
+para BlockForge Studio ni reemplaza la aplicación Android.
