@@ -2189,6 +2189,7 @@ public class BlockForgeActivity extends Activity {
                 if (colon > 0) {
                     String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")\n                        .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
                     String v = line.substring(colon+1).trim().replace("(","").replace(")","");
+                    if (h.equals("colision") || h.equals("collision")) { if (parent.isEmpty()) throw new IllegalArgumentException("Colisión necesita un objeto padre"); props.put("colision", v); continue; }
                     if (h.equals("ambiente") || h.equals("crear_ambiente")) { parent="ambiente"; name=v.isEmpty()?"Ambiente":v; event=""; }
                     else if (h.startsWith("crear_personaje") || h.equals("personaje")) { parent="personaje"; name=v.isEmpty()?"Jugador":v; event=""; }
                     else if (h.equals("enemigo") || h.startsWith("crear_enemigo")) { parent="enemigo"; name=v.isEmpty()?"Enemigo":v; event=""; }
@@ -2242,6 +2243,21 @@ public class BlockForgeActivity extends Activity {
                 }
             }
             ed.apply();
+            if (parent.equals("ambiente")) {
+                int hp = Math.max(1, Integer.parseInt(props.getOrDefault("vida", "5")));
+                String collisionValue = props.getOrDefault("colision", "no");
+                boolean collision = "si".equalsIgnoreCase(collisionValue) || "true".equalsIgnoreCase(collisionValue);
+                java.io.File spriteFile = new java.io.File(new java.io.File(getFilesDir(), "sprites"), name);
+                if (scenePreview != null && spriteFile.isFile()) {
+                    SceneSprite object = new SceneSprite(name, Math.max(0, scenePreview.mapColumns * 0.5f), Math.max(0, scenePreview.mapRows * 0.5f), collision);
+                    object.environmentObject = true; object.environmentHealth = hp;
+                    for (java.util.Map.Entry<String,String> p : props.entrySet()) if (p.getKey().startsWith("drop:")) object.environmentDrops.put(p.getKey().substring(5), Integer.parseInt(p.getValue()));
+                    scenePreview.sprites.add(object); scenePreview.selectedSprite = scenePreview.sprites.size() - 1; scenePreview.persistSprites(); scenePreview.invalidate();
+                    output.append("Sprite '").append(name).append("' colocado en el mapa.\\n");
+                } else {
+                    output.append("Código guardado; falta importar el sprite '").append(name).append("' para mostrarlo.\\n");
+                }
+            }
             output.append(parent).append(" '").append(name).append("' configurado: ")
                 .append(props.size()).append(" propiedades, ").append(events.size()).append(" eventos hijos.\\n");
             return true;
