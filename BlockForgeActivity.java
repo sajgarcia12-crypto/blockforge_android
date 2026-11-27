@@ -2610,6 +2610,13 @@ public class BlockForgeActivity extends Activity {
             }).show();
     }
 
+    void grantGrafisriptInventoryItem(String item, int amount) {
+        if(item==null||item.trim().isEmpty()||amount<=0)return;
+        String project=activeProjectName();String key="grafisript_inventory_"+project;
+        try { org.json.JSONObject inventory=new org.json.JSONObject(getPreferences(MODE_PRIVATE).getString(key,"{}"));inventory.put(item,inventory.optInt(item,0)+amount);getPreferences(MODE_PRIVATE).edit().putString(key,inventory.toString()).apply(); }
+        catch(Exception ignored) { }
+    }
+
     class SceneSprite {
         String fileName;
         float x, y;
@@ -2814,6 +2821,26 @@ public class BlockForgeActivity extends Activity {
         int hitMobileButton(float x,float y){
             float size=Math.max(148f,Math.min(184f,getWidth()*0.115f));
             for(int i=0;i<mobileButtons.size();i++){float[] pt=mobileButtonCenter(i,size);if(Math.hypot(x-pt[0],y-pt[1])<=size*0.68f)return i;}return -1;
+        }
+
+        void damageEnvironmentAt(float screenX, float screenY) {
+            float wx=(screenX-cameraOffsetX)/(cameraZoom*64f);
+            float wy=(screenY-cameraOffsetY)/(cameraZoom*64f);
+            for(int i=sprites.size()-1;i>=0;i--){
+                SceneSprite target=sprites.get(i);
+                if(!target.environmentObject) continue;
+                if(wx<target.x || wx>target.x+target.width || wy<target.y || wy>target.y+target.height) continue;
+                target.environmentHealth=Math.max(0,target.environmentHealth-1);
+                if(target.environmentHealth==0){
+                    java.util.ArrayList<String> obtained=new java.util.ArrayList<>();
+                    for(java.util.Map.Entry<String,Integer> drop:target.environmentDrops.entrySet()) if(java.util.concurrent.ThreadLocalRandom.current().nextInt(100)<drop.getValue()){ grantGrafisriptInventoryItem(drop.getKey(),1); obtained.add(drop.getKey()); }
+                    if(target.bitmap!=null&&!target.bitmap.isRecycled())target.bitmap.recycle();
+                    for(Bitmap frame:target.animationFrames)if(frame!=null&&!frame.isRecycled())frame.recycle();
+                    sprites.remove(i);selectedSprite=-1;
+                    Toast.makeText(BlockForgeActivity.this,obtained.isEmpty()?"Objeto roto · no soltó objetos":"Objeto roto · + "+android.text.TextUtils.join(", ",obtained),Toast.LENGTH_LONG).show();
+                } else Toast.makeText(BlockForgeActivity.this,"Vida del objeto: "+target.environmentHealth,Toast.LENGTH_SHORT).show();
+                persistSprites();invalidate();return;
+            }
         }
 
         void setMapSize(int columns,int rows){mapColumns=columns;mapRows=rows;for(SceneSprite sp:sprites){sp.width=Math.min(sp.width,mapColumns);sp.height=Math.min(sp.height,mapRows);sp.x=Math.max(0,Math.min(mapColumns-sp.width,sp.x));sp.y=Math.max(0,Math.min(mapRows-sp.height,sp.y));}for(int i=blocks.size()-1;i>=0;i--){Point p=blocks.get(i);if(p.x>=mapColumns||p.y>=mapRows){blocks.remove(i);if(i<blockColors.size())blockColors.remove(i);if(i<blockLayers.size())blockLayers.remove(i);}}getPreferences(MODE_PRIVATE).edit().putInt("scene_map_w_"+activeProjectName(),mapColumns).putInt("scene_map_h_"+activeProjectName(),mapRows).apply();persist();persistSprites();invalidate();Toast.makeText(BlockForgeActivity.this,"Mapa: "+mapColumns+" × "+mapRows,Toast.LENGTH_SHORT).show();}
@@ -3231,6 +3258,7 @@ public class BlockForgeActivity extends Activity {
                         } else if("jump".equals(pressed.action)){runMobileButton(pressed);}
                         return true;
                     }
+                    if(action==android.view.MotionEvent.ACTION_DOWN) damageEnvironmentAt(event.getX(pointerIndex),event.getY(pointerIndex));
                     return true;
                 }
                 if(action==android.view.MotionEvent.ACTION_POINTER_UP
