@@ -2711,6 +2711,9 @@ public class BlockForgeActivity extends Activity {
                     if(parts.length>12)loaded.height=Math.max(0.25f,Math.min((float)mapRows,Float.parseFloat(parts[12])));
                     if(parts.length>13)loaded.rotation=Math.max(-360f,Math.min(360f,Float.parseFloat(parts[13])));
                     if(parts.length>14)loaded.isPlayer=Boolean.parseBoolean(parts[14]);
+                    if(parts.length>15)loaded.environmentObject=Boolean.parseBoolean(parts[15]);
+                    if(parts.length>16)loaded.environmentHealth=Math.max(1,Integer.parseInt(parts[16]));
+                    if(parts.length>17&&!parts[17].isEmpty())for(String drop:parts[17].split(",")){int cut=drop.lastIndexOf(':');if(cut>0)loaded.environmentDrops.put(drop.substring(0,cut),Math.max(0,Math.min(100,Integer.parseInt(drop.substring(cut+1)))));}
                     loaded.x=Math.max(0f,Math.min(mapColumns-loaded.width,loaded.x));
                     loaded.y=Math.max(0f,Math.min(mapRows-loaded.height,loaded.y));
                     sprites.add(loaded);
@@ -2824,12 +2827,16 @@ public class BlockForgeActivity extends Activity {
                         .append(sprite.vx).append('|').append(sprite.vy).append('|');
                 for(int fi=0;fi<sprite.animationFrameNames.size();fi++){if(fi>0)data.append(',');data.append(sprite.animationFrameNames.get(fi));}
                 data.append('|').append(sprite.currentFrameIndex).append('|').append(sprite.animationFps).append('|').append(sprite.animationPlaying).append('|').append(sprite.animationLoop)
-                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation).append('|').append(sprite.isPlayer);
+                        .append('|').append(sprite.width).append('|').append(sprite.height).append('|').append(sprite.rotation).append('|').append(sprite.isPlayer)
+                        .append('|').append(sprite.environmentObject).append('|').append(sprite.environmentHealth).append('|');
+                boolean firstDrop = true;
+                for (java.util.Map.Entry<String,Integer> drop : sprite.environmentDrops.entrySet()) { if (!firstDrop) data.append(','); firstDrop = false; data.append(drop.getKey()).append(':').append(drop.getValue()); }
             }
             getPreferences(MODE_PRIVATE).edit()
                     .putString("scene_sprites_" + activeProjectName(), data.toString()).apply();
             saveProjectFile("scenes/sprites.json",data.toString());
             for(SceneSprite sprite:sprites){
+                if (sprite.environmentObject) continue;
                 copyProjectAsset("sprites",sprite.fileName,"assets");
                 for(String frameName:sprite.animationFrameNames)copyProjectAsset("sprites",frameName,"assets");
             }
