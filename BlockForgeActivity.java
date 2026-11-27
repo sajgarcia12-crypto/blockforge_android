@@ -2586,6 +2586,9 @@ public class BlockForgeActivity extends Activity {
         float width = 1f, height = 1f, rotation = 0f;
         boolean solid = true;
         boolean isPlayer = false;
+        boolean environmentObject = false;
+        int environmentHealth = 5;
+        java.util.LinkedHashMap<String,Integer> environmentDrops = new java.util.LinkedHashMap<>();
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
         java.util.ArrayList<Bitmap> animationFrames=new java.util.ArrayList<>();
@@ -3320,7 +3323,12 @@ public class BlockForgeActivity extends Activity {
                 canvas.save();
                 canvas.rotate(sprite.rotation, centerX, centerY);
                 Bitmap shown=sprite.bitmap;if(!sprite.animationFrames.isEmpty()){int frame=Math.max(0,Math.min(sprite.currentFrameIndex,sprite.animationFrames.size()-1));shown=sprite.animationFrames.get(frame);}
-                if(shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
+                if(sprite.environmentObject){
+                    paint.setColor(Color.rgb(105,68,38));canvas.drawRoundRect(new RectF(centerX-worldUnit*.10f,top+worldUnit*.42f,centerX+worldUnit*.10f,bottom),worldUnit*.04f,worldUnit*.04f,paint);
+                    paint.setColor(Color.rgb(42,125,62));canvas.drawCircle(centerX,top+worldUnit*.28f,worldUnit*.30f,paint);
+                    paint.setColor(Color.rgb(64,155,72));canvas.drawCircle(centerX-worldUnit*.13f,top+worldUnit*.34f,worldUnit*.19f,paint);
+                    paint.setColor(Color.rgb(80,170,78));canvas.drawCircle(centerX+worldUnit*.13f,top+worldUnit*.34f,worldUnit*.18f,paint);
+                } else if(shown!=null){paint.setFilterBitmap(false);canvas.drawBitmap(shown,null,new RectF(left,top,right,bottom),paint);
                 } else {
                     paint.setColor(Color.MAGENTA);
                     canvas.drawRect(left, top, right, bottom, paint);
