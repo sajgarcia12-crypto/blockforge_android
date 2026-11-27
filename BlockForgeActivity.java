@@ -1197,6 +1197,10 @@ public class BlockForgeActivity extends Activity {
         {"Centrar cámara","cam_center","0"},
         {"Activar física","fisica_on","0"},
         {"Pausar física","fisica_off","0"},
+        {"Configurar gravedad","fisica_gravedad","24"},
+        {"Configurar rebote","fisica_rebote","0.15"},
+        {"Activar colisiones","colisiones_on","0"},
+        {"Desactivar colisiones","colisiones_off","0"},
         {"Mostrar mensaje","mensaje","0"},
         {"Crear enemigo","obj_enemy","1"},
         {"Crear espada","obj_sword","1"},
@@ -1252,6 +1256,10 @@ public class BlockForgeActivity extends Activity {
             else if("cam_center".equals(t))b.append("camara.centrar()\n");
             else if("fisica_on".equals(t))b.append("fisica.activar()\n");
             else if("fisica_off".equals(t))b.append("fisica.pausar()\n");
+            else if("fisica_gravedad".equals(t))b.append("fisica.gravedad(").append(Math.max(0f,Math.min(80f,n.value))).append(")\n");
+            else if("fisica_rebote".equals(t))b.append("fisica.rebote(").append(Math.max(0f,Math.min(1f,n.value))).append(")\n");
+            else if("colisiones_on".equals(t))b.append("colisiones.activar()\n");
+            else if("colisiones_off".equals(t))b.append("colisiones.pausar()\n");
             else if("mensaje".equals(t))b.append("mostrar_mensaje \"Hola desde BlockForge\"\n");
             else if("obj_enemy".equals(t))b.append("crear_objeto2d enemy ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
             else if("obj_sword".equals(t))b.append("crear_objeto2d sword ").append(Math.max(0,Math.round(n.value))).append(" 1\n");
@@ -2279,6 +2287,23 @@ public class BlockForgeActivity extends Activity {
                 target.changeZoom(factor);output.append("Zoom de cámara actualizado\n");return true;
             }
             if (line.equals("camara.centrar()")) {target.resetCamera();output.append("Cámara centrada\n");return true;}
+            if(line.startsWith("fisica.gravedad(")&&line.endsWith(")")){
+                float value=Float.parseFloat(line.substring(16,line.length()-1).trim());
+                if(Float.isNaN(value)||Float.isInfinite(value)||value<0f||value>80f)throw new IllegalArgumentException("Gravedad permitida: 0 a 80");
+                physicsGravity=value;getPreferences(MODE_PRIVATE).edit().putFloat("physics_gravity",value).apply();
+                output.append("Gravedad 2D = ").append(value).append('\n');return true;
+            }
+            if(line.startsWith("fisica.rebote(")&&line.endsWith(")")){
+                float value=Float.parseFloat(line.substring(14,line.length()-1).trim());
+                if(Float.isNaN(value)||Float.isInfinite(value)||value<0f||value>1f)throw new IllegalArgumentException("Rebote permitido: 0 a 1");
+                physicsBounce=value;getPreferences(MODE_PRIVATE).edit().putFloat("physics_bounce",value).apply();
+                output.append("Rebote 2D = ").append(value).append('\n');return true;
+            }
+            if(line.equals("colisiones.activar()")||line.equals("colisiones.pausar()")){
+                sceneCollisionsEnabled=line.equals("colisiones.activar()");
+                getPreferences(MODE_PRIVATE).edit().putBoolean("scene_collisions",sceneCollisionsEnabled).apply();
+                output.append(sceneCollisionsEnabled?"Colisiones activadas\n":"Colisiones desactivadas\n");return true;
+            }
             if (line.equals("fisica.activar()")) {physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Física 2D activada\n");return true;}
             if (line.equals("fisica.pausar()")) {physicsRunning=false;if(scenePreview!=null)scenePreview.stopPhysics();output.append("Física 2D pausada\n");return true;}
         } catch(Exception ex) {
