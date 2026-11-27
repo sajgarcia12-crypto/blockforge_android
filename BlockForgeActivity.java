@@ -85,7 +85,8 @@ public class BlockForgeActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (scenePlayMode) { stopSceneGame(); return; }
-        if (currentPage == 2 || currentPage == 3) { openPage(1); return; }
+        if (currentPage == 3) { openPage(2); return; }
+        if (currentPage == 2) { openPage(1); return; }
         if (currentPage != 0) { openPage(0); return; }
         super.onBackPressed();
     }
@@ -331,6 +332,18 @@ public class BlockForgeActivity extends Activity {
             Toast.makeText(this,"Script guardado en el proyecto",Toast.LENGTH_SHORT).show();
         }));
         panelView.addView(editorButton("CERRAR",dialog::dismiss));
+    }
+
+    void showLiquidManager() {
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        LinearLayout panel = vertical();
+        panel.setPadding(18, 10, 18, 8);
+        panel.addView(label("Los líquidos se crean desde el único editor de Grafisript del proyecto. Después puedes asignar el sprite de agua, lava u otro líquido en la escena.", 14, gray));
+        panel.addView(label("Eventos disponibles: Al_entrar y Al_salir. Propiedades: realismo, viscosidad, fluidez, densidad y daño por segundo.", 13, gray));
+        builder.setTitle("LÍQUIDOS · ESCENA 2D").setView(panel)
+            .setPositiveButton("ABRIR SCRIPT CENTRAL", (d,w) -> showCodePanel())
+            .setNeutralButton("VER ÁRBOL DE ESCENA", (d,w) -> showSceneTreePanel())
+            .setNegativeButton("CERRAR", null).show();
     }
 
     void showSceneLightingDialog() {
