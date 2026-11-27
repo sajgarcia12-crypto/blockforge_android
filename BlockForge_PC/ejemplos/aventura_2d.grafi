@@ -1,0 +1,27 @@
+# Proyecto 2D de ejemplo para BlockForge PC
+Crear escena "Aventura"
+
+# Personaje principal
+Crear objeto Jugador
+Posicion Jugador = 80, 80
+Tamaño Jugador = 32, 48
+Color Jugador = #42A5F5
+Fisica Jugador = Verdadero
+Camara seguir Jugador
+
+# Plataforma sólida
+Crear objeto Suelo
+Posicion Suelo = 0, 360
+Tamaño Suelo = 900, 48
+Color Suelo = #4CAF50
+Solido Suelo = Verdadero
+
+# Plataforma elevada
+Crear objeto Plataforma
+Posicion Plataforma = 240, 260
+Tamaño Plataforma = 180, 24
+Color Plataforma = #9C6B3D
+Solido Plataforma = Verdadero
+
+Gravedad = 980
+Poner_texto: ("¡Escena 2D cargada!")

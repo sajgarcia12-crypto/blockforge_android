@@ -1,0 +1,30 @@
+name: Construir y probar BlockForge PC
+on:
+  workflow_dispatch:
+  push:
+    branches: [blockforge/desktop-cross-platform]
+    paths: ["BlockForge_PC/**", ".github/workflows/build-windows.yml"]
+permissions:
+  contents: read
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S BlockForge_PC -B build -A x64
+      - run: cmake --build build --config Release --parallel
+      - run: ctest --test-dir build -C Release --output-on-failure
+      - name: Empaquetar
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $exe = Get-ChildItem build -Filter BlockForge_PC.exe -Recurse | Select-Object -First 1
+          if (-not $exe) { throw "No se encontró BlockForge_PC.exe" }
+          Copy-Item $exe.FullName dist/BlockForge_PC.exe
+          Copy-Item BlockForge_PC/README.md dist/LEEME.md
+          Compress-Archive -Path dist/* -DestinationPath BlockForge-PC-Windows-x64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlockForge-PC-Windows-x64
+          path: BlockForge-PC-Windows-x64.zip
+          if-no-files-found: error

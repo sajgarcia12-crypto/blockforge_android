@@ -1,0 +1,15 @@
+# Proyecto de prueba de Grafisript para BlockForge PC
+Crear variable Vida = 100
+Sumar 25 a Vida
+Poner_texto: ("Vida actual: {Vida}")
+Si Vida > 0 entonces
+    Mostrar "El jugador sigue vivo"
+Si_no
+    Mostrar "Fin del juego"
+Fin_si
+Repetir 3 veces
+    Mostrar "Construyendo..."
+Fin_repetir
+Crear lista Inventario = ["Llave", "Mapa"]
+Añadir "Poción" a Inventario
+Mostrar "Prueba de lenguaje terminada"
