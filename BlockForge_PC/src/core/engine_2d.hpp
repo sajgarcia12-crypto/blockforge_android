@@ -24,7 +24,7 @@ public:
  double gravedad=980.0, escala=1.0;
  std::vector<Objeto> objetos;
  std::vector<Colision> colisiones;
- Objeto& crear(const std::string& objectName){if(objectName.empty())throw std::runtime_error("Nombre de objeto vacío");if(buscar(nombre))throw std::runtime_error("Ya existe el objeto: "+objectName);objetos.push_back({});objetos.back().nombre=objectName;return objetos.back();}
+ Objeto& crear(const std::string& objectName){if(objectName.empty())throw std::runtime_error("Nombre de objeto vacío");if(buscar(objectName))throw std::runtime_error("Ya existe el objeto: "+objectName);objetos.push_back({});objetos.back().nombre=objectName;return objetos.back();}
  Objeto* buscar(const std::string& objectName){auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==objectName;});return i==objetos.end()?nullptr:&*i;}
  const Objeto* buscar(const std::string& objectName)const{auto i=std::find_if(objetos.begin(),objetos.end(),[&](const Objeto&o){return o.nombre==objectName;});return i==objetos.end()?nullptr:&*i;}
  void posicion(const std::string& n,double x,double y){exigir(n).posicion={x,y};}
