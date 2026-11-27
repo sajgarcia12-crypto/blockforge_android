@@ -2399,6 +2399,7 @@ public class BlockForgeActivity extends Activity {
                     else if (h.startsWith("crear_moneda") || h.startsWith("crear_dinero") || h.equals("moneda")) { parent="moneda"; name=v.isEmpty()?"Moneda":v; event=""; }
                     else if (h.startsWith("crear_cofre") || h.equals("cofre")) { parent="cofre"; name=v.isEmpty()?"Cofre":v; event=""; }
                     else if (h.startsWith("crear_arma") || h.equals("arma") || h.equals("espada")) { parent="arma"; name=v.isEmpty()?"Arma":v; event=""; }
+                    else if (h.startsWith("crear_liquido") || h.equals("liquido")) { parent="liquido"; name=v.isEmpty()?"Liquido":v; event=""; }
                     else if (h.equals("crear_mundo") || h.equals("mundo")) { parent="mundo"; name="Mundo"; event=""; }
                     else if (h.startsWith("al_")) { if(parent.isEmpty()) throw new IllegalArgumentException("El evento necesita un objeto padre"); event=h; events.put(event,new java.util.LinkedHashMap<String,String>()); }
                     else throw new IllegalArgumentException("Bloque no reconocido: "+h);
@@ -2431,6 +2432,11 @@ public class BlockForgeActivity extends Activity {
                     if(k.equals("vida")||k.equals("salud"))ed.putInt("character_health_"+project,Integer.parseInt(v));
                     if(k.equals("velocidad"))ed.putFloat("character_speed_"+project,Float.parseFloat(v)*10f);
                     if(k.equals("que_tan_rapido_cae")||k.equals("velocidad_de_caida"))ed.putFloat("character_fall_speed_"+project,Float.parseFloat(v)*10f);
+                    if(k.equals("fisica"))ed.putBoolean("character_physics_"+project,"si".equalsIgnoreCase(v)||"true".equalsIgnoreCase(v)||"1".equals(v));
+                    if(k.equals("caida"))ed.putFloat("character_gravity_scale_"+project,Math.max(0f,Math.min(10f,Float.parseFloat(v))));
+                    if(k.equals("salto"))ed.putFloat("character_jump_scale_"+project,Math.max(0f,Math.min(10f,Float.parseFloat(v))));
+                    if(k.equals("fluides_de_caida"))ed.putInt("character_fall_quality_"+project,Math.max(0,Math.min(100,Integer.parseInt(v.replace("%","")))));
+                    if(k.equals("fluides_de_salto"))ed.putInt("character_jump_quality_"+project,Math.max(0,Math.min(100,Integer.parseInt(v.replace("%","")))));
                     ed.putString("character_name_"+project,name);
                 } else if(parent.equals("enemigo")&&(k.equals("daño")||k.equals("dano")||k.equals("danio"))) {
                     ed.putInt("enemy_damage_"+project,Integer.parseInt(v)).putString("enemy_name_"+project,name);
@@ -2446,6 +2452,15 @@ public class BlockForgeActivity extends Activity {
                 }
             }
             ed.apply();
+            if (parent.equals("liquido")) {
+                int realism=Math.max(0,Math.min(100,Integer.parseInt(props.getOrDefault("real","50").replace("%",""))));
+                float viscosity=Math.max(0f,Math.min(100f,Float.parseFloat(props.getOrDefault("viscosidad","50").replace("%",""))));
+                float density=Math.max(0f,Math.min(500f,Float.parseFloat(props.getOrDefault("densidad","100"))));
+                float flow=Math.max(0f,Math.min(100f,Float.parseFloat(props.getOrDefault("fluidez","50").replace("%",""))));
+                String liquidKey="grafisript_liquido_"+project+"_"+name;
+                getPreferences(MODE_PRIVATE).edit().putInt(liquidKey+"_real",realism).putFloat(liquidKey+"_viscosidad",viscosity).putFloat(liquidKey+"_densidad",density).putFloat(liquidKey+"_fluidez",flow).putString(liquidKey+"_sprite",props.getOrDefault("sprite",name)).putString(liquidKey+"_veneno",props.getOrDefault("veneno","0/s")).putString(liquidKey+"_properties",new org.json.JSONObject(props).toString()).apply();
+                output.append("Líquido '").append(name).append("' guardado (realismo ").append(realism).append("%). Importa su sprite para visualizarlo en la escena.\\n");
+            }
             if (parent.equals("ambiente")) {
                 int hp = Math.max(1, Integer.parseInt(props.getOrDefault("vida", "5")));
                 String collisionValue = props.getOrDefault("colision", "no");
@@ -2834,6 +2849,9 @@ public class BlockForgeActivity extends Activity {
         boolean isPlayer = false;
         boolean environmentObject = false;
         int environmentHealth = 5;
+        boolean physicsEnabled = true;
+        float gravityScale = 1f, jumpScale = 1f;
+        int fallQuality = 80, jumpQuality = 100;
         java.util.LinkedHashMap<String,Integer> environmentDrops = new java.util.LinkedHashMap<>();
         float vx = 0f, vy = 0f;
         Bitmap bitmap;
@@ -2969,7 +2987,9 @@ public class BlockForgeActivity extends Activity {
             if(playerIndex<0){Toast.makeText(BlockForgeActivity.this,"Designa un personaje en el inspector",Toast.LENGTH_SHORT).show();return;}
             selectedSprite=playerIndex;
             SceneSprite player=sprites.get(playerIndex);
-            player.vy=-9f;
+            float jumpScale=getPreferences(MODE_PRIVATE).getFloat("character_jump_scale_"+activeProjectName(),1f);
+            if(!getPreferences(MODE_PRIVATE).getBoolean("character_physics_"+activeProjectName(),true)) { Toast.makeText(BlockForgeActivity.this,"La física de este personaje está desactivada en Grafisript",Toast.LENGTH_SHORT).show(); return; }
+            player.vy=-9f*Math.max(0f,Math.min(10f,jumpScale));
             String project = activeProjectName();
             String playerName = getPreferences(MODE_PRIVATE).getString("character_name_" + project, player.fileName);
             dispatchGrafisriptEvent("personaje", playerName, "al_saltar", 0);
@@ -3188,6 +3208,10 @@ public class BlockForgeActivity extends Activity {
         void physicsStep(float dt) {
             for (SceneSprite sprite : sprites) {
                 if (!sprite.isPlayer) continue; // Plataformas, monedas y decoraciones permanecen fijas.
+                String physicsProject=activeProjectName();
+                android.content.SharedPreferences physicsPrefs=getPreferences(MODE_PRIVATE);
+                boolean characterPhysics=physicsPrefs.getBoolean("character_physics_"+physicsProject,true);
+                float gravityScale=Math.max(0f,Math.min(10f,physicsPrefs.getFloat("character_gravity_scale_"+physicsProject,1f)));
                 float oldX = sprite.x, oldY = sprite.y;
                 if(scenePlayMode && sprite==selectedSpriteObject()){
                     if("left".equals(heldMobileAction))sprite.vx=-6.5f;
@@ -3196,7 +3220,8 @@ public class BlockForgeActivity extends Activity {
                     else if("down".equals(heldMobileAction))sprite.vy=6.5f;
                 }
                 sprite.vx = Math.max(-8f, Math.min(8f, sprite.vx));
-                sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * dt));
+                if(characterPhysics) sprite.vy = Math.max(-18f, Math.min(18f, sprite.vy + physicsGravity * gravityScale * dt));
+                else sprite.vy = 0f;
 
                 float nextX = Math.max(0f, Math.min(mapColumns - sprite.width, oldX + sprite.vx * dt));
                 boolean horizontalHit = false;
