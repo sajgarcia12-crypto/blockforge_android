@@ -1750,6 +1750,20 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
+            if (line.equals("{")) {
+                int bodyStart = cursor[0];
+                int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) {
+                    output.append("Línea ").append(lineNumber).append(": falta cerrar el bloque con }\\n");
+                    return executed;
+                }
+                String[] definition = java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd);
+                executeEasyGrafisriptDefinition(definition, output, lineNumber - 1);
+                cursor[0] = bodyEnd + 1;
+                executed++;
+                continue;
+            }
+
             if (executeEasyGrafisriptLine(line, output, lineNumber - 1)) { executed++; continue; }
 
             if (line.startsWith("variable ")) line = line.substring(9).trim();
@@ -2064,6 +2078,79 @@ public class BlockForgeActivity extends Activity {
 
 
     // Sintaxis amigable: Crear_mundo: / fondo_color = negro_con_rojo, etc.
+    boolean executeEasyGrafisriptDefinition(String[] body, StringBuilder output, int lineIndex) {
+        String parent = "", name = "", event = "";
+        java.util.LinkedHashMap<String,String> props = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<String,java.util.LinkedHashMap<String,String>> events = new java.util.LinkedHashMap<>();
+        try {
+            for (String raw : body) {
+                String line = raw.trim();
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                int colon = line.indexOf(':');
+                if (colon > 0) {
+                    String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_");
+                    String v = line.substring(colon+1).trim().replace("(","").replace(")","");
+                    if (h.startsWith("crear_personaje") || h.equals("personaje")) { parent="personaje"; name=v.isEmpty()?"Jugador":v; event=""; }
+                    else if (h.equals("enemigo") || h.startsWith("crear_enemigo")) { parent="enemigo"; name=v.isEmpty()?"Enemigo":v; event=""; }
+                    else if (h.startsWith("crear_moneda") || h.startsWith("crear_dinero") || h.equals("moneda")) { parent="moneda"; name=v.isEmpty()?"Moneda":v; event=""; }
+                    else if (h.startsWith("crear_cofre") || h.equals("cofre")) { parent="cofre"; name=v.isEmpty()?"Cofre":v; event=""; }
+                    else if (h.startsWith("crear_arma") || h.equals("arma") || h.equals("espada")) { parent="arma"; name=v.isEmpty()?"Arma":v; event=""; }
+                    else if (h.equals("crear_mundo") || h.equals("mundo")) { parent="mundo"; name="Mundo"; event=""; }
+                    else if (h.startsWith("al_")) { if(parent.isEmpty()) throw new IllegalArgumentException("El evento necesita un objeto padre"); event=h; events.put(event,new java.util.LinkedHashMap<String,String>()); }
+                    else throw new IllegalArgumentException("Bloque no reconocido: "+h);
+                    continue;
+                }
+                int op=line.indexOf("+="); boolean minus=false;
+                if(op<0){op=line.indexOf("-=");minus=op>=0;}
+                int eq=op>=0?op:line.indexOf('=');
+                if(eq<=0) throw new IllegalArgumentException("Escribe propiedad = valor: "+line);
+                String key=line.substring(0,eq).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")
+                    .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
+                String value=unquote(line.substring(eq+(op>=0?2:1)).trim());
+                if(minus)value="-("+value+")";
+                if(parent.isEmpty()) throw new IllegalArgumentException("Primero crea un objeto");
+                if(event.isEmpty())props.put(key,value);else events.get(event).put(key,value);
+            }
+            if(parent.isEmpty()) throw new IllegalArgumentException("Falta el comando principal, por ejemplo Crear_personaje: (Santiago)");
+            String project=activeProjectName();
+            String prefix="grafisript_"+parent+"_"+project+"_"+name;
+            org.json.JSONObject eventJson=new org.json.JSONObject();
+            for(java.util.Map.Entry<String,java.util.LinkedHashMap<String,String>> e:events.entrySet())
+                eventJson.put(e.getKey(),new org.json.JSONObject(e.getValue()));
+            android.content.SharedPreferences.Editor ed=getPreferences(MODE_PRIVATE).edit()
+                .putString(prefix+"_properties",new org.json.JSONObject(props).toString())
+                .putString(prefix+"_events",eventJson.toString()).putString(prefix+"_name",name);
+            for(java.util.Map.Entry<String,String> p:props.entrySet()){
+                String k=p.getKey(),v=p.getValue();
+                if(parent.equals("personaje")){
+                    if(k.equals("vida")||k.equals("salud"))ed.putInt("character_health_"+project,Integer.parseInt(v));
+                    if(k.equals("velocidad"))ed.putFloat("character_speed_"+project,Float.parseFloat(v)*10f);
+                    if(k.equals("que_tan_rapido_cae")||k.equals("velocidad_de_caida"))ed.putFloat("character_fall_speed_"+project,Float.parseFloat(v)*10f);
+                    ed.putString("character_name_"+project,name);
+                } else if(parent.equals("enemigo")&&(k.equals("daño")||k.equals("dano")||k.equals("danio"))) {
+                    ed.putInt("enemy_damage_"+project,Integer.parseInt(v)).putString("enemy_name_"+project,name);
+                } else if(parent.equals("moneda")){
+                    if(k.equals("valor")||k.equals("cantidad"))ed.putInt("currency_value_"+project+"_"+name,Integer.parseInt(v));
+                    if(k.equals("probabilidad_de_que_suelten")||k.equals("probabilidad")){
+                        int chance=Integer.parseInt(v.replace("%","").trim());
+                        if(chance<0||chance>100)throw new IllegalArgumentException("La probabilidad debe ser de 0% a 100%");
+                        ed.putInt("currency_chance_"+project+"_"+name,chance);
+                    }
+                    if(k.equals("soltado_por")||k.equals("enemigo_que_lo_suelta")||k.equals("origen"))
+                        ed.putString("currency_drop_source_"+project+"_"+name,v);
+                }
+            }
+            ed.apply();
+            output.append(parent).append(" '").append(name).append("' configurado: ")
+                .append(props.size()).append(" propiedades, ").append(events.size()).append(" eventos hijos.\\n");
+            return true;
+        } catch(Exception ex) {
+            output.append("Bloque desde línea ").append(lineIndex+1).append(": ")
+                .append(ex.getMessage()==null?"valor no válido":ex.getMessage()).append("\\n");
+            return true;
+        }
+    }
+
     boolean executeEasyGrafisriptLine(String rawLine, StringBuilder output, int lineIndex) {
         String line = rawLine.trim();
         if (line.isEmpty() || line.startsWith("#")) return true;
