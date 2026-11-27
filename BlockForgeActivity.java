@@ -1705,7 +1705,7 @@ public class BlockForgeActivity extends Activity {
             if(comment>=0) out.append(line.substring(comment));
             lines[i]=out.toString();
         }
-        return new GrafisriptCorrection(android.text.TextUtils.join("\\n",lines),fixes);
+        return new GrafisriptCorrection(android.text.TextUtils.join("\n",lines),fixes);
     }
 
     static int grafisriptEditDistance(String a,String b) {
