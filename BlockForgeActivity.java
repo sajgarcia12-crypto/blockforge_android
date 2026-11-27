@@ -647,21 +647,39 @@ public class BlockForgeActivity extends Activity {
     }
 
     void openPage(int page) {
-        saveCurrentScript();
-        if (scene3DView != null) {
-            scene3DView.onPause();
-            scene3DView = null;
-        }
-        content.removeAllViews();
-        if (navigation != null) navigation.setVisibility(page == 2 ? View.GONE : View.VISIBLE);
-        switch(page) {
-            case 0: home(); break;
-            case 1: projects(); break;
-            case 2: scenes(); break;
-            case 3: grafisript(); break;
-            case 4: resources(); break;
-            case 5: settings(); break;
-            case 6: marketplace(); break;
+        try {
+            saveCurrentScript();
+            if (scene3DView != null) {
+                try { scene3DView.onPause(); } catch (RuntimeException ignored) { }
+                scene3DView = null;
+            }
+            content.removeAllViews();
+            if (navigation != null) navigation.setVisibility(page == 2 ? View.GONE : View.VISIBLE);
+            switch(page) {
+                case 0: home(); break;
+                case 1: projects(); break;
+                case 2: scenes(); break;
+                case 3: grafisript(); break;
+                case 4: resources(); break;
+                case 5: settings(); break;
+                case 6: marketplace(); break;
+                default: home(); break;
+            }
+        } catch (RuntimeException ex) {
+            android.util.Log.e("BlockForge", "Error abriendo la pantalla " + page, ex);
+            try {
+                if (scene3DView != null) { scene3DView.onPause(); scene3DView = null; }
+                content.removeAllViews();
+                if (navigation != null) navigation.setVisibility(View.VISIBLE);
+                content.setOrientation(LinearLayout.VERTICAL);
+                content.setPadding(18, 18, 18, 24);
+                content.addView(label("No se pudo abrir esta sección", 18, white));
+                content.addView(label("BlockForge ha evitado cerrar la aplicación. Vuelve a proyectos e inténtalo otra vez.", 13, gray));
+                content.addView(uiPrimary("VOLVER A PROYECTOS", () -> openPage(1)));
+                Toast.makeText(this, "Se produjo un error en esa sección. La app sigue abierta.", Toast.LENGTH_LONG).show();
+            } catch (RuntimeException fallbackError) {
+                android.util.Log.e("BlockForge", "También falló la pantalla de recuperación", fallbackError);
+            }
         }
     }
 
@@ -1100,12 +1118,27 @@ public class BlockForgeActivity extends Activity {
                     Toast.makeText(this, "Ese nombre no es válido", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                String projectType = type.getSelectedItem().toString();
+                Object selectedType=type.getSelectedItem();
+                String projectType=selectedType==null?"2D":selectedType.toString();
                 String folderName=folderInput.getText().toString().trim();if(folderName.isEmpty())folderName=name;
-                String safeFolder=folderName.replaceAll("[^a-zA-Z0-9._ -]","_").trim();
+                String safeFolder=folderName.replaceAll("[^\\p{L}\\p{N}._ -]","_").trim();
                 if(safeFolder.isEmpty()||".".equals(safeFolder)||"..".equals(safeFolder)){Toast.makeText(this,"Nombre de carpeta no válido",Toast.LENGTH_SHORT).show();return;}
-                String[] dims=resolution.getSelectedItem().toString().split("×");int projectWidth=320,projectHeight=180;
-                try{projectWidth=Integer.parseInt(dims[0].trim());projectHeight=Integer.parseInt(dims[1].trim());}catch(Exception ignored){}
+                int projectWidth=320,projectHeight=180;
+                Object selectedResolution=resolution.getSelectedItem();
+                String resolutionText=selectedResolution==null?"320 × 180":selectedResolution.toString();
+                try {
+                    String[] dims=resolutionText.trim().split("[×xX]");
+                    if(dims.length!=2)throw new NumberFormatException("Formato de resolución inválido");
+                    int parsedWidth=Integer.parseInt(dims[0].trim());
+                    int parsedHeight=Integer.parseInt(dims[1].trim());
+                    if(parsedWidth<16||parsedHeight<16||parsedWidth>4096||parsedHeight>4096
+                            ||(long)parsedWidth*parsedHeight>8_388_608L)
+                        throw new NumberFormatException("Resolución fuera de límites");
+                    projectWidth=parsedWidth;projectHeight=parsedHeight;
+                } catch(Exception invalidResolution) {
+                    Toast.makeText(this,"Resolución no válida. Elige un tamaño entre 16 y 4096 píxeles.",Toast.LENGTH_LONG).show();
+                    return;
+                }
                 android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
                 java.util.Set<String> names = new java.util.HashSet<>(
                         prefs.getStringSet("blockforge_projects", new java.util.HashSet<>()));
