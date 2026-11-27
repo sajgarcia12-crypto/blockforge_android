@@ -10,7 +10,8 @@
 #include <stdexcept>
 #include <string>
 #include <variant>
-#include <vector>\n#include "engine_2d.hpp"
+#include <vector>
+#include "engine_2d.hpp"
 namespace blockforge::grafisript {
 using Lista=std::vector<std::string>;
 using Valor=std::variant<double,std::string,bool,Lista>;
@@ -21,7 +22,8 @@ public:
  explicit Runtime(std::filesystem::path root="Proyecto",Salida out={}):root_(std::filesystem::weakly_canonical(std::filesystem::absolute(root))),out_(out?std::move(out):[](const std::string&s){std::cout<<s<<'\n';}){std::filesystem::create_directories(root_);}
  void set_entrada(std::function<std::string(const std::string&)> f){input_=std::move(f);}
  void ejecutar(const std::string&src){std::vector<std::string> l;std::istringstream in(src);std::string s;while(std::getline(in,s))l.push_back(s);paso(l,0,l.size(),0);}
- const std::map<std::string,Valor>& variables()const{return vars_;}\n const dosd::Mundo& mundo_2d()const{return mundo_;}
+ const std::map<std::string,Valor>& variables()const{return vars_;}
+ const dosd::Mundo& mundo_2d()const{return mundo_;}
 private:
  std::filesystem::path root_;Salida out_;std::function<std::string(const std::string&)> input_=[](const std::string&q){std::cout<<q<<' ';std::string s;std::getline(std::cin,s);return s;};std::map<std::string,Valor>vars_;dosd::Mundo mundo_;std::size_t pasos_=0;
  static std::string trim(std::string s){auto a=s.find_first_not_of(" \t\r\n");if(a==s.npos)return{};return s.substr(a,s.find_last_not_of(" \t\r\n")-a+1);}
