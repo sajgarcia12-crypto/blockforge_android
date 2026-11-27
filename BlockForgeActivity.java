@@ -1400,8 +1400,8 @@ public class BlockForgeActivity extends Activity {
                     executed++;
                     break;
                 case "ayuda":
-                    output.append("Comandos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, ")
-                            .append("jugador.saltar, crear_bloque2d, mover_sprite, saltar_sprite, capa, camara.zoom, camara.centrar, fisica.activar, fisica.pausar, mostrar_mensaje, variable, si, sino, repetir, ver_bloques.\n");
+                    output.append("General: Crear variable, Poner_texto, Mostrar, Crear lista, Añadir, Quitar, Sumar, Restar, Si, Sino, Repetir, Mientras, Funcion, Llamar. ")
+                            .append("Categorías: /Enemigo/, /Dinero/, /Interfas/. Juegos: crear_mundo, crear_bloque, crear_personaje, jugador.mover, crear_bloque2d, mover_sprite, fisica.activar.\n");
                     executed++;
                     break;
                 default:
@@ -1427,12 +1427,39 @@ public class BlockForgeActivity extends Activity {
     }
 
     boolean evaluateGrafisriptCondition(String condition, java.util.Map<String, Double> variables) {
+        String expression = condition.trim();
+        int orAt = expression.indexOf(" o ");
+        if (orAt > 0) return evaluateGrafisriptCondition(expression.substring(0, orAt), variables) ||
+                evaluateGrafisriptCondition(expression.substring(orAt + 3), variables);
+        int andAt = expression.indexOf(" y ");
+        if (andAt > 0) return evaluateGrafisriptCondition(expression.substring(0, andAt), variables) &&
+                evaluateGrafisriptCondition(expression.substring(andAt + 3), variables);
+        if (expression.startsWith("no ")) return !evaluateGrafisriptCondition(expression.substring(3), variables);
+
         String[] operators = {">=", "<=", "==", "!=", ">", "<"};
         for (String operator : operators) {
-            int at = condition.indexOf(operator);
+            int at = expression.indexOf(operator);
             if (at > 0) {
-                double left = evaluateGrafisriptExpression(condition.substring(0, at).trim(), variables);
-                double right = evaluateGrafisriptExpression(condition.substring(at + operator.length()).trim(), variables);
+                String leftToken = expression.substring(0, at).trim();
+                String rightToken = expression.substring(at + operator.length()).trim();
+                boolean textComparison = grafisriptTextVariables.containsKey(leftToken) ||
+                        grafisriptTextVariables.containsKey(rightToken) ||
+                        leftToken.startsWith("\"") || rightToken.startsWith("\"");
+                if (textComparison) {
+                    String leftText = grafisriptDisplayValue(leftToken, variables);
+                    String rightText = grafisriptDisplayValue(rightToken, variables);
+                    int comparison = leftText.compareTo(rightText);
+                    switch (operator) {
+                        case "==": return comparison == 0;
+                        case "!=": return comparison != 0;
+                        case ">": return comparison > 0;
+                        case "<": return comparison < 0;
+                        case ">=": return comparison >= 0;
+                        case "<=": return comparison <= 0;
+                    }
+                }
+                double left = evaluateGrafisriptExpression(leftToken, variables);
+                double right = evaluateGrafisriptExpression(rightToken, variables);
                 switch (operator) {
                     case ">=": return left >= right;
                     case "<=": return left <= right;
@@ -1443,7 +1470,7 @@ public class BlockForgeActivity extends Activity {
                 }
             }
         }
-        return evaluateGrafisriptExpression(condition, variables) != 0;
+        return evaluateGrafisriptExpression(expression, variables) != 0;
     }
 
     double evaluateGrafisriptExpression(String expression, java.util.Map<String, Double> variables) {
