@@ -2499,7 +2499,7 @@ public class BlockForgeActivity extends Activity {
             String value = raw.trim();
             if (value.isEmpty() || value.startsWith("#")) continue;
             // Una línea formada únicamente por comillas es una anotación: no se ejecuta.
-            if (value.length() >= 2 && value.startsWith("\\\"") && value.endsWith("\\\"") && value.indexOf('=', 0) < 0) continue;
+            if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"") && value.indexOf('=', 0) < 0) continue;
             boolean property = value.contains("=") || value.contains(":") || value.startsWith("¿Que_suelta") || value.equals("?");
             if (!property) {
                 if (current != null && !current.isEmpty()) {
