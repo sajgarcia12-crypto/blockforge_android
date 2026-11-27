@@ -2167,17 +2167,30 @@ public class BlockForgeActivity extends Activity {
     // Sintaxis amigable: Crear_mundo: / fondo_color = negro_con_rojo, etc.
     boolean executeEasyGrafisriptDefinition(String[] body, StringBuilder output, int lineIndex) {
         String parent = "", name = "", event = "";
+        boolean readingDrops = false, dropsClosed = false;
         java.util.LinkedHashMap<String,String> props = new java.util.LinkedHashMap<>();
         java.util.LinkedHashMap<String,java.util.LinkedHashMap<String,String>> events = new java.util.LinkedHashMap<>();
         try {
             for (String raw : body) {
                 String line = raw.trim();
                 if (line.isEmpty() || line.startsWith("#")) continue;
+                if (line.equals("?")) { if (!readingDrops) throw new IllegalArgumentException("El símbolo ? solo puede cerrar ¿Que_suelta:"); readingDrops = false; dropsClosed = true; continue; }
+                if (line.startsWith("¿Que_suelta:") || line.startsWith("¿que_suelta:")) { if (readingDrops) throw new IllegalArgumentException("La tabla de botín ya está abierta"); readingDrops = true; dropsClosed = false; continue; }
+                if (readingDrops) {
+                    int dropEq = line.indexOf("=");
+                    if (dropEq <= 0) throw new IllegalArgumentException("Usa (Objeto) = 10% dentro de ¿Que_suelta");
+                    String dropName = line.substring(0, dropEq).trim().replace("(", "").replace(")", "").trim();
+                    int chance = Integer.parseInt(line.substring(dropEq + 1).trim().replace("%", ""));
+                    if (dropName.isEmpty() || chance < 0 || chance > 100) throw new IllegalArgumentException("Objeto o porcentaje de botín no válido (0–100%)");
+                    props.put("drop:" + dropName, String.valueOf(chance));
+                    continue;
+                }
                 int colon = line.indexOf(':');
                 if (colon > 0) {
                     String h = line.substring(0,colon).trim().toLowerCase(java.util.Locale.ROOT).replace(" ","_")\n                        .replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u").replace("ñ","n");
                     String v = line.substring(colon+1).trim().replace("(","").replace(")","");
-                    if (h.startsWith("crear_personaje") || h.equals("personaje")) { parent="personaje"; name=v.isEmpty()?"Jugador":v; event=""; }
+                    if (h.equals("ambiente") || h.equals("crear_ambiente")) { parent="ambiente"; name=v.isEmpty()?"Ambiente":v; event=""; }
+                    else if (h.startsWith("crear_personaje") || h.equals("personaje")) { parent="personaje"; name=v.isEmpty()?"Jugador":v; event=""; }
                     else if (h.equals("enemigo") || h.startsWith("crear_enemigo")) { parent="enemigo"; name=v.isEmpty()?"Enemigo":v; event=""; }
                     else if (h.startsWith("crear_moneda") || h.startsWith("crear_dinero") || h.equals("moneda")) { parent="moneda"; name=v.isEmpty()?"Moneda":v; event=""; }
                     else if (h.startsWith("crear_cofre") || h.equals("cofre")) { parent="cofre"; name=v.isEmpty()?"Cofre":v; event=""; }
@@ -2198,6 +2211,7 @@ public class BlockForgeActivity extends Activity {
                 if(parent.isEmpty()) throw new IllegalArgumentException("Primero crea un objeto");
                 if(event.isEmpty())props.put(key,value);else events.get(event).put(key,value);
             }
+            if (readingDrops) throw new IllegalArgumentException("Falta el símbolo ? para cerrar ¿Que_suelta:");
             if(parent.isEmpty()) throw new IllegalArgumentException("Falta el comando principal, por ejemplo Crear_personaje: (Santiago)");
             String project=activeProjectName();
             String prefix="grafisript_"+parent+"_"+project+"_"+name;
