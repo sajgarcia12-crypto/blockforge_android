@@ -1,8 +1,2 @@
-#include <iostream>
-
-int main() {
-    std::cout << "BlockForge PC - entorno de escritorio en preparacion\\n";
-    std::cout << "Este ejecutable es solo el arranque de la raiz PC; no es aun el editor final.\\n";
-    std::cout << "Siguiente paso: portar el nucleo Grafisript real desde Android y conectar la interfaz.\\n";
-    return 0;
-}
+#include "core/grafisript.hpp"
+int main(int argc,char**argv){using namespace blockforge::grafisript;if(argc<2){std::cout<<"BlockForge PC / Grafisript\nUso: BlockForge_PC.exe proyecto.grafi\n";return 0;}try{std::ifstream f(argv[1],std::ios::binary);if(!f){std::cerr<<"No se pudo abrir el archivo\n";return 2;}std::ostringstream s;s<<f.rdbuf();auto p=std::filesystem::path(argv[1]);Runtime vm(p.parent_path().empty()?".":p.parent_path());vm.ejecutar(s.str());return 0;}catch(const Error&e){std::cerr<<"Error Grafisript línea "<<e.linea<<": "<<e.what()<<'\n';return 1;}}
