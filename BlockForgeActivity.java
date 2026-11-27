@@ -671,7 +671,7 @@ public class BlockForgeActivity extends Activity {
         content.setPadding(18, 18, 18, 24);
         heading("Marketplace", "Busca y descarga recursos públicos sin salir de BlockForge.");
         card("BIBLIOTECA DE SPRITES", "Abre tiendas públicas dentro de esta ventana. Las imágenes compatibles se guardan directamente en la carpeta interna de sprites.");
-        content.addView(uiPrimary("🌐  ABRIR TIENDAS DE SPRITES", () -> showMarketplaceBrowser("https://www.spritecook.ai/es")));
+        content.addView(uiPrimary("🌐  EXPLORAR RECURSOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));\n        content.addView(uiSecondary("🔊  SONIDOS Y MÚSICA", () -> showMarketplaceBrowser("https://opengameart.org/")));\n        content.addView(uiSecondary("📦  PREPARAR UNA PUBLICACIÓN", () -> startMarketplacePublishPicker()));\n        content.addView(uiSecondary("📁  MIS BORRADORES", () -> showMarketplaceDrafts()));
         content.addView(uiSecondary("🎨  SPRITECOOK", () -> showMarketplaceBrowser("https://www.spritecook.ai/es")));
         content.addView(uiSecondary("🧩  KENNEY · ASSETS GRATUITOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));
         content.addView(uiSecondary("🖼️  OPEN GAME ART", () -> showMarketplaceBrowser("https://opengameart.org/")));
@@ -684,7 +684,7 @@ public class BlockForgeActivity extends Activity {
     }
 
     void ensureBlockForgeFolders() {
-        String[] folders = {"sprites", "sprites/paquetes", "resources", "marketplace"};
+        String[] folders = {"sprites", "sprites/paquetes", "sonidos", "resources", "marketplace", "marketplace/publicaciones"};
         for (String path : folders) {
             java.io.File folder = new java.io.File(getFilesDir(), path);
             if (!folder.exists()) folder.mkdirs();
@@ -723,7 +723,7 @@ public class BlockForgeActivity extends Activity {
         }
         tabs.addView(tabRow);
         outer.addView(tabs);
-        TextView hint = label("Descarga desde la página: las imágenes se guardan en sprites y los ZIP en sprites/paquetes.", 11, Color.rgb(190, 205, 220));
+        TextView hint = label("Descarga imágenes, audio y ZIP. Se guardan en las carpetas de BlockForge sin límite artificial de tamaño; el espacio libre del teléfono es el único límite.", 11, Color.rgb(190, 205, 220));
         hint.setPadding(8, 2, 8, 8);
         outer.addView(hint);
         android.webkit.WebView web = new android.webkit.WebView(this);
@@ -805,7 +805,7 @@ public class BlockForgeActivity extends Activity {
                     String ext = "image/png".equalsIgnoreCase(type) ? ".png" : "image/jpeg".equalsIgnoreCase(type) ? ".jpg" : "image/webp".equalsIgnoreCase(type) ? ".webp" : ".img";
                     fileName += ext;
                 }
-                java.io.File folder = new java.io.File(getFilesDir(), zip ? "sprites/paquetes" : "sprites");
+                java.io.File folder = new java.io.File(getFilesDir(), zip ? "sprites/paquetes" : audio ? "sonidos" : "sprites");
                 if (!folder.exists() && !folder.mkdirs()) throw new java.io.IOException("No se pudo crear la carpeta de sprites");
                 String base = fileName;
                 destination = new java.io.File(folder, base);
@@ -828,13 +828,68 @@ public class BlockForgeActivity extends Activity {
                     out.flush();
                 }
                 java.io.File saved = destination;
-                runOnUiThread(() -> Toast.makeText(this, "Guardado: " + saved.getName() + " · " + (saved.getParentFile().getName().equals("paquetes") ? "sprites/paquetes" : "sprites"), Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> { Toast.makeText(this, "Guardado: " + saved.getName() + " · " + saved.getParentFile().getName(), Toast.LENGTH_LONG).show(); checkMarketplaceStorageWarning(); });
             } catch (Exception ex) {
                 if (destination != null && destination.exists()) destination.delete();
                 String message = ex.getMessage() == null ? "No se pudo descargar el recurso" : ex.getMessage();
                 runOnUiThread(() -> Toast.makeText(this, "Descarga no completada: " + message, Toast.LENGTH_LONG).show());
             }
         }, "BlockForge-Marketplace-Download").start();
+    }
+
+
+    void startMarketplacePublishPicker() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(intent, PICK_MARKETPLACE_PUBLISH_REQUEST);
+    }
+
+    void showMarketplaceDrafts() {
+        java.io.File folder = new java.io.File(getFilesDir(), "marketplace/publicaciones");
+        if (!folder.exists()) folder.mkdirs();
+        java.io.File[] files = folder.listFiles();
+        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
+        builder.setTitle("Mis borradores de Marketplace");
+        if (files == null || files.length == 0) {
+            builder.setMessage("Todavía no has preparado ningún recurso para publicar.");
+        } else {
+            String[] names = new String[files.length];
+            for (int i = 0; i < files.length; i++) names[i] = files[i].getName() + " · " + readableBytes(files[i].length());
+            builder.setItems(names, (dialog, which) -> {
+                java.io.File selected = files[which];
+                new android.app.AlertDialog.Builder(this).setTitle(selected.getName())
+                    .setMessage("Borrador local. Aún no es visible para otros usuarios porque falta conectar el servicio de publicación.")
+                    .setPositiveButton("Entendido", null).setNegativeButton("Eliminar", (d, w) -> {
+                        if (selected.delete()) Toast.makeText(this, "Borrador eliminado", Toast.LENGTH_SHORT).show();
+                        showMarketplaceDrafts();
+                    }).show();
+            });
+        }
+        builder.setPositiveButton("Cerrar", null).show();
+    }
+
+    long marketplaceResourceBytes() {
+        long total = 0L;
+        String[] paths = {"sprites", "sonidos", "resources", "marketplace"};
+        for (String path : paths) total += folderBytes(new java.io.File(getFilesDir(), path));
+        return total;
+    }
+
+    void checkMarketplaceStorageWarning() {
+        long used = marketplaceResourceBytes();
+        long fiveGb = 5L * 1024L * 1024L * 1024L;
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        long next = prefs.getLong("marketplace_next_storage_warning", fiveGb);
+        if (used < next) return;
+        long nextAfter = ((used / fiveGb) + 1L) * fiveGb;
+        prefs.edit().putLong("marketplace_next_storage_warning", nextAfter).apply();
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("BlockForge ocupa " + readableBytes(used))
+            .setMessage("Tus recursos descargados superan " + (next / fiveGb) * 5L + " GB. ¿Quieres revisar tus archivos y borrar algunos? No se eliminará nada automáticamente.")
+            .setPositiveButton("Sí, revisar", (dialog, which) -> showStorageManager(getFilesDir()))
+            .setNegativeButton("No, después", (dialog, which) -> { })
+            .show();
     }
 
     void openResourceUrl(String url) {
@@ -4248,7 +4303,7 @@ public class BlockForgeActivity extends Activity {
     static final int PICK_SPRITE_REQUEST = 7422;
     static final int PICK_ANIMATION_FRAME_REQUEST = 7423;
     static final int EXPORT_2D_SCENE_REQUEST = 7424;
-    static final int IMPORT_2D_SCENE_REQUEST = 7425;
+    static final int IMPORT_2D_SCENE_REQUEST = 7425;\n    static final int PICK_MARKETPLACE_PUBLISH_REQUEST = 7426;
 
     void resources() {
         heading("Biblioteca de recursos",
@@ -4277,6 +4332,16 @@ public class BlockForgeActivity extends Activity {
                                     android.content.Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == PICK_MARKETPLACE_PUBLISH_REQUEST) {
+            try {
+                String name = copyUriToFolder(data.getData(), "marketplace/publicaciones", "recurso");
+                Toast.makeText(this, "Borrador guardado: " + name + ". Para publicarlo para todos hace falta conectar el servidor del Marketplace.", Toast.LENGTH_LONG).show();
+                openPage(6);
+            } catch (Exception ex) {
+                Toast.makeText(this, "No se pudo preparar la publicación: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (requestCode == EXPORT_2D_SCENE_REQUEST) {
             try { writeSceneJson(data.getData()); Toast.makeText(this,"Nivel 2D exportado",Toast.LENGTH_LONG).show(); }
             catch(Exception ex){Toast.makeText(this,"Error al exportar: "+ex.getMessage(),Toast.LENGTH_LONG).show();}
