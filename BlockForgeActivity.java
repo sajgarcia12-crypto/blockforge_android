@@ -1826,8 +1826,11 @@ public class BlockForgeActivity extends Activity {
         return previous[b.length()];
     }
 
+    int grafisriptInstructionBudget = 0;
+
     void runGrafisript() {
         if (codeEditor == null || runtimeOutput == null) return;
+        grafisriptInstructionBudget = 0;
         String originalScript=codeEditor.getText().toString();
         boolean autocorrect=getPreferences(MODE_PRIVATE).getBoolean("grafisript_autocorrect",false);
         GrafisriptCorrection correction=correctGrafisriptScript(originalScript);
@@ -1871,6 +1874,10 @@ public class BlockForgeActivity extends Activity {
             int lineNumber = cursor[0] + 1;
             String line = lines[cursor[0]++].trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
+            if (++grafisriptInstructionBudget > 10000) {
+                output.append("Límite de seguridad: máximo 10000 instrucciones por ejecución.\\n");
+                return executed;
+            }
             if (line.equals("}") || line.equals("fin")) return executed;
 
             if (line.startsWith("funcion ") && line.endsWith("{")) {
@@ -2214,6 +2221,8 @@ public class BlockForgeActivity extends Activity {
                     (Character.isLetterOrDigit(source.charAt(position)) || source.charAt(position) == '_')) position++;
             if (position == begin) throw new IllegalArgumentException("se esperaba un número o variable");
             String name = source.substring(begin, position);
+            if ("pi".equalsIgnoreCase(name)) return Math.PI;
+            if ("e".equalsIgnoreCase(name)) return Math.E;
             skipSpaces();
             if(take('(')){
                 java.util.ArrayList<Double> args=new java.util.ArrayList<>();
@@ -2237,7 +2246,13 @@ public class BlockForgeActivity extends Activity {
             if("floor".equals(n)||"piso".equals(n)){requireArgs(n,a,1);return Math.floor(a.get(0));}
             if("ceil".equals(n)||"techo".equals(n)){requireArgs(n,a,1);return Math.ceil(a.get(0));}
             if("round".equals(n)||"redondear".equals(n)){requireArgs(n,a,1);return Math.round(a.get(0));}
-            if("min".equals(n)||"max".equals(n)){requireArgs(n,a,2);return "min".equals(n)?Math.min(a.get(0),a.get(1)):Math.max(a.get(0),a.get(1));}
+            if("min".equals(n)||"max".equals(n)){if(a.size()<2)throw new IllegalArgumentException(n+" necesita al menos 2 argumentos");double v=a.get(0);for(int i=1;i<a.size();i++)v="min".equals(n)?Math.min(v,a.get(i)):Math.max(v,a.get(i));return v;}
+            if("pow".equals(n)||"potencia".equals(n)){requireArgs(n,a,2);return Math.pow(a.get(0),a.get(1));}
+            if("clamp".equals(n)||"limitar".equals(n)){requireArgs(n,a,3);return Math.max(Math.min(a.get(1),a.get(2)),Math.min(a.get(0),Math.max(a.get(1),a.get(2))));}
+            if("lerp".equals(n)||"interpolar".equals(n)){requireArgs(n,a,3);return a.get(0)+(a.get(1)-a.get(0))*Math.max(0d,Math.min(1d,a.get(2)));}
+            if("log".equals(n)){requireArgs(n,a,1);if(a.get(0)<=0)throw new IllegalArgumentException("log necesita un número positivo");return Math.log(a.get(0));}
+            if("exp".equals(n)){requireArgs(n,a,1);return Math.exp(a.get(0));}
+            if("sign".equals(n)||"signo".equals(n)){requireArgs(n,a,1);return Math.signum(a.get(0));}
             throw new IllegalArgumentException("función matemática desconocida: "+name);
         }
         void requireArgs(String name,java.util.ArrayList<Double> args,int count){
@@ -3341,6 +3356,7 @@ public class BlockForgeActivity extends Activity {
         void physicsStep(float dt) {
             SceneSprite activePlayer=findPlayerSprite();
             int quality=activePlayer==null?80:Math.min(activePlayer.fallQuality,activePlayer.jumpQuality);
+            for(SceneSprite liquid:sprites) if(liquid.liquidSurface) quality=Math.max(quality,liquid.liquidRealism);
             int substeps=quality>=90?3:(quality>=50?2:1);
             for(SceneSprite liquid:sprites) if(liquid.liquidSurface){float flow=Math.max(0f,Math.min(100f,liquid.liquidFlow))/100f;liquid.liquidWavePhase+=dt*(1f+flow*5f);liquid.liquidSplash=Math.max(0f,liquid.liquidSplash-dt*1.8f);}
             float subDt=dt/substeps;
