@@ -1580,7 +1580,7 @@ public class BlockForgeActivity extends Activity {
         content.addView(runtimeOutput);
 
         content.addView(button("GUARDAR SCRIPT", () -> {
-            saveCurrentScript();
+            saveCurrentScript(true);
             Toast.makeText(this, "Script guardado en este dispositivo",
                     Toast.LENGTH_SHORT).show();
         }));
@@ -1718,12 +1718,15 @@ public class BlockForgeActivity extends Activity {
             .show();
     }
 
-    void saveCurrentScript() {
+    void saveCurrentScript() { saveCurrentScript(false); }
+
+    void saveCurrentScript(boolean review) {
         if (codeEditor == null) return;
         String project = codeEditorProjectName != null ? codeEditorProjectName : activeProjectName();
         String script=codeEditor.getText().toString();
         getPreferences(MODE_PRIVATE).edit()
                 .putString("grafisript_" + project,script).apply();
+        if (!review) return;
         java.util.ArrayList<String> problems=validateGrafisript(script);
         if(problems.isEmpty()){
             Toast.makeText(this,"Script guardado. No se detectaron errores comunes.",Toast.LENGTH_LONG).show();
