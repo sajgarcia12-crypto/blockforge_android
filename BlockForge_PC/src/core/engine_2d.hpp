@@ -38,8 +38,29 @@ public:
  const std::string& objetivo_camara()const{return objetivoCamara;}
  bool colisionan(const Objeto&a,const Objeto&b)const{return a.visible&&b.visible&&a.posicion.x<b.posicion.x+b.tamano.x&&a.posicion.x+a.tamano.x>b.posicion.x&&a.posicion.y<b.posicion.y+b.tamano.y&&a.posicion.y+a.tamano.y>b.posicion.y;}
  std::vector<Colision> detectar_colisiones()const{std::vector<Colision> r;for(size_t i=0;i<objetos.size();++i)for(size_t j=i+1;j<objetos.size();++j)if(objetos[i].solido&&objetos[j].solido&&colisionan(objetos[i],objetos[j]))r.push_back({objetos[i].nombre,objetos[j].nombre});return r;}
- void paso(double dt){dt=std::clamp(dt,0.0,0.05);for(auto&o:objetos)if(o.visible&&o.fisica){o.velocidad.y+=gravedad*dt;o.posicion.x+=o.velocidad.x*dt;o.posicion.y+=o.velocidad.y*dt;}
-  for(auto&o:objetos)if(o.visible&&o.fisica)for(const auto&p:objetos)if(&o!=&p&&p.visible&&p.solido&&o.solido&&colisionan(o,p)){double prevBottom=o.posicion.y+o.tamano.y-o.velocidad.y*dt;if(o.velocidad.y>=0&&prevBottom<=p.posicion.y+2){o.posicion.y=p.posicion.y-o.tamano.y;o.velocidad.y=0;}}
+ void paso(double dt){
+  dt=std::clamp(dt,0.0,0.05);
+  for(auto&o:objetos){
+   if(!o.visible||!o.fisica)continue;
+   o.velocidad.y+=gravedad*dt;
+   const double oldX=o.posicion.x,oldY=o.posicion.y;
+   o.posicion.x+=o.velocidad.x*dt;
+   for(const auto&p:objetos){
+    if(&o==&p||!p.visible||!p.solido||!o.solido)continue;
+    const bool vertical=o.posicion.y<p.posicion.y+p.tamano.y&&o.posicion.y+o.tamano.y>p.posicion.y;
+    if(!vertical)continue;
+    if(o.velocidad.x>0&&oldX+o.tamano.x<=p.posicion.x+1&&o.posicion.x+o.tamano.x>p.posicion.x){o.posicion.x=p.posicion.x-o.tamano.x;o.velocidad.x=0;}
+    else if(o.velocidad.x<0&&oldX>=p.posicion.x+p.tamano.x-1&&o.posicion.x<p.posicion.x+p.tamano.x){o.posicion.x=p.posicion.x+p.tamano.x;o.velocidad.x=0;}
+   }
+   o.posicion.y+=o.velocidad.y*dt;
+   for(const auto&p:objetos){
+    if(&o==&p||!p.visible||!p.solido||!o.solido)continue;
+    const bool horizontal=o.posicion.x<p.posicion.x+p.tamano.x&&o.posicion.x+o.tamano.x>p.posicion.x;
+    if(!horizontal)continue;
+    if(o.velocidad.y>0&&oldY+o.tamano.y<=p.posicion.y+1&&o.posicion.y+o.tamano.y>p.posicion.y){o.posicion.y=p.posicion.y-o.tamano.y;o.velocidad.y=0;}
+    else if(o.velocidad.y<0&&oldY>=p.posicion.y+p.tamano.y-1&&o.posicion.y<p.posicion.y+p.tamano.y){o.posicion.y=p.posicion.y+p.tamano.y;o.velocidad.y=0;}
+   }
+  }
   if(!objetivoCamara.empty())if(auto*p=buscar(objetivoCamara))camara={p->posicion.x+p->tamano.x/2,p->posicion.y+p->tamano.y/2};
  }
 private:
