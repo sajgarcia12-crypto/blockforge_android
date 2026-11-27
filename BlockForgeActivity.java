@@ -2696,7 +2696,7 @@ public class BlockForgeActivity extends Activity {
                 else if(mode.equals("centro")||mode.equals("centrado")) target.setCameraFollowMode(2);
                 else if(mode.equals("libre")||mode.equals("desactivado")) target.setCameraFollowMode(0);
                 else throw new IllegalArgumentException("Usa camara.seguir_jugador(adelante), (centro) o (libre)");
-                output.append("Seguimiento de cámara: ").append(mode).append('\\n');return true;
+                output.append("Seguimiento de cámara: ").append(mode).append('\n');return true;
             }
             if (line.startsWith("camara.zoom(") && line.endsWith(")")) {
                 float factor=Float.parseFloat(line.substring(12,line.length()-1).trim());
