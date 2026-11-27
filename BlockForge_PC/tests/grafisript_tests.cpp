@@ -40,4 +40,16 @@ Camara seguir Jugador
  assert(m.buscar("Jugador")->color.r==0x33&&m.buscar("Jugador")->color.g==0xAA);
  assert(m.objetivo_camara()=="Jugador");
  assert(m.detectar_colisiones().size()==1);
+ blockforge::dosd::Mundo fisica;
+ fisica.crear("Jugador");
+ fisica.crear("Piso");
+ fisica.posicion("Jugador",0,0);
+ fisica.tamano("Jugador",10,10);
+ fisica.activar_fisica("Jugador");
+ fisica.posicion("Piso",-100,20);
+ fisica.tamano("Piso",200,10);
+ fisica.activar_solido("Piso");
+ for(int i=0;i<60;++i)fisica.paso(1.0/60.0);
+ assert(fisica.buscar("Jugador")->posicion.y==10);
+ assert(fisica.buscar("Jugador")->velocidad.y==0);
 }
