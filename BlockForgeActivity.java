@@ -2281,7 +2281,6 @@ public class BlockForgeActivity extends Activity {
             org.json.JSONObject all = new org.json.JSONObject(raw);
             org.json.JSONObject actions = all.optJSONObject(eventName.toLowerCase(java.util.Locale.ROOT));
             if (actions == null) return;
-            android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
             android.content.SharedPreferences.Editor edit = prefs.edit();
             for (java.util.Iterator<String> it = actions.keys(); it.hasNext();) {
                 String key = it.next().toLowerCase(java.util.Locale.ROOT);
