@@ -934,25 +934,25 @@ public class BlockForgeActivity extends Activity {
         codeEditorProjectName = project;
         codeEditor.setText(getPreferences(MODE_PRIVATE).getString(
             "grafisript_" + project,
-            "# Demo de El Grafisript · variables, condiciones y bucles\n"+
-            "crear_mundo \"Mi mundo\"\n"+
-            "variable puntos = 2 + 3\n"+
-            "si puntos > 3 {\n"+
-            "    mostrar_mensaje \"¡Ganaste!\"\n"+
-            "} sino {\n"+
-            "    mostrar_mensaje \"Sigue intentando\"\n"+
-            "}\n"+
-            "repetir 3 {\n"+
-            "    crear_bloque piedra 1 0 1\n"+
-            "}\n"+
-            "crear_personaje Jugador\n"+
-            "jugador.mover(2, 1)\n"+
-            "mostrar_mensaje \"¡Jugador listo!\"\n"+
-            "funcion saludar {\n"+
-            "    mostrar_mensaje \"Hola desde una función\"\n"+
-            "}\n"+
-            "llamar saludar\n"+
-            "ver_bloques\n"
+            "# Grafisript · ejemplo general en español\\n"+
+            "Crear variable Nombre = \\"Ari\\"\\n"+
+            "Crear variable Puntos = 2 + 3\\n"+
+            "Poner_texto: (\\"Hola, {Nombre}\\")\\n"+
+            "Si Puntos > 3 {\\n"+
+            "    Poner_texto: (\\"Puntos: {Puntos} · ¡Muy bien!\\")\\n"+
+            "} Sino {\\n"+
+            "    Poner_texto: (\\"Sigue intentando\\")\\n"+
+            "}\\n"+
+            "Crear lista Inventario = [\\"Llave\\", \\"Mapa\\"]\\n"+
+            "Añadir \\"Poción\\" a Inventario\\n"+
+            "Mostrar Inventario\\n"+
+            "Repetir 2 {\\n"+
+            "    Poner_texto: (\\"Una acción repetida\\")\\n"+
+            "}\\n"+
+            "Funcion Saludar {\\n"+
+            "    Poner_texto: (\\"¡Hola desde una función!\\")\\n"+
+            "}\\n"+
+            "Llamar Saludar\\n"
         ));
 
         content.addView(button("＋ CREAR CÓDIGO", () -> showGrafisriptCreator()));
@@ -977,19 +977,22 @@ public class BlockForgeActivity extends Activity {
 
         content.addView(button("▶ EJECUTAR", () -> runGrafisript()));
 
-        card("Sintaxis del lenguaje",
-                "variable puntos = 2 + 3\n"+
-                "si puntos > 3 {\n"+
-                "    mostrar_mensaje \"Ganaste: ${puntos}\"\n"+
-                "} sino {\n"+
-                "    mostrar_mensaje \"Sigue intentando\"\n"+
-                "}\n"+
-                "repetir 3 {\n"+
-                "    crear_bloque piedra 1 0 1\n"+
-                "}\n"+
-                "crear_personaje Jugador\n"+
-                "jugador.mover(2, 1)\n"+
-                "mostrar_mensaje \"Listo\"");
+        card("Sintaxis fácil · programación general",
+                "Crear variable Nombre = \\"Ari\\"\\n"+
+                "Poner_texto: (\\"Hola, {Nombre}\\")\\n"+
+                "Si Edad >= 18 {\\n"+
+                "    Mostrar \\"Acceso permitido\\"\\n"+
+                "} Sino {\\n"+
+                "    Mostrar \\"Acceso restringido\\"\\n"+
+                "}\\n"+
+                "Crear lista Tareas = [\\"Estudiar\\", \\"Crear\\"]\\n"+
+                "Añadir \\"Probar\\" a Tareas\\n"+
+                "Repetir 3 {\\n"+
+                "    Mostrar \\"¡Hola!\\"\\n"+
+                "}\\n"+
+                "Mientras Puntos > 0 {\\n"+
+                "    Restar 1 a Puntos\\n"+
+                "}");
     }
 
     void showGrafisriptCreator() {
@@ -1300,7 +1303,7 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
             if (line.startsWith("sumar ") || line.startsWith("restar ")) {
-                boolean add = line.startsWith("sumar "); String[] parts = line.split("\\\\s+", 3);
+                boolean add = line.startsWith("sumar "); String[] parts = line.split("\\s+", 3);
                 if (parts.length == 3) {
                     try { String name = parts[1]; double current = variables.containsKey(name) ? variables.get(name) : 0.0;
                         double amount = evaluateGrafisriptExpression(parts[2], variables); double result = add ? current + amount : current - amount;
