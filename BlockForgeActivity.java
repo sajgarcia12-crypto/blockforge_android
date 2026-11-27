@@ -4637,15 +4637,25 @@ public class BlockForgeActivity extends Activity {
 
     void applySpriteEditorImmersive(android.view.Window window) {
         if (window == null) return;
-        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        window.getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+        window.setStatusBarColor(Color.BLACK);
+        window.setNavigationBarColor(Color.BLACK);
+        View decor = window.getDecorView();
+        int immersiveFlags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 | View.SYSTEM_UI_FLAG_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                 | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+        decor.setSystemUiVisibility(immersiveFlags);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.view.WindowInsetsController controller = decor.getWindowInsetsController();
+            if (controller != null) {
+                controller.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.hide(android.view.WindowInsets.Type.statusBars() | android.view.WindowInsets.Type.navigationBars());
+            }
+        }
     }
 
     void openSpritePixelEditor() {
@@ -4777,14 +4787,23 @@ public class BlockForgeActivity extends Activity {
             if (window != null) {
                 window.setBackgroundDrawableResource(android.R.color.black);
                 window.setLayout(-1, -1);
+                window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
                 applySpriteEditorImmersive(window);
-                window.getDecorView().setOnSystemUiVisibilityChangeListener(visibility -> applySpriteEditorImmersive(window));
+                window.getDecorView().setOnSystemUiVisibilityChangeListener(visibility -> {
+                    if ((visibility & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0
+                            || (visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                        applySpriteEditorImmersive(window);
+                    }
+                });
+                window.getDecorView().post(() -> applySpriteEditorImmersive(window));
             }
         });
         dialog.show();
         if (dialog.getWindow() != null) {
             dialog.getWindow().setLayout(-1, -1);
             applySpriteEditorImmersive(dialog.getWindow());
+            dialog.getWindow().getDecorView().requestFocus();
+            dialog.getWindow().getDecorView().post(() -> applySpriteEditorImmersive(dialog.getWindow()));
         }
     }
 
