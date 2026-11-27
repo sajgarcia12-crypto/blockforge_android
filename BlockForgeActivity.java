@@ -2527,11 +2527,11 @@ public class BlockForgeActivity extends Activity {
                     if(k.equals("vida")||k.equals("salud"))ed.putInt("character_health_"+project,Integer.parseInt(v));
                     if(k.equals("velocidad"))ed.putFloat("character_speed_"+project,Float.parseFloat(v)*10f);
                     if(k.equals("que_tan_rapido_cae")||k.equals("velocidad_de_caida"))ed.putFloat("character_fall_speed_"+project,Float.parseFloat(v)*10f);
-                    if(k.equals("fisica"))ed.putBoolean("character_physics_"+project,"si".equalsIgnoreCase(v)||"true".equalsIgnoreCase(v)||"1".equals(v));
-                    if(k.equals("caida"))ed.putFloat("character_gravity_scale_"+project,Math.max(0f,Math.min(10f,Float.parseFloat(v))));
-                    if(k.equals("salto"))ed.putFloat("character_jump_scale_"+project,Math.max(0f,Math.min(10f,Float.parseFloat(v))));
-                    if(k.equals("fluides_de_caida"))ed.putInt("character_fall_quality_"+project,Math.max(0,Math.min(100,Integer.parseInt(v.trim().replace("%","")))));
-                    if(k.equals("fluides_de_salto"))ed.putInt("character_jump_quality_"+project,Math.max(0,Math.min(100,Integer.parseInt(v.trim().replace("%","")))));
+                    if(k.equals("fisica")){boolean enabled="si".equalsIgnoreCase(v)||"true".equalsIgnoreCase(v)||"1".equals(v);ed.putBoolean("character_physics_"+project,enabled).putBoolean("character_physics_"+project+"_"+name,enabled);}
+                    if(k.equals("caida")){float value=Math.max(0f,Math.min(10f,Float.parseFloat(v)));ed.putFloat("character_gravity_scale_"+project,value).putFloat("character_gravity_scale_"+project+"_"+name,value);}
+                    if(k.equals("salto")){float value=Math.max(0f,Math.min(10f,Float.parseFloat(v)));ed.putFloat("character_jump_scale_"+project,value).putFloat("character_jump_scale_"+project+"_"+name,value);}
+                    if(k.equals("fluides_de_caida")){int value=Math.max(0,Math.min(100,Integer.parseInt(v.trim().replace("%",""))));ed.putInt("character_fall_quality_"+project,value).putInt("character_fall_quality_"+project+"_"+name,value);}
+                    if(k.equals("fluides_de_salto")){int value=Math.max(0,Math.min(100,Integer.parseInt(v.trim().replace("%",""))));ed.putInt("character_jump_quality_"+project,value).putInt("character_jump_quality_"+project+"_"+name,value);}
                     ed.putString("character_name_"+project,name);
                 } else if(parent.equals("enemigo")&&(k.equals("daño")||k.equals("dano")||k.equals("danio"))) {
                     ed.putInt("enemy_damage_"+project,Integer.parseInt(v)).putString("enemy_name_"+project,name);
