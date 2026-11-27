@@ -458,7 +458,10 @@ public class BlockForgeActivity extends Activity {
     }
 
     void saveProjectFile(String relativePath,String value) {
-        saveProjectTextFile(activeProjectName(),relativePath,value);
+        String project=activeProjectName();
+        saveProjectTextFile(project,relativePath,value);
+        if("scripts/main.bf".equals(relativePath))
+            saveProjectTextFile(project,"scripts/main.txt",value);
     }
 
     void copyProjectAsset(String sourceFolder,String fileName,String targetFolder) {
