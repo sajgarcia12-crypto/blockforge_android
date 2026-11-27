@@ -2119,9 +2119,9 @@ public class BlockForgeActivity extends Activity {
     boolean evaluateGrafisriptCondition(String condition, java.util.Map<String, Double> variables) {
         String c=condition.trim();
         int split=findGrafisriptLogicalOperator(c," o "," OR ");
-        if(split>=0)return evaluateGrafisriptCondition(c.substring(0,split),variables)||evaluateGrafisriptCondition(c.substring(split+3),variables);
+        if(split>=0){int width=c.startsWith(" o ",split)?3:4;return evaluateGrafisriptCondition(c.substring(0,split),variables)||evaluateGrafisriptCondition(c.substring(split+width),variables);}
         split=findGrafisriptLogicalOperator(c," y "," AND ");
-        if(split>=0)return evaluateGrafisriptCondition(c.substring(0,split),variables)&&evaluateGrafisriptCondition(c.substring(split+3),variables);
+        if(split>=0){int width=c.startsWith(" y ",split)?3:5;return evaluateGrafisriptCondition(c.substring(0,split),variables)&&evaluateGrafisriptCondition(c.substring(split+width),variables);}
         if(c.startsWith("no "))return !evaluateGrafisriptCondition(c.substring(3),variables);
         if(c.startsWith("not "))return !evaluateGrafisriptCondition(c.substring(4),variables);
         String[] operators = {">=", "<=", "==", "!=", ">", "<"};
@@ -3372,9 +3372,11 @@ public class BlockForgeActivity extends Activity {
                     float viscosity=Math.max(0f,Math.min(100f,touchingLiquid.liquidViscosity))/100f;
                     float flow=Math.max(0f,Math.min(100f,touchingLiquid.liquidFlow))/100f;
                     float density=Math.max(0f,Math.min(500f,touchingLiquid.liquidDensity))/100f;
+                    float bodyDensity=Math.max(0.05f,sprite.mass/Math.max(0.1f,sprite.width*sprite.height));
+                    float buoyancy=Math.max(0f,Math.min(0.85f,(density/bodyDensity)*0.25f));
                     sprite.vx*=Math.max(0.2f,1f-(0.10f+viscosity*0.45f)*dt*10f);
                     sprite.vy*=Math.max(0.15f,1f-(0.25f+viscosity*0.55f)*dt*10f);
-                    if(sprite.physicsEnabled)sprite.vy-=physicsGravity*Math.min(0.85f,density*0.35f)*(0.5f+flow*0.5f)*dt;
+                    if(sprite.physicsEnabled)sprite.vy-=physicsGravity*buoyancy*(0.5f+flow*0.5f)*dt;
                     if(touchingLiquid.liquidDamagePerSecond>0f){touchingLiquid.liquidDamageRemainder+=touchingLiquid.liquidDamagePerSecond*dt;int liquidDamage=(int)touchingLiquid.liquidDamageRemainder;if(liquidDamage>0){touchingLiquid.liquidDamageRemainder-=liquidDamage;applyGrafisriptCharacterDamage(liquidDamage);}}
                 }
 
