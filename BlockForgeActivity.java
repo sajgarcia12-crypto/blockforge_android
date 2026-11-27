@@ -2681,7 +2681,7 @@ public class BlockForgeActivity extends Activity {
                 target.persistSprites();physicsRunning=true;if(scenePreview!=null)scenePreview.startPhysics();output.append("Salto 2D iniciado\n");return true;
             }
             if (line.startsWith("camara.seguir_jugador(") && line.endsWith(")")) {
-                String mode=line.substring(21,line.length()-1).trim().replace("\\\"","").replace("'","").toLowerCase(java.util.Locale.ROOT);
+                String mode=line.substring(22,line.length()-1).trim().replace("\\\"","").replace("'","").toLowerCase(java.util.Locale.ROOT);
                 if(mode.equals("adelante")||mode.equals("anticipada")) target.setCameraFollowMode(1);
                 else if(mode.equals("centro")||mode.equals("centrado")) target.setCameraFollowMode(2);
                 else if(mode.equals("libre")||mode.equals("desactivado")) target.setCameraFollowMode(0);
