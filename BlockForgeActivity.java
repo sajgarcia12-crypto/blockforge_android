@@ -1685,7 +1685,7 @@ public class BlockForgeActivity extends Activity {
             StringBuilder out=new StringBuilder();
             for(int p=0;p<codeEnd;){
                 char ch=line.charAt(p);
-                if((ch=='"' || ch=='\\'') && (!quoted || ch==quote)){
+                if((ch=='"' || ch=='\'') && (!quoted || ch==quote)){
                     quoted=!quoted; quote=quoted?ch:0; out.append(ch); p++; continue;
                 }
                 if(!quoted && (Character.isLetter(ch)||ch=='_')){
