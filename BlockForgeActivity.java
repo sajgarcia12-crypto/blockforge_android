@@ -65,6 +65,7 @@ public class BlockForgeActivity extends Activity {
         physicsGravity=getPreferences(MODE_PRIVATE).getFloat("physics_gravity",24f);
         physicsBounce=getPreferences(MODE_PRIVATE).getFloat("physics_bounce",0.15f);
         sceneCollisionsEnabled=getPreferences(MODE_PRIVATE).getBoolean("scene_collisions",true);
+        ensureBlockForgeFolders();
         buildInterface();
         home();
         ensureOriginalSoundPackInstalled();
@@ -668,22 +669,172 @@ public class BlockForgeActivity extends Activity {
     void marketplace() {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(18, 18, 18, 24);
-        heading("Marketplace", "Biblioteca de recursos para crear tus juegos.");
-        card("SPRITES Y PIXEL ART", "Personajes, enemigos, espadas, monedas, objetos, animaciones y tilesets. Descarga el recurso y luego impórtalo desde Recursos o desde el editor 2D.");
-        content.addView(uiPrimary("🎨  SPRITECOOK · CREAR Y DESCARGAR", () -> openResourceUrl("https://www.spritecook.ai/es")));
-        content.addView(uiSecondary("KENNEY · ASSETS GRATUITOS", () -> openResourceUrl("https://kenney.nl/assets")));
-        content.addView(uiSecondary("OPEN GAME ART · SPRITES Y TEXTURAS", () -> openResourceUrl("https://opengameart.org/")));
-        content.addView(uiSecondary("ITCH.IO · GAME ASSETS", () -> openResourceUrl("https://itch.io/game-assets")));
-        content.addView(uiSecondary("CRAFTPPIX · PIXEL ART", () -> openResourceUrl("https://craftpix.net/freebies/")));
-        uiSection("CATEGORÍAS", "RECURSOS PARA TU PROYECTO");
-        card("🧍 PERSONAJES Y ENEMIGOS", "Sprites individuales, hojas de animación y personajes para plataformas, RPG y aventuras.");
-        card("⚔️ ARMAS Y OBJETOS", "Espadas, escudos, pociones, monedas, cofres y objetos coleccionables.");
-        card("🌄 FONDOS Y ESCENARIOS", "Fondos PNG/JPG, parallax, tilesets, suelos, paredes y plataformas.");
-        card("✨ EFECTOS Y UI", "Explosiones, partículas, iconos, botones y elementos de interfaz.");
-        card("Cómo instalar un recurso", "1. Abre una biblioteca.  2. Descarga el archivo PNG o ZIP.  3. Vuelve a BlockForge y entra en Recursos → Importar, o usa Añadir Sprite en el editor 2D.  4. Selecciona el archivo descargado.");
-        card("Licencias", "Cada página tiene sus propias licencias. Revisa si permite uso comercial, modificaciones y redistribución antes de publicar tu juego. BlockForge no descarga ni incluye automáticamente archivos de terceros.");
-        content.addView(uiPrimary("＋  IMPORTAR UN SPRITE O FONDO", () -> openSpriteDrawer()));
+        heading("Marketplace", "Busca y descarga recursos públicos sin salir de BlockForge.");
+        card("BIBLIOTECA DE SPRITES", "Abre tiendas públicas dentro de esta ventana. Las imágenes compatibles se guardan directamente en la carpeta interna de sprites.");
+        content.addView(uiPrimary("🌐  ABRIR TIENDAS DE SPRITES", () -> showMarketplaceBrowser("https://www.spritecook.ai/es")));
+        content.addView(uiSecondary("🎨  SPRITECOOK", () -> showMarketplaceBrowser("https://www.spritecook.ai/es")));
+        content.addView(uiSecondary("🧩  KENNEY · ASSETS GRATUITOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));
+        content.addView(uiSecondary("🖼️  OPEN GAME ART", () -> showMarketplaceBrowser("https://opengameart.org/")));
+        content.addView(uiSecondary("🎮  ITCH.IO · GAME ASSETS", () -> showMarketplaceBrowser("https://itch.io/game-assets")));
+        content.addView(uiSecondary("✏️  CRAFTPIX · PIXEL ART", () -> showMarketplaceBrowser("https://craftpix.net/freebies/")));
+        card("DÓNDE SE GUARDAN", "Imágenes: carpeta sprites. Paquetes ZIP: carpeta sprites/paquetes. Después puedes elegir las imágenes desde el editor 2D o Recursos.");
+        card("LICENCIAS", "Cada biblioteca tiene sus propias condiciones. Comprueba la licencia de cada recurso antes de usarlo o distribuir tu juego.");
+        content.addView(uiPrimary("＋  IMPORTAR DESDE MIS ARCHIVOS", () -> openSpriteDrawer()));
         content.addView(uiSecondary("←  VOLVER A PROYECTOS", () -> openPage(0)));
+    }
+
+    void ensureBlockForgeFolders() {
+        String[] folders = {"sprites", "sprites/paquetes", "resources", "marketplace"};
+        for (String path : folders) {
+            java.io.File folder = new java.io.File(getFilesDir(), path);
+            if (!folder.exists()) folder.mkdirs();
+        }
+    }
+
+    void showMarketplaceBrowser(String initialUrl) {
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        LinearLayout outer = vertical();
+        outer.setPadding(10, 10, 10, 10);
+        outer.setBackgroundColor(Color.rgb(17, 25, 39));
+        TextView title = label("MARKETPLACE · TIENDAS PÚBLICAS", 16, Color.WHITE);
+        title.setPadding(8, 8, 8, 10);
+        outer.addView(title);
+        HorizontalScrollView tabs = new HorizontalScrollView(this);
+        tabs.setHorizontalScrollBarEnabled(false);
+        LinearLayout tabRow = new LinearLayout(this);
+        tabRow.setOrientation(LinearLayout.HORIZONTAL);
+        String[][] stores = {
+            {"SpriteCook", "https://www.spritecook.ai/es"},
+            {"Kenney", "https://kenney.nl/assets"},
+            {"OpenGameArt", "https://opengameart.org/"},
+            {"itch.io", "https://itch.io/game-assets"},
+            {"Craftpix", "https://craftpix.net/freebies/"}
+        };
+        final android.webkit.WebView[] activeWeb = new android.webkit.WebView[1];
+        for (String[] store : stores) {
+            TextView tab = label(store[0], 13, Color.WHITE);
+            tab.setGravity(Gravity.CENTER);
+            tab.setPadding(14, 11, 14, 11);
+            tab.setBackground(shape(Color.rgb(48, 91, 145)));
+            LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-2, -2);
+            tp.setMargins(3, 2, 3, 7);
+            tabRow.addView(tab, tp);
+            tab.setOnClickListener(v -> { if (activeWeb[0] != null) activeWeb[0].loadUrl(store[1]); });
+        }
+        tabs.addView(tabRow);
+        outer.addView(tabs);
+        TextView hint = label("Descarga desde la página: las imágenes se guardan en sprites y los ZIP en sprites/paquetes.", 11, Color.rgb(190, 205, 220));
+        hint.setPadding(8, 2, 8, 8);
+        outer.addView(hint);
+        android.webkit.WebView web = new android.webkit.WebView(this);
+        activeWeb[0] = web;
+        android.webkit.WebSettings settings = web.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(true);
+        settings.setSupportMultipleWindows(false);
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            settings.setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+            android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
+        }
+        web.setWebViewClient(new android.webkit.WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(android.webkit.WebView view, String url) {
+                return url == null || !(url.startsWith("https://") || url.startsWith("http://"));
+            }
+        });
+        web.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) ->
+            downloadMarketplaceAsset(url, userAgent, contentDisposition, mimeType));
+        outer.addView(web, new LinearLayout.LayoutParams(-1, 0, 1f));
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        TextView back = label("←", 20, Color.WHITE);
+        back.setGravity(Gravity.CENTER);
+        back.setPadding(20, 10, 20, 10);
+        back.setOnClickListener(v -> { if (web.canGoBack()) web.goBack(); });
+        actions.addView(back);
+        TextView close = label("CERRAR", 13, Color.WHITE);
+        close.setGravity(Gravity.CENTER);
+        close.setPadding(18, 12, 18, 12);
+        close.setOnClickListener(v -> dialog.dismiss());
+        actions.addView(close);
+        outer.addView(actions);
+        dialog.setContentView(outer);
+        dialog.show();
+        if (dialog.getWindow() != null) dialog.getWindow().setLayout((int)(getResources().getDisplayMetrics().widthPixels * 0.96f), (int)(getResources().getDisplayMetrics().heightPixels * 0.94f));
+        dialog.setOnDismissListener(d -> { web.stopLoading(); web.destroy(); });
+        web.loadUrl(initialUrl);
+    }
+
+    void downloadMarketplaceAsset(String url, String userAgent, String contentDisposition, String mimeType) {
+        if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) {
+            Toast.makeText(this, "Enlace de descarga no compatible", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "Descargando recurso…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            java.io.File destination = null;
+            try {
+                java.net.URL target = new java.net.URL(url);
+                java.net.URLConnection connection = target.openConnection();
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(25000);
+                if (userAgent != null) connection.setRequestProperty("User-Agent", userAgent);
+                String cookies = android.webkit.CookieManager.getInstance().getCookie(url);
+                if (cookies != null) connection.setRequestProperty("Cookie", cookies);
+                String disposition = contentDisposition;
+                if (disposition == null) disposition = connection.getHeaderField("Content-Disposition");
+                String fileName = null;
+                if (disposition != null) {
+                    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("filename\\*=UTF-8''([^;]+)|filename=\\\"?([^\\\";]+)").matcher(disposition);
+                    if (matcher.find()) fileName = matcher.group(1) != null ? java.net.URLDecoder.decode(matcher.group(1), "UTF-8") : matcher.group(2);
+                }
+                if (fileName == null || fileName.trim().isEmpty()) {
+                    String path = target.getPath();
+                    fileName = path == null ? "recurso" : path.substring(path.lastIndexOf('/') + 1);
+                }
+                fileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+                if (fileName.length() > 90) fileName = fileName.substring(fileName.length() - 90);
+                String type = mimeType == null ? connection.getContentType() : mimeType;
+                String lower = fileName.toLowerCase(java.util.Locale.ROOT);
+                boolean zip = lower.endsWith(".zip") || (type != null && type.toLowerCase(java.util.Locale.ROOT).contains("zip"));
+                boolean image = lower.matches(".*\\\\.(png|jpe?g|webp|gif|bmp)$") || (type != null && type.toLowerCase(java.util.Locale.ROOT).startsWith("image/"));
+                if (!zip && !image) throw new java.io.IOException("Solo se admiten imágenes y paquetes ZIP");
+                if (zip && !lower.endsWith(".zip")) fileName += ".zip";
+                if (image && !lower.matches(".*\\\\.(png|jpe?g|webp|gif|bmp)$")) {
+                    String ext = "image/png".equalsIgnoreCase(type) ? ".png" : "image/jpeg".equalsIgnoreCase(type) ? ".jpg" : "image/webp".equalsIgnoreCase(type) ? ".webp" : ".img";
+                    fileName += ext;
+                }
+                java.io.File folder = new java.io.File(getFilesDir(), zip ? "sprites/paquetes" : "sprites");
+                if (!folder.exists() && !folder.mkdirs()) throw new java.io.IOException("No se pudo crear la carpeta de sprites");
+                String base = fileName;
+                destination = new java.io.File(folder, base);
+                int suffix = 2;
+                while (destination.exists()) {
+                    int dot = base.lastIndexOf('.');
+                    String candidate = dot > 0 ? base.substring(0, dot) + "_" + suffix + base.substring(dot) : base + "_" + suffix;
+                    destination = new java.io.File(folder, candidate);
+                    suffix++;
+                }
+                try (java.io.InputStream in = connection.getInputStream(); java.io.FileOutputStream out = new java.io.FileOutputStream(destination)) {
+                    byte[] buffer = new byte[8192];
+                    long total = 0;
+                    int count;
+                    while ((count = in.read(buffer)) != -1) {
+                        total += count;
+                        if (total > 50L * 1024L * 1024L) throw new java.io.IOException("El archivo supera el límite de 50 MB");
+                        out.write(buffer, 0, count);
+                    }
+                    out.flush();
+                }
+                java.io.File saved = destination;
+                runOnUiThread(() -> Toast.makeText(this, "Guardado: " + saved.getName() + " · " + (saved.getParentFile().getName().equals("paquetes") ? "sprites/paquetes" : "sprites"), Toast.LENGTH_LONG).show());
+            } catch (Exception ex) {
+                if (destination != null && destination.exists()) destination.delete();
+                String message = ex.getMessage() == null ? "No se pudo descargar el recurso" : ex.getMessage();
+                runOnUiThread(() -> Toast.makeText(this, "Descarga no completada: " + message, Toast.LENGTH_LONG).show());
+            }
+        }, "BlockForge-Marketplace-Download").start();
     }
 
     void openResourceUrl(String url) {
