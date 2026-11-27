@@ -4635,27 +4635,39 @@ public class BlockForgeActivity extends Activity {
         return file;
     }
 
+    void applySpriteEditorImmersive(android.view.Window window) {
+        if (window == null) return;
+        window.setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        window.getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+    }
+
     void openSpritePixelEditor() {
         LinearLayout wrap = vertical();
-        wrap.setPadding(14, 12, 14, 12);
-        wrap.setBackgroundColor(Color.rgb(20, 24, 31));
+        wrap.setPadding(10, 8, 10, 8);
+        wrap.setBackgroundColor(Color.rgb(16, 20, 27));
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView sizeLabel = uiLabel("TAMAÑO DEL LIENZO", 10, uiMuted, true);
-        top.addView(sizeLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView title = uiLabel("PIXEL STUDIO", 16, Color.WHITE, true);
+        top.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         Spinner sizePicker = new Spinner(this);
         String[] sizes = {"16 × 16", "32 × 32", "64 × 64", "128 × 128"};
-        sizePicker.setAdapter(new ArrayAdapter<String>(this,
-                android.R.layout.simple_spinner_dropdown_item, sizes));
-        top.addView(sizePicker, new LinearLayout.LayoutParams(130, 44));
+        sizePicker.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, sizes));
+        top.addView(sizePicker, new LinearLayout.LayoutParams(126, 42));
         wrap.addView(top);
 
         SpriteDrawView drawing = new SpriteDrawView();
-        LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(-1, 0, 1);
-        canvasParams.topMargin = 10;
-        canvasParams.bottomMargin = 10;
-        wrap.addView(drawing, new LinearLayout.LayoutParams(-1, (int)(getResources().getDisplayMetrics().density * 340)));
+        LinearLayout.LayoutParams canvasParams = new LinearLayout.LayoutParams(-1, 0, 1f);
+        canvasParams.topMargin = 6;
+        canvasParams.bottomMargin = 6;
+        wrap.addView(drawing, canvasParams);
         sizePicker.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 drawing.setSize(position == 0 ? 16 : position == 1 ? 32 : position == 2 ? 64 : 128);
@@ -4663,20 +4675,33 @@ public class BlockForgeActivity extends Activity {
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
 
+        HorizontalScrollView toolScroll = new HorizontalScrollView(this);
+        toolScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout tools = new LinearLayout(this);
-        tools.setGravity(Gravity.CENTER);
-        tools.addView(editorButton("LÁPIZ", () -> drawing.setTool(0)), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("BORRADOR", () -> drawing.setTool(1)), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("RELLENO", () -> drawing.setTool(2)), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("DESHACER", () -> drawing.undo()), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("REHACER", () -> drawing.redo()), new LinearLayout.LayoutParams(0, 44, 1));
-        tools.addView(editorButton("SHADERS", () -> new android.app.AlertDialog.Builder(this).setTitle("Efectos de color").setItems(new String[]{"Original","Escala de grises","Sepia","Invertir colores","Neón"},(d,w)->drawing.applyEffect(w)).show()), new LinearLayout.LayoutParams(0,44,1));
-        wrap.addView(tools);
+        tools.setGravity(Gravity.CENTER_VERTICAL);
+        String[] toolNames = {"LÁPIZ", "BORRADOR", "RELLENO", "DESHACER", "REHACER"};
+        Runnable[] toolActions = {
+            () -> drawing.setTool(0), () -> drawing.setTool(1), () -> drawing.setTool(2),
+            () -> drawing.undo(), () -> drawing.redo()
+        };
+        for (int i = 0; i < toolNames.length; i++) {
+            TextView b = editorButton(toolNames[i], toolActions[i]);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, 42);
+            lp.setMargins(3, 2, 3, 2);
+            tools.addView(b, lp);
+        }
+        tools.addView(editorButton("EFECTOS", () -> new android.app.AlertDialog.Builder(this)
+                .setTitle("Efectos de color")
+                .setItems(new String[]{"Original", "Escala de grises", "Sepia", "Invertir colores", "Neón"},
+                        (d,w) -> drawing.applyEffect(w)).show()));
+        toolScroll.addView(tools);
+        wrap.addView(toolScroll, new LinearLayout.LayoutParams(-1, 48));
 
         HorizontalScrollView paletteScroll = new HorizontalScrollView(this);
         paletteScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout colors = new LinearLayout(this);
-        colors.setPadding(0, 9, 0, 9);
+        colors.setGravity(Gravity.CENTER_VERTICAL);
+        colors.setPadding(0, 4, 0, 4);
         int[] palette = {Color.BLACK,Color.WHITE,Color.RED,Color.rgb(255,110,110),Color.rgb(145,25,45),Color.rgb(255,125,35),Color.rgb(255,195,45),Color.YELLOW,Color.rgb(155,210,55),Color.GREEN,Color.rgb(40,175,130),Color.CYAN,Color.rgb(50,145,220),Color.BLUE,Color.rgb(90,80,190),Color.MAGENTA,Color.rgb(225,125,190),Color.rgb(150,95,55),Color.rgb(90,55,35),Color.LTGRAY,Color.GRAY,Color.DKGRAY};
         String[] labels = {"NEGRO","BLANCO","ROJO","CORAL","VINO","NARANJA","AMBAR","AMARILLO","LIMA","VERDE","MENTA","CIAN","CELESTE","AZUL","VIOLETA","MAGENTA","ROSA","TIERRA","MARRON","PLATA","GRIS","CARBON"};
         for (int i = 0; i < palette.length; i++) {
@@ -4684,57 +4709,83 @@ public class BlockForgeActivity extends Activity {
             TextView swatch = editorButton("●", () -> drawing.setColor(color));
             swatch.setTextColor(color);
             swatch.setContentDescription(labels[i]);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(48, 42);
-            lp.rightMargin = 5;
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(44, 40);
+            lp.rightMargin = 4;
             colors.addView(swatch, lp);
         }
         paletteScroll.addView(colors);
-        wrap.addView(paletteScroll);
-        LinearLayout lower = new LinearLayout(this);
-        lower.addView(editorButton("COLOR HEX", () -> {
-            EditText hex = new EditText(this);
-            hex.setSingleLine(true);
-            hex.setHint("#RRGGBB");
-            hex.setText("#FFFFFF");
-            new android.app.AlertDialog.Builder(this).setTitle("Color personalizado")
-                .setView(hex).setPositiveButton("APLICAR", (d,w) -> {
-                    try { drawing.setColor(Color.parseColor(hex.getText().toString().trim())); }
-                    catch (Exception e) { Toast.makeText(this, "Color HEX no válido", Toast.LENGTH_SHORT).show(); }
-                }).setNegativeButton("CANCELAR", null).show();
-        }), new LinearLayout.LayoutParams(0, 44, 1));
-        lower.addView(editorButton("LIMPIAR", () -> new android.app.AlertDialog.Builder(this)
-                .setTitle("Limpiar lienzo").setMessage("¿Borrar todos los píxeles?")
-                .setPositiveButton("BORRAR", (d,w) -> drawing.clear()).setNegativeButton("CANCELAR", null).show()),
-                new LinearLayout.LayoutParams(0, 44, 1));
-        wrap.addView(lower);
+        wrap.addView(paletteScroll, new LinearLayout.LayoutParams(-1, 44));
 
         android.widget.CheckBox asMobileButton = new android.widget.CheckBox(this);
         asMobileButton.setText("Usar también como botón móvil");
         asMobileButton.setTextColor(uiMuted);
-        wrap.addView(asMobileButton);
+        asMobileButton.setTextSize(11);
+        wrap.addView(asMobileButton, new LinearLayout.LayoutParams(-1, 34));
 
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
-                .setTitle("PIXEL STUDIO  /  EDITOR DE SPRITES")
-                .setView(wrap)
-                .setNegativeButton("CANCELAR", null)
-                .setPositiveButton("GUARDAR PNG", null)
-                .create();
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setGravity(Gravity.CENTER_VERTICAL);
+        TextView options = editorButton("OPCIONES", () -> {
+            final String[] choices = {"Elegir color HEX", "Limpiar lienzo", "Usar como botón móvil"};
+            new android.app.AlertDialog.Builder(this).setTitle("Opciones del sprite")
+                .setItems(choices, (d, which) -> {
+                    if (which == 0) {
+                        EditText hex = new EditText(this);
+                        hex.setSingleLine(true); hex.setHint("#RRGGBB"); hex.setText("#FFFFFF");
+                        new android.app.AlertDialog.Builder(this).setTitle("Color personalizado").setView(hex)
+                            .setPositiveButton("APLICAR", (dd,w) -> {
+                                try { drawing.setColor(Color.parseColor(hex.getText().toString().trim())); }
+                                catch (Exception e) { Toast.makeText(this, "Color HEX no válido", Toast.LENGTH_SHORT).show(); }
+                            }).setNegativeButton("CANCELAR", null).show();
+                    } else if (which == 1) {
+                        new android.app.AlertDialog.Builder(this).setTitle("Limpiar lienzo")
+                            .setMessage("¿Borrar todos los píxeles?")
+                            .setPositiveButton("BORRAR", (dd,w) -> drawing.clear())
+                            .setNegativeButton("CANCELAR", null).show();
+                    } else asMobileButton.setChecked(!asMobileButton.isChecked());
+                }).show();
+        });
+        bottom.addView(options, new LinearLayout.LayoutParams(0, 48, 1));
+        TextView cancel = editorButton("CANCELAR", () -> { });
+        bottom.addView(cancel, new LinearLayout.LayoutParams(0, 48, 1));
+        TextView done = uiPrimary("LISTO ✓", () -> { });
+        bottom.addView(done, new LinearLayout.LayoutParams(0, 48, 1));
+        wrap.addView(bottom);
+
+        android.app.Dialog dialog = new android.app.Dialog(this);
+        dialog.setContentView(wrap);
+        dialog.setCancelable(true);
+        dialog.setOnDismissListener(d -> {
+            if (android.os.Build.VERSION.SDK_INT >= 19) {
+                getWindow().getDecorView().setSystemUiVisibility(0);
+            }
+        });
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        done.setOnClickListener(v -> {
+            try {
+                String name = saveDrawnSprite(drawing.exportBitmap());
+                if (scenePreview != null) scenePreview.addSprite(name);
+                if (asMobileButton.isChecked()) createMobileButtonDialog(name);
+                Toast.makeText(this, "Sprite PNG guardado: " + name, Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+                if (!asMobileButton.isChecked()) openPage(2);
+            } catch (Exception ex) {
+                Toast.makeText(this, "No se pudo guardar el sprite: " + ex.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
         dialog.setOnShowListener(ignored -> {
-            dialog.getWindow().setLayout(-1, -1);
-            dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                try {
-                    String name = saveDrawnSprite(drawing.exportBitmap());
-                    if (scenePreview != null) scenePreview.addSprite(name);
-                    if (asMobileButton.isChecked()) createMobileButtonDialog(name);
-                    Toast.makeText(this, "Sprite PNG guardado: " + name, Toast.LENGTH_SHORT).show();
-                    dialog.dismiss();
-                    if (!asMobileButton.isChecked()) openPage(2);
-                } catch (Exception ex) {
-                    Toast.makeText(this, "No se pudo guardar el sprite: " + ex.getMessage(), Toast.LENGTH_LONG).show();
-                }
-            });
+            android.view.Window window = dialog.getWindow();
+            if (window != null) {
+                window.setBackgroundDrawableResource(android.R.color.black);
+                window.setLayout(-1, -1);
+                applySpriteEditorImmersive(window);
+                window.getDecorView().setOnSystemUiVisibilityChangeListener(visibility -> applySpriteEditorImmersive(window));
+            }
         });
         dialog.show();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setLayout(-1, -1);
+            applySpriteEditorImmersive(dialog.getWindow());
+        }
     }
 
     String saveDrawnSprite(Bitmap bitmap) throws java.io.IOException {
