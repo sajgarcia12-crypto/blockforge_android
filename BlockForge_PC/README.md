@@ -45,7 +45,8 @@ Se añadió un modelo de escena 2D independiente de la interfaz y conectado a Gr
 - Colisiones rectangulares (AABB) y objetos sólidos.
 - Cámara que sigue a un objeto.
 - Ruta de sprite guardada como recurso del objeto (la carga y el dibujo real de texturas aún están pendientes).
-- Vista previa nativa de Windows con movimiento de Jugador mediante A/D o flechas y salto con Espacio.\n- Selección y arrastre de objetos con el ratón; al cerrar la vista, sus posiciones se escriben de vuelta en las líneas `Posicion` del editor para poder guardarlas.
+- Vista previa nativa de Windows con movimiento de Jugador mediante A/D o flechas y salto con Espacio.
+- Selección y arrastre de objetos con el ratón; al cerrar la vista, sus posiciones se escriben de vuelta en las líneas `Posicion` del editor para poder guardarlas.
 
 ### Sintaxis 2D disponible en esta etapa
 
