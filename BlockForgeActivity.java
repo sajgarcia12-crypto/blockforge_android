@@ -49,6 +49,11 @@ public class BlockForgeActivity extends Activity {
     float physicsGravity = 24f;
     float physicsBounce = 0.15f;
     String runtimeWorldName = "Mi mundo";
+    // Estado de la sintaxis declarativa sencilla de Grafisript.
+    String grafisriptEasyContext = "";
+    int grafisriptEnemyDamage = 20;
+    String grafisriptEnemyName = "Enemigo";
+
 
     @Override
     public void onCreate(Bundle saved) {
@@ -1622,6 +1627,9 @@ public class BlockForgeActivity extends Activity {
     void runGrafisript() {
         if (codeEditor == null || runtimeOutput == null) return;
         String[] lines = codeEditor.getText().toString().split("\\r?\\n");
+        grafisriptEasyContext = "";
+        grafisriptEnemyDamage = 20;
+
         StringBuilder output = new StringBuilder();
         java.util.Map<String, Double> variables = new java.util.HashMap<>();
         java.util.Map<String, String[]> functions = new java.util.HashMap<>();
@@ -1741,6 +1749,8 @@ public class BlockForgeActivity extends Activity {
                 cursor[0] = bodyEnd + 1;
                 continue;
             }
+
+            if (executeEasyGrafisriptLine(line, output, lineNumber - 1)) { executed++; continue; }
 
             if (line.startsWith("variable ")) line = line.substring(9).trim();
             int assignment = line.indexOf('=');
@@ -2047,6 +2057,111 @@ public class BlockForgeActivity extends Activity {
             if (line.equals("fisica.pausar()")) {physicsRunning=false;if(scenePreview!=null)scenePreview.stopPhysics();output.append("Física 2D pausada\n");return true;}
         } catch(Exception ex) {
             output.append("Línea ").append(lineIndex+1).append(": ").append(ex.getMessage()==null?"parámetro 2D inválido":ex.getMessage()).append('\n');
+            return true;
+        }
+        return false;
+    }
+
+
+    // Sintaxis amigable: Crear_mundo: / fondo_color = negro_con_rojo, etc.
+    boolean executeEasyGrafisriptLine(String rawLine, StringBuilder output, int lineIndex) {
+        String line = rawLine.trim();
+        if (line.isEmpty() || line.startsWith("#")) return true;
+        try {
+            int colon = line.indexOf(':');
+            if (colon >= 0) {
+                String header = line.substring(0, colon).trim().toLowerCase(java.util.Locale.ROOT)
+                        .replace(" ", "_").replace("(", "").replace(")", "");
+                String remainder = line.substring(colon + 1).trim();
+                if (header.equals("crear_mundo")) {
+                    grafisriptEasyContext = "mundo";
+                    runtimeWorldName = "Mundo Grafisript";
+                    if (remainder.isEmpty()) {
+                        clearProjectScene();
+                        output.append("Mundo creado. Configura sus propiedades debajo.\\n");
+                        return true;
+                    }
+                } else if (header.equals("crear_personaje") || header.equals("personaje")) {
+                    grafisriptEasyContext = "personaje";
+                    String name = remainder.isEmpty() ? "Jugador" : unquote(remainder);
+                    executeCharacterCommand("crear_personaje " + name, output, lineIndex);
+                    return true;
+                } else if (header.equals("enemigo")) {
+                    grafisriptEasyContext = "enemigo";
+                    grafisriptEnemyName = remainder.isEmpty() ? "Enemigo" : unquote(remainder);
+                    output.append("Enemigo configurado: ").append(grafisriptEnemyName).append('\\n');
+                    return true;
+                } else if (header.equals("ese_enemigo") || header.equals("eseenemigo")) {
+                    grafisriptEasyContext = "objetivo_enemigo";
+                    if (remainder.isEmpty()) return true;
+                } else {
+                    return false;
+                }
+                line = remainder;
+                if (line.isEmpty()) return true;
+            }
+            int equals = line.indexOf('=');
+            if (equals <= 0) return false;
+            String key = line.substring(0, equals).trim().toLowerCase(java.util.Locale.ROOT)
+                    .replace("(", "").replace(")", "").replace(" ", "_");
+            String value = unquote(line.substring(equals + 1).trim());
+            android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+            String project = activeProjectName();
+            if ("mundo".equals(grafisriptEasyContext) && (key.equals("fondo_color") || key.equals("color_fondo"))) {
+                String color = value.toLowerCase(java.util.Locale.ROOT);
+                int parsed;
+                if (color.contains("negro") && color.contains("rojo")) parsed = Color.rgb(76, 12, 24);
+                else if (color.equals("negro")) parsed = Color.BLACK;
+                else if (color.equals("rojo")) parsed = Color.rgb(190, 28, 42);
+                else if (color.equals("azul")) parsed = Color.rgb(25, 70, 145);
+                else if (color.equals("verde")) parsed = Color.rgb(25, 105, 65);
+                else if (color.equals("blanco")) parsed = Color.WHITE;
+                else if (color.matches("#[0-9a-fA-F]{6}")) parsed = Color.parseColor(color);
+                else throw new IllegalArgumentException("Color no reconocido. Usa negro, rojo, negro_con_rojo, azul, verde, blanco o #RRGGBB");
+                prefs.edit().putInt("scene_bg_color_" + project, parsed).apply();
+                if (scenePreview != null) scenePreview.invalidate();
+                output.append("Fondo del mundo actualizado: ").append(value).append('\\n');
+                return true;
+            }
+            if ("personaje".equals(grafisriptEasyContext)) {
+                if (key.equals("vida") || key.equals("salud")) {
+                    int hp = Integer.parseInt(value);
+                    if (hp < 0 || hp > 100000) throw new IllegalArgumentException("La vida debe estar entre 0 y 100000");
+                    prefs.edit().putInt("character_health_" + project, hp).apply();
+                    output.append("Vida del jugador = ").append(hp).append('\\n');
+                    return true;
+                }
+                if (key.equals("velocidad")) {
+                    float speed = Float.parseFloat(value);
+                    if (speed < 0 || speed > 1000) throw new IllegalArgumentException("Velocidad permitida: 0 a 1000");
+                    prefs.edit().putFloat("character_speed_" + project, speed).apply();
+                    output.append("Velocidad del jugador = ").append(speed).append('\\n');
+                    return true;
+                }
+            }
+            if ("enemigo".equals(grafisriptEasyContext) && (key.equals("daño") || key.equals("dano"))) {
+                grafisriptEnemyDamage = Integer.parseInt(value);
+                if (grafisriptEnemyDamage < 0 || grafisriptEnemyDamage > 100000)
+                    throw new IllegalArgumentException("Daño permitido: 0 a 100000");
+                prefs.edit().putInt("enemy_damage_" + project, grafisriptEnemyDamage)
+                        .putString("enemy_name_" + project, grafisriptEnemyName).apply();
+                output.append(grafisriptEnemyName).append(" · daño = ").append(grafisriptEnemyDamage).append('\\n');
+                return true;
+            }
+            if ("objetivo_enemigo".equals(grafisriptEasyContext) &&
+                    (key.equals("quitar_vida_al_jugador") || key.equals("dañar_jugador") || key.equals("danar_jugador"))) {
+                int damage = Integer.parseInt(value);
+                if (damage < 0 || damage > 100000) throw new IllegalArgumentException("Daño permitido: 0 a 100000");
+                int hp = prefs.getInt("character_health_" + project, 100);
+                hp = Math.max(0, hp - damage);
+                prefs.edit().putInt("character_health_" + project, hp).apply();
+                output.append(grafisriptEnemyName).append(" golpeó al jugador por ").append(damage)
+                        .append(" · vida restante: ").append(hp).append('\\n');
+                return true;
+            }
+        } catch (Exception ex) {
+            output.append("Línea ").append(lineIndex + 1).append(": ")
+                    .append(ex.getMessage() == null ? "valor no válido" : ex.getMessage()).append('\\n');
             return true;
         }
         return false;
