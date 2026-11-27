@@ -671,7 +671,10 @@ public class BlockForgeActivity extends Activity {
         content.setPadding(18, 18, 18, 24);
         heading("Marketplace", "Busca y descarga recursos públicos sin salir de BlockForge.");
         card("BIBLIOTECA DE SPRITES", "Abre tiendas públicas dentro de esta ventana. Las imágenes compatibles se guardan directamente en la carpeta interna de sprites.");
-        content.addView(uiPrimary("🌐  EXPLORAR RECURSOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));\n        content.addView(uiSecondary("🔊  SONIDOS Y MÚSICA", () -> showMarketplaceBrowser("https://opengameart.org/")));\n        content.addView(uiSecondary("📦  PREPARAR UNA PUBLICACIÓN", () -> startMarketplacePublishPicker()));\n        content.addView(uiSecondary("📁  MIS BORRADORES", () -> showMarketplaceDrafts()));
+        content.addView(uiPrimary("🌐  EXPLORAR RECURSOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));
+        content.addView(uiSecondary("🔊  SONIDOS Y MÚSICA", () -> showMarketplaceBrowser("https://opengameart.org/")));
+        content.addView(uiSecondary("📦  PREPARAR UNA PUBLICACIÓN", () -> startMarketplacePublishPicker()));
+        content.addView(uiSecondary("📁  MIS BORRADORES", () -> showMarketplaceDrafts()));
         content.addView(uiSecondary("🎨  SPRITECOOK", () -> showMarketplaceBrowser("https://www.spritecook.ai/es")));
         content.addView(uiSecondary("🧩  KENNEY · ASSETS GRATUITOS", () -> showMarketplaceBrowser("https://kenney.nl/assets")));
         content.addView(uiSecondary("🖼️  OPEN GAME ART", () -> showMarketplaceBrowser("https://opengameart.org/")));
@@ -4304,7 +4307,8 @@ public class BlockForgeActivity extends Activity {
     static final int PICK_SPRITE_REQUEST = 7422;
     static final int PICK_ANIMATION_FRAME_REQUEST = 7423;
     static final int EXPORT_2D_SCENE_REQUEST = 7424;
-    static final int IMPORT_2D_SCENE_REQUEST = 7425;\n    static final int PICK_MARKETPLACE_PUBLISH_REQUEST = 7426;
+    static final int IMPORT_2D_SCENE_REQUEST = 7425;
+    static final int PICK_MARKETPLACE_PUBLISH_REQUEST = 7426;
 
     void resources() {
         heading("Biblioteca de recursos",
