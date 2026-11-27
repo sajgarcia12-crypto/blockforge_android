@@ -22,6 +22,10 @@ public class BlockForgeActivity extends Activity {
     String codeEditorProjectName = null;
     TextView runtimeOutput;
     int runtimeBlockCount = 0;
+    // Datos generales de El Grafisript: texto, listas y categorías.
+    java.util.Map<String, String> grafisriptTextVariables = new java.util.HashMap<>();
+    java.util.Map<String, java.util.List<String>> grafisriptLists = new java.util.HashMap<>();
+    java.util.Map<String, java.util.List<String>> grafisriptCategories = new java.util.HashMap<>();
     int sceneBrushColor = Color.rgb(55, 135, 90);
     boolean sceneEraseMode = false;
     boolean sceneGridVisible = true;
@@ -1047,9 +1051,78 @@ public class BlockForgeActivity extends Activity {
                         codeEditor.getText().toString()).apply();
     }
 
+    String[] normalizeGrafisriptLines(String source) {
+        String[] lines = source.split("\\r?\\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String raw = lines[i].trim();
+            if (raw.isEmpty() || raw.startsWith("#")) { lines[i] = raw; continue; }
+            String lower = raw.toLowerCase(java.util.Locale.ROOT);
+            if (lower.startsWith("crear variable ")) raw = "variable " + raw.substring(15).trim();
+            else if (lower.startsWith("crear lista ")) raw = "lista " + raw.substring(12).trim();
+            else if (lower.startsWith("cambiar ")) raw = raw.substring(8).trim();
+            else if (lower.startsWith("poner_texto:")) {
+                String value = raw.substring(raw.indexOf(':') + 1).trim();
+                if (value.startsWith("(") && value.endsWith(")")) value = value.substring(1, value.length() - 1).trim();
+                raw = "mostrar_mensaje " + value;
+            } else if (lower.startsWith("mostrar ")) raw = "mostrar_mensaje " + raw.substring(8).trim();
+            else if (lower.startsWith("si ")) raw = "si " + raw.substring(3).trim();
+            else if (lower.equals("sino")) raw = "sino {";
+            else if (lower.startsWith("sino ")) raw = "sino " + raw.substring(5).trim();
+            else if (lower.startsWith("repetir ")) raw = "repetir " + raw.substring(8).trim();
+            else if (lower.startsWith("mientras ")) raw = "mientras " + raw.substring(9).trim();
+            else if (lower.startsWith("funcion ")) raw = "funcion " + raw.substring(8).trim();
+            else if (lower.startsWith("llamar ")) raw = "llamar " + raw.substring(7).trim();
+            else if (lower.startsWith("sumar ")) {
+                String rest = raw.substring(6).trim(); int at = rest.toLowerCase(java.util.Locale.ROOT).lastIndexOf(" a ");
+                if (at > 0) raw = "sumar " + rest.substring(at + 3).trim() + " " + rest.substring(0, at).trim();
+            } else if (lower.startsWith("restar ")) {
+                String rest = raw.substring(7).trim(); int at = rest.toLowerCase(java.util.Locale.ROOT).lastIndexOf(" a ");
+                if (at > 0) raw = "restar " + rest.substring(at + 3).trim() + " " + rest.substring(0, at).trim();
+            } else if (lower.startsWith("añadir ") || lower.startsWith("anadir ")) raw = "anadir " + raw.substring(raw.indexOf(' ') + 1).trim();
+            else if (lower.startsWith("quitar ")) raw = "quitar " + raw.substring(7).trim();
+            String normalized = raw.toLowerCase(java.util.Locale.ROOT);
+            if (normalized.equals("fin") || normalized.equals("fin_si") || normalized.equals("fin_repetir") || normalized.equals("fin_mientras") || normalized.equals("fin_funcion") || normalized.equals("fin_evento")) raw = "}";
+            lines[i] = raw;
+        }
+        return lines;
+    }
+
+    java.util.List<String> parseGrafisriptList(String source) {
+        java.util.List<String> values = new java.util.ArrayList<>();
+        String body = source.trim();
+        if (body.startsWith("[") && body.endsWith("]")) body = body.substring(1, body.length() - 1);
+        StringBuilder item = new StringBuilder(); boolean quoted = false;
+        for (int i = 0; i < body.length(); i++) {
+            char c = body.charAt(i);
+            if (c == '"') quoted = !quoted;
+            if (c == ',' && !quoted) { String value = unquote(item.toString().trim()); if (!value.isEmpty()) values.add(value); item.setLength(0); }
+            else item.append(c);
+        }
+        String last = unquote(item.toString().trim()); if (!last.isEmpty()) values.add(last);
+        return values;
+    }
+
+    String grafisriptDisplayValue(String source, java.util.Map<String, Double> variables) {
+        String value = source.trim();
+        if (grafisriptTextVariables.containsKey(value)) return grafisriptTextVariables.get(value);
+        if (grafisriptLists.containsKey(value)) return grafisriptLists.get(value).toString();
+        if (variables.containsKey(value)) return String.valueOf(variables.get(value));
+        value = unquote(value);
+        for (java.util.Map.Entry<String, String> entry : grafisriptTextVariables.entrySet()) {
+            value = value.replace("${" + entry.getKey() + "}", entry.getValue());
+            value = value.replace("{" + entry.getKey() + "}", entry.getValue());
+        }
+        for (java.util.Map.Entry<String, Double> entry : variables.entrySet()) {
+            value = value.replace("${" + entry.getKey() + "}", String.valueOf(entry.getValue()));
+            value = value.replace("{" + entry.getKey() + "}", String.valueOf(entry.getValue()));
+        }
+        return value;
+    }
+
     void runGrafisript() {
         if (codeEditor == null || runtimeOutput == null) return;
-        String[] lines = codeEditor.getText().toString().split("\\r?\\n");
+        String[] lines = normalizeGrafisriptLines(codeEditor.getText().toString());
+        grafisriptTextVariables.clear(); grafisriptLists.clear(); grafisriptCategories.clear();
         StringBuilder output = new StringBuilder();
         java.util.Map<String, Double> variables = new java.util.HashMap<>();
         java.util.Map<String, String[]> functions = new java.util.HashMap<>();
@@ -1072,6 +1145,18 @@ public class BlockForgeActivity extends Activity {
             String line = lines[cursor[0]++].trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
             if (line.equals("}") || line.equals("fin")) return executed;
+
+            // Categorías originales: /Enemigo/ { ... }, /Dinero/ { ... }, /Interfas/ { ... }.
+            if (line.startsWith("/") && line.endsWith("/") && cursor[0] < lines.length && lines[cursor[0]].trim().equals("{")) {
+                String category = line.substring(1, line.length() - 1).trim();
+                int bodyStart = cursor[0] + 1; int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) { output.append("Línea ").append(lineNumber).append(": falta cerrar la categoría ").append(category).append(".\n"); return executed; }
+                java.util.List<String> entries = new java.util.ArrayList<>();
+                for (int k = bodyStart; k < bodyEnd; k++) { String entry = lines[k].trim(); if (!entry.isEmpty() && !entry.startsWith("#")) entries.add(entry); }
+                grafisriptCategories.put(category, entries);
+                output.append("Categoría registrada: /").append(category).append("/ · elementos: ").append(entries.size()).append('\n');
+                cursor[0] = bodyEnd + 1; executed++; continue;
+            }
 
             if (line.startsWith("funcion ") && line.endsWith("{")) {
                 String name = line.substring(8, line.length() - 1).trim();
@@ -1140,6 +1225,19 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
+            if (line.startsWith("mientras ") && line.endsWith("{")) {
+                String condition = line.substring(9, line.length() - 1).trim();
+                int bodyStart = cursor[0]; int bodyEnd = findGrafisriptBlockEnd(lines, bodyStart);
+                if (bodyEnd < 0) { output.append("Línea ").append(lineNumber).append(": falta cerrar mientras.\n"); return executed; }
+                String[] body = java.util.Arrays.copyOfRange(lines, bodyStart, bodyEnd); int cycles = 0;
+                while (evaluateGrafisriptCondition(condition, variables) && cycles < 1000) {
+                    int[] nestedCursor = new int[]{0};
+                    executed += executeGrafisriptBlock(body, nestedCursor, variables, functions, output, depth + 1); cycles++;
+                }
+                if (cycles == 1000 && evaluateGrafisriptCondition(condition, variables)) output.append("Línea ").append(lineNumber).append(": se detuvo después de 1000 repeticiones para evitar un bucle infinito.\n");
+                cursor[0] = bodyEnd + 1; continue;
+            }
+
             if (line.startsWith("repetir ") && line.endsWith("{")) {
                 String amountText = line.substring(8, line.length() - 1).trim();
                 int bodyStart = cursor[0];
@@ -1170,15 +1268,66 @@ public class BlockForgeActivity extends Activity {
                 continue;
             }
 
+            if (line.startsWith("lista ")) {
+                int listAssignment = line.indexOf('=');
+                if (listAssignment > 0) {
+                    String name = line.substring(6, listAssignment).trim(); String value = line.substring(listAssignment + 1).trim();
+                    if (name.matches("[a-zA-Z_][a-zA-Z0-9_]*") && value.startsWith("[") && value.endsWith("]")) {
+                        grafisriptLists.put(name, parseGrafisriptList(value));
+                        output.append("Lista creada: ").append(name).append(" · elementos: ").append(grafisriptLists.get(name).size()).append('\n'); executed++;
+                    } else output.append("Línea ").append(lineNumber).append(": usa Crear lista Nombre = [\\\"uno\\\", \\\"dos\\\"].\n");
+                }
+                continue;
+            }
+            if (line.startsWith("anadir ")) {
+                int at = line.toLowerCase(java.util.Locale.ROOT).lastIndexOf(" a ");
+                if (at > 0) {
+                    String item = grafisriptDisplayValue(line.substring(7, at), variables); String name = line.substring(at + 3).trim();
+                    java.util.List<String> list = grafisriptLists.get(name);
+                    if (list == null) output.append("Línea ").append(lineNumber).append(": no existe la lista ").append(name).append(".\n");
+                    else { list.add(item); output.append("Añadido a ").append(name).append(": ").append(item).append('\n'); executed++; }
+                } else output.append("Línea ").append(lineNumber).append(": usa Añadir \\\"elemento\\\" a Nombre_lista.\n");
+                continue;
+            }
+            if (line.startsWith("quitar ")) {
+                int at = line.toLowerCase(java.util.Locale.ROOT).lastIndexOf(" de ");
+                if (at > 0) {
+                    String item = grafisriptDisplayValue(line.substring(7, at), variables); String name = line.substring(at + 4).trim();
+                    java.util.List<String> list = grafisriptLists.get(name);
+                    if (list == null) output.append("Línea ").append(lineNumber).append(": no existe la lista ").append(name).append(".\n");
+                    else { list.remove(item); output.append("Quitado de ").append(name).append(": ").append(item).append('\n'); executed++; }
+                } else output.append("Línea ").append(lineNumber).append(": usa Quitar \\\"elemento\\\" de Nombre_lista.\n");
+                continue;
+            }
+            if (line.startsWith("sumar ") || line.startsWith("restar ")) {
+                boolean add = line.startsWith("sumar "); String[] parts = line.split("\\\\s+", 3);
+                if (parts.length == 3) {
+                    try { String name = parts[1]; double current = variables.containsKey(name) ? variables.get(name) : 0.0;
+                        double amount = evaluateGrafisriptExpression(parts[2], variables); double result = add ? current + amount : current - amount;
+                        variables.put(name, result); output.append(name).append(" = ").append(result).append('\n'); executed++;
+                    } catch (Exception ex) { output.append("Línea ").append(lineNumber).append(": cantidad inválida para ").append(parts[1]).append(".\n"); }
+                } else output.append("Línea ").append(lineNumber).append(": faltan datos en la operación.\n");
+                continue;
+            }
+
             if (line.startsWith("variable ")) line = line.substring(9).trim();
             int assignment = line.indexOf('=');
             if (assignment > 0 && !line.contains("==") && !line.contains(">=") &&
                     !line.contains("<=") && !line.contains("!=")) {
                 String name = line.substring(0, assignment).trim();
                 if (name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+                    String assigned = line.substring(assignment + 1).trim();
+                    if (assigned.length() >= 2 && assigned.startsWith("\"") && assigned.endsWith("\"")) {
+                        String textValue = unquote(assigned); grafisriptTextVariables.put(name, textValue);
+                        output.append(name).append(" = ").append(textValue).append('\n'); executed++; continue;
+                    }
+                    if (assigned.equalsIgnoreCase("verdadero") || assigned.equalsIgnoreCase("falso")) {
+                        double boolValue = assigned.equalsIgnoreCase("verdadero") ? 1.0 : 0.0;
+                        variables.put(name, boolValue); grafisriptTextVariables.put(name, boolValue == 1.0 ? "Verdadero" : "Falso");
+                        output.append(name).append(" = ").append(grafisriptTextVariables.get(name)).append('\n'); executed++; continue;
+                    }
                     try {
-                        double value = evaluateGrafisriptExpression(
-                                line.substring(assignment + 1).trim(), variables);
+                        double value = evaluateGrafisriptExpression(assigned, variables);
                         variables.put(name, value);
                         output.append(name).append(" = ").append(value).append('\n');
                         executed++;
@@ -1192,11 +1341,7 @@ public class BlockForgeActivity extends Activity {
 
             if (line.startsWith("mostrar_mensaje ") || line.startsWith("imprimir ")) {
                 int cut = line.startsWith("imprimir ") ? 9 : 16;
-                String message = unquote(line.substring(cut).trim());
-                for (java.util.Map.Entry<String, Double> entry : variables.entrySet()) {
-                    message = message.replace("${" + entry.getKey() + "}",
-                            String.valueOf(entry.getValue()));
-                }
+                String message = grafisriptDisplayValue(line.substring(cut).trim(), variables);
                 output.append(message).append('\n');
                 executed++;
                 continue;
@@ -1269,7 +1414,7 @@ public class BlockForgeActivity extends Activity {
         int nesting = 1;
         for (int i = start; i < lines.length; i++) {
             String line = lines[i].trim();
-            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.startsWith("funcion ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
+            if ((line.startsWith("si ") || line.startsWith("repetir ") || line.startsWith("mientras ") || line.startsWith("funcion ") || line.equals("sino {")) && line.endsWith("{")) nesting++;
             if (line.equals("}") || line.equals("fin")) {
                 nesting--;
                 if (nesting == 0) return i;
@@ -1354,6 +1499,8 @@ public class BlockForgeActivity extends Activity {
                     (Character.isLetterOrDigit(source.charAt(position)) || source.charAt(position) == '_')) position++;
             if (position == begin) throw new IllegalArgumentException("se esperaba un número o variable");
             String name = source.substring(begin, position);
+            if (name.equalsIgnoreCase("verdadero")) return 1.0;
+            if (name.equalsIgnoreCase("falso")) return 0.0;
             if (!variables.containsKey(name)) throw new IllegalArgumentException("variable no definida: " + name);
             return variables.get(name);
         }
