@@ -36,7 +36,7 @@ El workflow `.github/workflows/build-windows.yml` compila, ejecuta las pruebas y
 ## Ejecutar un proyecto
 
 ```powershell
-.`build`\Release\BlockForge_PC.exe BlockForge_PC\ejemplos\primer_proyecto.grafi
+.\build\Release\BlockForge_PC.exe BlockForge_PC\ejemplos\primer_proyecto.grafi
 ```
 
 ## Reglas de seguridad y arquitectura
